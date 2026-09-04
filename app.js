@@ -4,12 +4,10 @@ const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const cors = require('cors');
-const Database = require('better-sqlite3');
+const database = require('./server/database');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const database = new Database(path.join(__dirname, 'database', 'haitani.db'));
-database.pragma('foreign_keys = ON');
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 app.locals.database = database;
 
