@@ -35,4 +35,3 @@ PostgreSQLサーバーとデータベース `haitani` を作成してから `npm
 
 Sakura Coffeのリポジトリ
 
-DeepL.com（無料版）で翻訳しました。
