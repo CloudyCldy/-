@@ -1,0 +1,25 @@
+{
+  "name": "haitani",
+  "version": "1.0.0",
+  "description": "Centro de control para el equipo de Sakura Coffee",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "db:init": "node database/init.js",
+    "db:seed": "node database/seed.js"
+  },
+  "dependencies": {
+    "@octokit/rest": "^21.1.1",
+    "bcrypt": "^5.1.1",
+    "better-sqlite3": "^11.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
