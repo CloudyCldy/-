@@ -7,8 +7,10 @@ async function init() {
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, username TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL UNIQUE, password TEXT NOT NULL,
       role TEXT NOT NULL CHECK (role IN ('admin', 'member')), active INTEGER NOT NULL DEFAULT 1,
-      github_username TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      github_username TEXT, profile_photo TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT;
     CREATE TABLE IF NOT EXISTS projects (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL,
       repository_url TEXT, github_owner TEXT, github_repository TEXT,

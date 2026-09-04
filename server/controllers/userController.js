@@ -1,7 +1,9 @@
 const bcrypt = require('bcrypt');
+const fs = require('fs');
+const path = require('path');
 
 async function list(req, res) {
-  const users = await req.app.locals.database.prepare(`SELECT id, name, username, email, role, active, github_username, created_at FROM users ORDER BY name`).all();
+  const users = await req.app.locals.database.prepare(`SELECT id, name, username, email, role, active, github_username, profile_photo, created_at FROM users ORDER BY name`).all();
   res.json(users);
 }
 async function create(req, res) {
@@ -30,9 +32,27 @@ async function update(req, res) {
     throw error;
   }
 }
+async function profile(req, res) {
+  const database = req.app.locals.database;
+  const user = await database.prepare('SELECT id, password, profile_photo FROM users WHERE id = ?').get(req.session.user.id);
+  if (!user) return res.status(404).json({ error: 'El usuario no existe.' });
+  const { current_password, new_password } = req.body;
+  if (new_password) {
+    if (!current_password || !bcrypt.compareSync(String(current_password), user.password)) return res.status(400).json({ error: 'La contraseña actual no es correcta.' });
+    if (String(new_password).length < 8) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres.' });
+  }
+  let profilePhoto = user.profile_photo;
+  if (req.file) {
+    profilePhoto = `/uploads/${req.file.filename}`;
+    if (user.profile_photo) fs.unlink(path.join(__dirname, '..', '..', user.profile_photo.replace(/^\//, '')), () => {});
+  }
+  await database.prepare('UPDATE users SET password = COALESCE(?, password), profile_photo = COALESCE(?, profile_photo) WHERE id = ?').run(new_password ? await bcrypt.hash(String(new_password), 12) : null, req.file ? profilePhoto : null, user.id);
+  req.session.user.profile_photo = profilePhoto;
+  res.json({ ok: true, profile_photo: profilePhoto });
+}
 async function remove(req, res) {
   const result = await req.app.locals.database.prepare("DELETE FROM users WHERE id = ? AND role = 'member'").run(req.params.id);
   if (!result.changes) return res.status(404).json({ error: 'El integrante no existe.' });
   res.json({ ok: true });
 }
-module.exports = { list, create, update, remove };
+module.exports = { list, create, update, profile, remove };

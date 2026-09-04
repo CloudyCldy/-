@@ -16,6 +16,7 @@ app.locals.database = database;
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(session({
   store: new PgSession({ pool: database.pool, createTableIfMissing: true, tableName: 'user_sessions' }),
   secret: process.env.SESSION_SECRET || 'haitani-local-secret',
