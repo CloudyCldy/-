@@ -12,6 +12,13 @@ async function download(req, res) {
   if (!file || !fs.existsSync(file.path)) return res.status(404).json({ error: 'El archivo no existe.' });
   res.download(file.path, file.original_name);
 }
+async function view(req, res) {
+  const file = await req.app.locals.database.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);
+  if (!file || !fs.existsSync(file.path)) return res.status(404).json({ error: 'El archivo no existe.' });
+  res.type(file.mime_type);
+  res.setHeader('Content-Disposition', `inline; filename="${file.original_name.replace(/["\r\n]/g, '')}"`);
+  res.sendFile(path.resolve(file.path));
+}
 async function remove(req, res) {
   const database = req.app.locals.database;
   const file = await database.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);
@@ -20,4 +27,4 @@ async function remove(req, res) {
   await database.prepare('DELETE FROM files WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 }
-module.exports = { list, upload, download, remove };
+module.exports = { list, upload, download, view, remove };
