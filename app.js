@@ -3,18 +3,26 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const session = require('express-session');
+const connectPgSimple = require('connect-pg-simple');
 const cors = require('cors');
 const database = require('./server/database');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
+const PgSession = connectPgSimple(session);
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 app.locals.database = database;
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(session({ secret: process.env.SESSION_SECRET || 'haitani-local-secret', resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax' } }));
+app.use(session({
+  store: new PgSession({ pool: database.pool, createTableIfMissing: true, tableName: 'user_sessions' }),
+  secret: process.env.SESSION_SECRET || 'haitani-local-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { httpOnly: true, sameSite: 'lax' }
+}));
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.js') || filePath.endsWith('.css')) res.setHeader('Cache-Control', 'no-store');
