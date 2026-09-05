@@ -58,4 +58,6 @@
 .conversation-tools{flex-wrap:wrap}
 .missed-calls{padding:10px 4px 14px;margin-bottom:8px;border-bottom:1px solid var(--line)}.missed-calls h2{font-size:15px;margin:4px 0 10px}.missed-call{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.missed-call span{display:grid;gap:3px;min-width:0}.missed-call strong,.missed-call small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.missed-call small{color:var(--muted);font-size:10px}
 .conversation-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}.conversation-actions .btn{padding:7px 9px;font-size:11px}
+.conversation-header{flex-wrap:wrap;align-items:flex-start}.conversation-header>div:not(.conversation-tools):not(.conversation-actions){min-width:130px}.conversation-tools,.conversation-actions{margin-left:0;align-items:flex-end}.conversation-tools{width:100%;padding-left:44px}.conversation-actions{margin-left:auto}.conversation-tools .background-upload{max-width:180px}.conversation-tools .background-upload .input{max-width:160px}
+@media(max-width:700px){.conversation-tools{padding-left:0}.conversation-actions{width:100%;margin-left:0}.conversation-tools .call-user{flex:1}.conversation-actions .btn{flex:1}}
 :root[data-theme="ryutan"] .brand{color:#FEFCEA}

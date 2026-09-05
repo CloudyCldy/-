@@ -13,7 +13,7 @@ async function list(req, res) {
   const currentId = req.session.user.id;
   if (otherId === currentId) return res.status(400).json({ error: 'No puedes abrir una conversación contigo mismo.' });
   await req.app.locals.database.prepare("UPDATE messages SET delivery_status = 'leido', read_at = CURRENT_TIMESTAMP WHERE receiver_id = ? AND sender_id = ? AND delivery_status <> 'leido'").run(currentId, otherId);
-  const messages = await req.app.locals.database.prepare(`SELECT messages.id, messages.content, messages.created_at, messages.sender_id, messages.delivery_status, users.name AS sender_name, users.profile_photo AS sender_photo FROM messages JOIN users ON users.id = messages.sender_id WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY messages.created_at`).all(currentId, otherId, otherId, currentId);
+  const messages = await req.app.locals.database.prepare(`SELECT messages.id, messages.content, messages.created_at, messages.sender_id, messages.delivery_status, users.name AS sender_name, users.profile_photo AS sender_photo FROM messages JOIN users ON users.id = messages.sender_id WHERE ((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)) AND messages.created_at > COALESCE((SELECT deleted_at FROM conversation_deletions WHERE user_id = ? AND other_user_id = ?), 'epoch') ORDER BY messages.created_at`).all(currentId, otherId, otherId, currentId, currentId, otherId);
   res.json(messages);
 }
 
@@ -32,7 +32,7 @@ async function create(req, res) {
 async function removeConversation(req, res) {
   const otherId = Number(req.params.userId);
   if (!Number.isInteger(otherId) || otherId < 1) return res.status(400).json({ error: 'La conversación no es válida.' });
-  await req.app.locals.database.prepare('DELETE FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)').run(req.session.user.id, otherId, otherId, req.session.user.id);
+  await req.app.locals.database.prepare(`INSERT INTO conversation_deletions (user_id, other_user_id) VALUES (?, ?) ON CONFLICT (user_id, other_user_id) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP`).run(req.session.user.id, otherId);
   res.json({ ok: true });
 }
 
