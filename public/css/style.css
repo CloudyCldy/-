@@ -53,4 +53,7 @@
 .call-panel video:first-of-type{width:100%;height:calc(100% - 48px);object-fit:contain;background:#0D1117}
 .call-panel video:last-of-type{position:absolute;right:28px;bottom:28px;width:180px;height:120px;object-fit:cover;border:2px solid #FEFCEA;background:#0D1117}
 .conversation .message-list{background-size:cover;transition:background .2s}
+.background-upload .input{padding:6px;width:150px}
+.background-upload{white-space:nowrap}
+.conversation-tools{flex-wrap:wrap}
 :root[data-theme="ryutan"] .brand{color:#FEFCEA}
