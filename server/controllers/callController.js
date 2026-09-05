@@ -1,5 +1,5 @@
 async function list(req, res) {
-  const calls = await req.app.locals.database.prepare(`SELECT calls.id, calls.call_type, calls.status, calls.created_at, users.id AS caller_id, users.name AS caller_name, users.profile_photo AS caller_photo FROM calls JOIN users ON users.id = calls.caller_id WHERE calls.receiver_id = ? ORDER BY calls.created_at DESC LIMIT 30`).all(req.session.user.id);
+  const calls = await req.app.locals.database.prepare(`SELECT calls.id, calls.call_type, calls.status, calls.scheduled_at, calls.created_at, users.id AS caller_id, users.name AS caller_name, users.profile_photo AS caller_photo FROM calls JOIN users ON users.id = calls.caller_id WHERE calls.receiver_id = ? ORDER BY calls.created_at DESC LIMIT 30`).all(req.session.user.id);
   res.json(calls);
 }
 
@@ -7,7 +7,9 @@ async function create(req, res) {
   const receiverId = Number(req.body.receiver_id);
   const callType = req.body.call_type === 'video' ? 'video' : 'audio';
   if (!Number.isInteger(receiverId) || receiverId < 1 || receiverId === req.session.user.id) return res.status(400).json({ error: 'El destinatario no es válido.' });
-  const result = await req.app.locals.database.prepare('INSERT INTO calls (caller_id, receiver_id, call_type) VALUES (?, ?, ?) RETURNING id').run(req.session.user.id, receiverId, callType);
+  const scheduledAt = req.body.scheduled_at ? new Date(req.body.scheduled_at) : null;
+  if (scheduledAt && Number.isNaN(scheduledAt.getTime())) return res.status(400).json({ error: 'La fecha de llamada no es válida.' });
+  const result = await req.app.locals.database.prepare('INSERT INTO calls (caller_id, receiver_id, call_type, status, scheduled_at) VALUES (?, ?, ?, ?, ?) RETURNING id').run(req.session.user.id, receiverId, callType, scheduledAt ? 'scheduled' : 'initiated', scheduledAt);
   res.status(201).json({ id: result.lastInsertRowid });
 }
 

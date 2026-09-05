@@ -5,5 +5,6 @@ const { requireAuth } = require('../middleware/authMiddleware');
 router.use(requireAuth);
 router.get('/', controller.list);
 router.post('/', controller.create);
+router.delete('/conversation/:userId', controller.removeConversation);
 
 module.exports = router;

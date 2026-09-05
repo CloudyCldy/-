@@ -32,16 +32,23 @@ async function init() {
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY, sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      content TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      content TEXT NOT NULL, delivery_status TEXT NOT NULL DEFAULT 'enviado' CHECK (delivery_status IN ('enviado', 'entregado', 'leido')),
+      read_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivery_status TEXT NOT NULL DEFAULT 'enviado';
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
     CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages (sender_id, receiver_id, created_at);
     CREATE TABLE IF NOT EXISTS calls (
       id SERIAL PRIMARY KEY, caller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       call_type TEXT NOT NULL CHECK (call_type IN ('audio', 'video')),
-      status TEXT NOT NULL DEFAULT 'initiated' CHECK (status IN ('initiated', 'answered', 'missed')),
+      status TEXT NOT NULL DEFAULT 'initiated' CHECK (status IN ('initiated', 'answered', 'missed', 'scheduled')),
+      scheduled_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE calls ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ;
+    ALTER TABLE calls DROP CONSTRAINT IF EXISTS calls_status_check;
+    ALTER TABLE calls ADD CONSTRAINT calls_status_check CHECK (status IN ('initiated', 'answered', 'missed', 'scheduled'));
     CREATE INDEX IF NOT EXISTS calls_receiver_idx ON calls (receiver_id, created_at DESC);
   `);
   console.log('PostgreSQL inicializado correctamente.');

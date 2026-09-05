@@ -12,7 +12,8 @@ async function list(req, res) {
   if (!otherId) return;
   const currentId = req.session.user.id;
   if (otherId === currentId) return res.status(400).json({ error: 'No puedes abrir una conversación contigo mismo.' });
-  const messages = await req.app.locals.database.prepare(`SELECT messages.id, messages.content, messages.created_at, messages.sender_id, users.name AS sender_name, users.profile_photo AS sender_photo FROM messages JOIN users ON users.id = messages.sender_id WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY messages.created_at`).all(currentId, otherId, otherId, currentId);
+  await req.app.locals.database.prepare("UPDATE messages SET delivery_status = 'leido', read_at = CURRENT_TIMESTAMP WHERE receiver_id = ? AND sender_id = ? AND delivery_status <> 'leido'").run(currentId, otherId);
+  const messages = await req.app.locals.database.prepare(`SELECT messages.id, messages.content, messages.created_at, messages.sender_id, messages.delivery_status, users.name AS sender_name, users.profile_photo AS sender_photo FROM messages JOIN users ON users.id = messages.sender_id WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY messages.created_at`).all(currentId, otherId, otherId, currentId);
   res.json(messages);
 }
 
@@ -24,8 +25,15 @@ async function create(req, res) {
   if (receiverId === req.session.user.id) return res.status(400).json({ error: 'No puedes enviarte mensajes a ti mismo.' });
   const receiver = await req.app.locals.database.prepare('SELECT id FROM users WHERE id = ? AND active = 1').get(receiverId);
   if (!receiver) return res.status(404).json({ error: 'El usuario no existe o está inactivo.' });
-  const result = await req.app.locals.database.prepare('INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?) RETURNING id').run(req.session.user.id, receiverId, content.slice(0, 2000));
+  const result = await req.app.locals.database.prepare('INSERT INTO messages (sender_id, receiver_id, content, delivery_status) VALUES (?, ?, ?, ?) RETURNING id').run(req.session.user.id, receiverId, content.slice(0, 2000), 'enviado');
   res.status(201).json({ id: result.lastInsertRowid });
 }
 
-module.exports = { list, create };
+async function removeConversation(req, res) {
+  const otherId = Number(req.params.userId);
+  if (!Number.isInteger(otherId) || otherId < 1) return res.status(400).json({ error: 'La conversación no es válida.' });
+  await req.app.locals.database.prepare('DELETE FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)').run(req.session.user.id, otherId, otherId, req.session.user.id);
+  res.json({ ok: true });
+}
+
+module.exports = { list, create, removeConversation };
