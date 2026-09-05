@@ -24,20 +24,20 @@
 .conversation-who{display:flex;align-items:center;gap:11px;min-width:0}
 .conversation-who h2{margin:0;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .conversation-who small{font-size:11px}
-.conversation-tools{display:flex;align-items:center;gap:14px;margin-left:auto;flex-wrap:wrap}
-.conversation-calls{display:flex;gap:6px}
-.icon-btn{width:34px;height:34px;display:grid;place-items:center;background:var(--panel-2);border:1px solid var(--line);color:var(--white);padding:0;font-size:15px}
-.icon-btn:hover{border-color:var(--pink);color:var(--pink)}
-.icon-btn.danger:hover{border-color:#a95b72;color:#e397a6}
-.conversation-actions{display:flex;gap:6px}
-.bg-swatches{display:flex;gap:6px;align-items:center;padding:5px;background:var(--panel-2);border:1px solid var(--line)}
-.bg-swatch{width:22px;height:22px;padding:0;border:2px solid transparent;cursor:pointer;line-height:1}
+.conversation-tools{display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap;row-gap:8px}
+.icon-group{display:flex;align-items:center;gap:2px;padding:4px;background:var(--panel-2);border:1px solid var(--line)}
+.icon-group+.icon-group{margin-left:2px}
+.icon-btn{width:30px;height:30px;display:grid;place-items:center;background:transparent;border:0;color:var(--white);padding:0;font-size:14px;flex-shrink:0}
+.icon-btn:hover{background:var(--line);color:var(--pink)}
+.icon-btn.danger:hover{color:#e397a6}
+.bg-swatches{display:flex;gap:5px;align-items:center;padding:5px;background:var(--panel-2);border:1px solid var(--line)}
+.bg-swatch{width:20px;height:20px;padding:0;border:2px solid transparent;cursor:pointer;line-height:1;flex-shrink:0}
 .bg-swatch.active{border-color:var(--pink)}
 .bg-swatch.bg-gradient{background:linear-gradient(135deg,#13202B,#2A3541)}
 .bg-swatch.bg-solid{background:#2A3541}
 .bg-swatch.bg-lavender{background:linear-gradient(135deg,#767E99,#C4B5C8)}
 .bg-swatch.bg-warm{background:linear-gradient(135deg,#201B19,#13202B)}
-.bg-upload-label{display:grid;place-items:center;background:transparent;border:2px dashed var(--line);color:var(--muted);font-size:14px;font-weight:700}
+.bg-upload-label{display:grid;place-items:center;width:20px;height:20px;background:transparent;border:2px dashed var(--line);color:var(--muted);font-size:12px;font-weight:700;flex-shrink:0}
 .bg-upload-label:hover{border-color:var(--pink);color:var(--pink)}
 
 .message-list{display:grid;align-content:start;gap:2px;padding:22px 24px;overflow-y:auto;min-height:0}
@@ -68,7 +68,7 @@
   .conversation{min-height:520px}
   .message{max-width:86%}
   .conversation-header{padding:14px}
-  .conversation-tools{width:100%;justify-content:space-between;margin-left:0}
+  .conversation-tools{width:100%;justify-content:flex-start;margin-left:0}
 }
 
 .gantt-card{overflow:hidden}
