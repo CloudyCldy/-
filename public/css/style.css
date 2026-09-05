@@ -43,4 +43,14 @@
 :root[data-theme="ryutan"]{--ink:#FEFCEA;--panel:#FEFCEA;--panel-2:#13202B;--muted:#627079;--line:#7D9B9F;--pink:#E7B7B9;--lilac:#C4B5C8;--green:#94B2BA;--yellow:#ECD88C;--white:#13202B}
 :root[data-theme="ryutan"] body{background:var(--ink);color:var(--white)}:root[data-theme="ryutan"] .side{background:#13202B}:root[data-theme="ryutan"] .main{background:#FEFCEA}:root[data-theme="ryutan"] .topbar{background:#FEFCEA}:root[data-theme="ryutan"] .input,:root[data-theme="ryutan"] .select,:root[data-theme="ryutan"] .textarea{background:#FEFCEA;color:#13202B}:root[data-theme="ryutan"] .btn{color:#13202B}:root[data-theme="ryutan"] .nav{color:#C4B5C8}:root[data-theme="ryutan"] .nav:hover,:root[data-theme="ryutan"] .nav.active{background:#2A3541;color:#FEFCEA}:root[data-theme="ryutan"] .theme-option.active{color:#13202B}
 :root[data-theme="ryutan"] .btn.secondary{background:#2A3541;color:#FEFCEA}:root[data-theme="ryutan"] .column{background:#13202B;color:#FEFCEA;border-color:#7D9B9F}:root[data-theme="ryutan"] .column h3{color:#FEFCEA}:root[data-theme="ryutan"] .task-card{background:#FEFCEA;color:#13202B;border-color:#7D9B9F}:root[data-theme="ryutan"] .task-card p,:root[data-theme="ryutan"] .task-card .meta{color:#627079}:root[data-theme="ryutan"] .table td:first-child{color:#13202B}:root[data-theme="ryutan"] .table th{color:#627079}:root[data-theme="ryutan"] .badge{background:#C4B5C8;color:#13202B}:root[data-theme="ryutan"] .badge.green{color:#13202B}:root[data-theme="ryutan"] .badge.yellow{color:#13202B}:root[data-theme="ryutan"] .badge.pink{color:#13202B}:root[data-theme="ryutan"] .side .project{color:#C4B5C8}:root[data-theme="ryutan"] .nav-title{color:#7D9B9F}:root[data-theme="ryutan"] .heading h1,:root[data-theme="ryutan"] .card h2{color:#13202B}
+.conversation-tools{margin-left:auto;display:flex;align-items:flex-end;gap:8px}
+.conversation-tools label{margin:0;font-size:10px}
+.conversation-tools .select{padding:8px 10px}
+.call-modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#000b;padding:20px}
+.call-modal[hidden]{display:none}
+.call-panel{position:relative;width:min(900px,94vw);height:min(680px,88vh);background:#13202B;border:1px solid #7D9B9F;padding:14px}
+.call-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.call-panel video:first-of-type{width:100%;height:calc(100% - 48px);object-fit:contain;background:#0D1117}
+.call-panel video:last-of-type{position:absolute;right:28px;bottom:28px;width:180px;height:120px;object-fit:cover;border:2px solid #FEFCEA;background:#0D1117}
+.conversation .message-list{background-size:cover;transition:background .2s}
 :root[data-theme="ryutan"] .brand{color:#FEFCEA}

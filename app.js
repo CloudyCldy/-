@@ -1,7 +1,9 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const express = require('express');
+const WebSocket = require('ws');
 const session = require('express-session');
 const connectPgSimple = require('connect-pg-simple');
 const cors = require('cors');
@@ -46,4 +48,22 @@ app.use((error, req, res, next) => {
   res.status(error.status || 500).json({ error: error.message || 'Error interno del servidor.' });
 });
 
-app.listen(port, () => console.log(`Haitani disponible en http://localhost:${port}`));
+const server = http.createServer(app);
+const webSocketServer = new WebSocket.Server({ server });
+const callClients = new Map();
+webSocketServer.on('connection', socket => {
+  socket.on('message', raw => {
+    try {
+      const message = JSON.parse(raw.toString());
+      if (message.type === 'register' && Number.isInteger(Number(message.userId))) {
+        socket.userId = Number(message.userId);
+        callClients.set(socket.userId, socket);
+        return;
+      }
+      const recipient = callClients.get(Number(message.to));
+      if (recipient?.readyState === WebSocket.OPEN) recipient.send(JSON.stringify({ ...message, from: socket.userId }));
+    } catch {}
+  });
+  socket.on('close', () => { if (socket.userId && callClients.get(socket.userId) === socket) callClients.delete(socket.userId); });
+});
+server.listen(port, () => console.log(`Haitani disponible en http://localhost:${port}`));
