@@ -115,3 +115,58 @@
 :root[data-theme="ryutan"] .message p{color:#13202B}
 :root[data-theme="ryutan"] .icon-btn{background:#13202B;color:#FEFCEA;border-color:#7D9B9F}
 :root[data-theme="ryutan"] .brand{color:#FEFCEA}
+
+/* ===== Relax 梵天 (rediseño) ===== */
+.relax-hero{position:relative;overflow:hidden;padding:30px 32px;margin-bottom:18px;background:linear-gradient(120deg,var(--panel-2),var(--panel) 70%);border:1px solid var(--line)}
+.relax-hero:before{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,var(--pink) 0,transparent 70%);opacity:.28}
+.relax-hero:after{content:"";position:absolute;left:20%;bottom:-90px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,var(--lilac,var(--green)) 0,transparent 70%);opacity:.18}
+.relax-hero-text{position:relative;max-width:520px}
+.relax-hero-text h1{font:600 28px 'Space Grotesk';margin:6px 0 8px}
+.relax-hero-text p{margin:0}
+
+.relax-search{padding:22px}
+.relax-search-form{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.relax-search-input{position:relative;flex:1 1 260px}
+.relax-search-input .input{padding-left:38px}
+.relax-search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;pointer-events:none}
+.source-pills{display:flex;gap:6px;padding:4px;background:var(--panel-2);border:1px solid var(--line);flex-wrap:wrap}
+.source-pill{border:0;background:transparent;color:var(--muted);padding:8px 14px;font-weight:600;font-size:12px;letter-spacing:.02em;border-radius:2px}
+.source-pill:hover{color:var(--white)}
+.source-pill.active{background:var(--pink);color:var(--ink)}
+.relax-search-btn{flex-shrink:0}
+
+.relax-empty{padding:54px 20px;text-align:center;color:var(--muted);display:grid;justify-items:center;gap:10px}
+.relax-empty-icon{width:56px;height:56px;display:grid;place-items:center;border-radius:50%;background:var(--panel-2);border:1px solid var(--line);font-size:22px;color:var(--pink)}
+
+.music-results{display:grid;gap:10px}
+.music-track{display:flex;align-items:center;gap:16px;padding:12px 16px;background:var(--panel);border:1px solid var(--line);transition:border-color .15s,transform .15s}
+.music-track:hover{border-color:var(--pink);transform:translateY(-1px)}
+.music-track-cover{width:52px;height:52px;flex-shrink:0;background:var(--panel-2) center/cover no-repeat;border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:18px}
+.music-track-info{display:grid;gap:4px;min-width:0;flex:1}
+.music-track-info strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.music-track-info small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.music-track-source{justify-self:start;text-transform:uppercase;letter-spacing:.06em;font-size:9px;font-weight:700}
+.music-track .play-track{flex-shrink:0}
+.music-track .play-track[disabled]{opacity:.4;cursor:not-allowed}
+.music-track.is-playing{border-color:var(--pink);background:var(--panel-2)}
+
+.music-player{position:sticky;bottom:16px;display:flex;align-items:center;gap:16px;margin-top:16px;padding:16px 18px;box-shadow:0 18px 50px #0006}
+.music-player-art{width:54px;height:54px;flex-shrink:0;border-radius:6px;background:var(--panel-2) center/cover no-repeat;display:grid;place-items:center;color:var(--pink);font-size:20px;border:1px solid var(--line)}
+.music-player-info{display:flex;align-items:center;gap:10px;min-width:180px}
+.music-player-info>div{display:grid;gap:3px;min-width:0}
+.music-player-info strong,.music-player-info small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.music-player-eq{display:none;align-items:flex-end;gap:2px;height:16px;flex-shrink:0}
+.music-player.is-playing .music-player-eq{display:flex}
+.music-player-eq i{width:3px;background:var(--pink);border-radius:1px;animation:relax-eq 1s ease-in-out infinite}
+.music-player-eq i:nth-child(1){animation-delay:-.9s}
+.music-player-eq i:nth-child(2){animation-delay:-.6s}
+.music-player-eq i:nth-child(3){animation-delay:-.3s}
+.music-player-eq i:nth-child(4){animation-delay:0s}
+@keyframes relax-eq{0%,100%{height:4px}50%{height:16px}}
+.music-player audio{flex:1;min-width:200px}
+.music-embed{width:min(560px,100%);height:120px;border:0;background:#13202B;border-radius:4px}
+@media(max-width:700px){.music-player{align-items:stretch;flex-direction:column}.music-player audio{width:100%}.music-player-info{min-width:0}.relax-search-form{flex-direction:column;align-items:stretch}.source-pills{justify-content:space-between}}
+:root[data-theme="ryutan"] .relax-hero{background:linear-gradient(120deg,#13202B,#2A3541)}
+:root[data-theme="ryutan"] .relax-hero-text,:root[data-theme="ryutan"] .relax-hero-text p{color:#FEFCEA}
+:root[data-theme="ryutan"] .source-pill{color:#C4B5C8}
+:root[data-theme="ryutan"] .source-pill.active{color:#13202B}
