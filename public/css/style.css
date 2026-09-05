@@ -56,4 +56,5 @@
 .background-upload .input{padding:6px;width:150px}
 .background-upload{white-space:nowrap}
 .conversation-tools{flex-wrap:wrap}
+.missed-calls{margin-bottom:16px}.missed-calls h2{margin-top:0}.missed-call{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.missed-call span{display:grid;gap:3px}.missed-call small{color:var(--muted)}
 :root[data-theme="ryutan"] .brand{color:#FEFCEA}

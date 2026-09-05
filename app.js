@@ -41,6 +41,7 @@ app.use('/api/dashboard', require('./server/routes/dashboardRoutes'));
 app.use('/api/github', require('./server/routes/githubRoutes'));
 app.use('/api/messages', require('./server/routes/messageRoutes'));
 app.use('/api/chat-backgrounds', require('./server/routes/chatBackgroundRoutes'));
+app.use('/api/calls', require('./server/routes/callRoutes'));
 app.use('/api/notifications', require('./server/routes/notificationRoutes'));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.use((error, req, res, next) => {
@@ -63,6 +64,7 @@ webSocketServer.on('connection', socket => {
       }
       const recipient = callClients.get(Number(message.to));
       if (recipient?.readyState === WebSocket.OPEN) recipient.send(JSON.stringify({ ...message, from: socket.userId }));
+      else if (message.type === 'offer') database.prepare('UPDATE calls SET status = ? WHERE id = ? AND status = ?').run('missed', message.callId, 'initiated').catch(() => {});
     } catch {}
   });
   socket.on('close', () => { if (socket.userId && callClients.get(socket.userId) === socket) callClients.delete(socket.userId); });
