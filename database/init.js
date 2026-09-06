@@ -56,6 +56,12 @@ async function init() {
     ALTER TABLE calls DROP CONSTRAINT IF EXISTS calls_status_check;
     ALTER TABLE calls ADD CONSTRAINT calls_status_check CHECK (status IN ('initiated', 'answered', 'missed', 'scheduled'));
     CREATE INDEX IF NOT EXISTS calls_receiver_idx ON calls (receiver_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS absences (
+      id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      absence_date DATE NOT NULL, subject TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS absences_user_date_idx ON absences (user_id, absence_date DESC);
   `);
   console.log('PostgreSQL inicializado correctamente.');
 }

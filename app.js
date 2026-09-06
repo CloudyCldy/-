@@ -44,6 +44,7 @@ app.use('/api/chat-backgrounds', require('./server/routes/chatBackgroundRoutes')
 app.use('/api/calls', require('./server/routes/callRoutes'));
 app.use('/api/music', require('./server/routes/musicRoutes'));
 app.use('/api/notifications', require('./server/routes/notificationRoutes'));
+app.use('/api/absences', require('./server/routes/absenceRoutes'));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.use((error, req, res, next) => {
   console.error(error);
