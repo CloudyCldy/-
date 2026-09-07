@@ -19,7 +19,7 @@ function localAnswer(message, context) {
     const progress = context.tasks.length ? Math.round(completed / context.tasks.length * 100) : 0;
     return `El proyecto tiene un avance estimado del ${progress}% (${completed} de ${context.tasks.length} tareas completadas) y ${openTasks.length} pendientes.`;
   }
-  return `Puedo ayudarte a revisar Sakura Coffee. Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${context.users.filter(user => user.active).length} integrante(s) activo(s). Configura SANZU_API_TOKEN y SANZU_CHAT_PATH si quieres respuestas generadas por Sanzu.`;
+  return `Puedo ayudarte a revisar Sakura Coffee. Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${context.users.filter(user => user.active).length} integrante(s) activo(s). La API remota no respondió, así que esta es una lectura local del proyecto.`;
 }
 
 async function chat(req, res) {
@@ -28,7 +28,7 @@ async function chat(req, res) {
   const context = await projectContext(req.app.locals.database);
   try {
     const result = await askSanzu({ message, context });
-    const answer = result.answer || result.message || result.response || result.data?.answer;
+    const answer = result.answer || result.response || result.reply || result.message || result.data?.answer || result.data?.response || result.data?.reply || result.data?.message || result.data?.content;
     if (!answer) throw new Error('La respuesta de Sanzu no tiene un formato compatible.');
     return res.json({ answer, source: 'sanzu', context });
   } catch (error) {
