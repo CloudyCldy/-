@@ -33,5 +33,19 @@ npm start
 
 PostgreSQLサーバーとデータベース `haitani` を作成してから `npm run db:init` と `npm run db:seed` を実行してください。SQLiteは使用しません。
 
+## Asistente Sanzu
+
+El panel de administrador incluye el asistente en `Asistente IA`. El servidor consulta por defecto `https://sanzu.onrender.com` mediante `/api/chat` y nunca envía el token al navegador. Para configurar otra ruta o autenticación, añade al `.env`:
+
+```env
+SANZU_API_URL=https://sanzu.onrender.com
+SANZU_CHAT_PATH=/api/chat
+SANZU_API_TOKEN=tu_token
+# Si Haruchiyo usa un UUID de proyecto propio, configúralo aquí.
+SANZU_PROJECT_ID=tu_project_id
+```
+
+Si Sanzu no está disponible, el asistente conserva un modo local con respuestas sobre tareas vencidas y progreso del proyecto.
+
 Sakura Coffeのリポジトリ
 
