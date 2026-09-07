@@ -16,8 +16,10 @@ async function askSanzu({ message, context }) {
   const endpoint = /^https?:\/\//i.test(chatPath) ? chatPath : `${baseUrl}${chatPath.startsWith('/') ? '' : '/'}${chatPath}`;
   const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
   if (process.env.SANZU_API_TOKEN) headers.Authorization = `Bearer ${process.env.SANZU_API_TOKEN}`;
-  const projectIdValue = process.env.SANZU_PROJECT_ID || context.project?.id;
-  const projectId = projectIdValue === undefined || projectIdValue === null ? undefined : String(projectIdValue);
+  const configuredProjectId = process.env.SANZU_PROJECT_ID;
+  const localProjectId = context.project?.id;
+  const projectIdValue = configuredProjectId || (typeof localProjectId === 'string' && /^[a-f\d]{24}$/i.test(localProjectId) ? localProjectId : undefined);
+  const projectId = projectIdValue === undefined ? undefined : String(projectIdValue);
   const response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify({ message, projectId, context, project: 'Sakura Coffee' }) });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(readableError(data.error || data.message) || `Sanzu respondió con ${response.status}.`);
