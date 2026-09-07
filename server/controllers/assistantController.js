@@ -32,8 +32,9 @@ async function chat(req, res) {
     if (!answer) throw new Error('La respuesta de Sanzu no tiene un formato compatible.');
     return res.json({ answer, source: 'sanzu', context });
   } catch (error) {
-    console.warn(`Sanzu no disponible: ${error.message}`);
-    return res.json({ answer: localAnswer(message, context), source: 'local', warning: 'Sanzu no está disponible en este momento.', context });
+    const reason = error instanceof Error ? error.message : String(error);
+    console.warn(`Sanzu no disponible: ${reason}`);
+    return res.json({ answer: localAnswer(message, context), source: 'local', warning: `Sanzu no está disponible: ${reason}`, context });
   }
 }
 
