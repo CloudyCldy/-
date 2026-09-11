@@ -445,6 +445,19 @@ label.card .muted{grid-column:2;font-size:12px;line-height:1.5}
 :root[data-theme="ryutan"] .source-pill.active{color:#13202B}
 
 /* =========================================================
+   UTILITIES — small helpers so JS doesn't need inline styles
+   ========================================================= */
+.mt-4{margin-top:var(--sp-4)}
+.sub{display:block;margin-top:2px}
+.num-sm{font-size:17px}
+.btn-block{display:block;width:100%}
+.login-box .btn-block{margin-top:var(--sp-5)}
+.login-box .btn-block+.btn-block{margin-top:var(--sp-2)}
+.login-box.wide{width:min(760px,100%)}
+.task-list-row{display:flex;justify-content:space-between;gap:var(--sp-3);padding:13px 0;border-bottom:1px solid var(--line)}
+.plan-card.current{border-color:var(--pink);box-shadow:0 0 0 1px var(--pink)}
+
+/* =========================================================
    RESPONSIVE
    ========================================================= */
 @media(max-width:850px){
