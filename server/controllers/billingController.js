@@ -21,13 +21,21 @@ function signatureIsValid(req, dataId) {
 async function checkout(req, res) {
   const database = req.app.locals.database;
   const organizationId = req.session.user.organization_id;
-  const plan = await database.prepare('SELECT id, key, name, price_cents, currency FROM plans WHERE key = ?').get(String(req.body.plan_key || '').trim().toLowerCase());
-  if (!plan) return res.status(400).json({ error: 'El plan seleccionado no existe.' });
+  const requestedPlanKey = String(req.body?.plan_key || req.body?.plan || req.body?.key || '').trim().toLowerCase();
+  if (!requestedPlanKey) return res.status(400).json({ error: 'Selecciona un plan para continuar.' });
+  const plan = await database.prepare('SELECT id, key, name, price_cents, currency FROM plans WHERE key = ?').get(requestedPlanKey);
+  if (!plan) return res.status(400).json({ error: `El plan seleccionado no existe: ${requestedPlanKey}.` });
   if (plan.key === 'free') {
     await database.prepare("UPDATE organizations SET plan_id = ?, subscription_status = 'active', current_period_end = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(plan.id, organizationId);
     return res.json({ redirect: null, ok: true });
   }
-  const checkoutData = await paymentService.createSubscription({ plan, organizationId, payerEmail: req.session.user.email });
+  let checkoutData;
+  try {
+    checkoutData = await paymentService.createSubscription({ plan, organizationId, payerEmail: req.session.user.email });
+  } catch (error) {
+    console.error('Mercado Pago checkout error:', error.message);
+    return res.status(502).json({ error: process.env.SANDBOX_MODE === 'true' ? `No fue posible abrir el checkout de sandbox: ${error.message}` : 'No fue posible abrir el checkout de Mercado Pago.' });
+  }
   if (!checkoutData.redirect) throw new Error('Mercado Pago no devolvió una URL de checkout.');
   await database.prepare("UPDATE organizations SET plan_id = ?, subscription_status = 'pending', current_period_end = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(plan.id, organizationId);
   res.json({ redirect: checkoutData.redirect, ok: true });
