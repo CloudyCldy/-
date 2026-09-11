@@ -11,6 +11,7 @@ const cors = require('cors');
 const database = require('./server/database');
 
 const app = express();
+app.set('trust proxy', 1);
 const port = Number(process.env.PORT || 3000);
 const PgSession = connectPgSimple(session);
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
