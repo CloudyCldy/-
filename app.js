@@ -2,6 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const signature = require('cookie-signature');
 const express = require('express');
 const WebSocket = require('ws');
 const session = require('express-session');
@@ -15,16 +16,16 @@ const PgSession = connectPgSimple(session);
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 app.locals.database = database;
 
-app.use(cors({ origin: true, credentials: true }));
+const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(value => value.trim()) : [];
+app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : false, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(session({
   store: new PgSession({ pool: database.pool, createTableIfMissing: true, tableName: 'user_sessions' }),
-  secret: process.env.SESSION_SECRET || 'haitani-local-secret',
+  secret: process.env.SESSION_SECRET || 'change-this-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: 'lax' }
+  cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 12 }
 }));
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
@@ -33,6 +34,8 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, app: 'Haitani', project: 'Sakura Coffee' }));
+app.use('/api/organizations', require('./server/routes/organizationRoutes'));
+app.use('/api/projects', require('./server/routes/projectRoutes'));
 app.use('/api/auth', require('./server/routes/authRoutes'));
 app.use('/api/users', require('./server/routes/userRoutes'));
 app.use('/api/tasks', require('./server/routes/taskRoutes'));
@@ -56,15 +59,27 @@ app.use((error, req, res, next) => {
 const server = http.createServer(app);
 const webSocketServer = new WebSocket.Server({ server });
 const callClients = new Map();
-webSocketServer.on('connection', socket => {
+function sessionIdFromRequest(request) {
+  const value = request.headers.cookie?.split(';').map(item => item.trim()).find(item => item.startsWith('connect.sid='))?.split('=').slice(1).join('=');
+  if (!value?.startsWith('s:')) return null;
+  return signature.unsign(decodeURIComponent(value.slice(2)), process.env.SESSION_SECRET || 'change-this-secret');
+}
+webSocketServer.on('connection', (socket, request) => {
+  const sessionId = sessionIdFromRequest(request);
+  if (!sessionId) return socket.close(1008, 'Sesión requerida');
+  database.pool.query('SELECT sess FROM user_sessions WHERE sid = $1', [sessionId]).then(result => {
+    try { socket.session = JSON.parse(result.rows[0]?.sess || '{}'); } catch { socket.session = {}; }
+    if (!socket.session.user?.id) socket.close(1008, 'Sesión requerida');
+  }).catch(() => socket.close(1011, 'No fue posible validar la sesión'));
   socket.on('message', raw => {
     try {
       const message = JSON.parse(raw.toString());
-      if (message.type === 'register' && Number.isInteger(Number(message.userId))) {
+      if (message.type === 'register' && Number.isInteger(Number(message.userId)) && socket.session?.user?.id === Number(message.userId)) {
         socket.userId = Number(message.userId);
         callClients.set(socket.userId, socket);
         return;
       }
+      if (!socket.userId) return;
       const recipient = callClients.get(Number(message.to));
       if (recipient?.readyState === WebSocket.OPEN) recipient.send(JSON.stringify({ ...message, from: socket.userId }));
       else if (message.type === 'offer') database.prepare('UPDATE calls SET status = ? WHERE id = ? AND status = ?').run('missed', message.callId, 'initiated').catch(() => {});

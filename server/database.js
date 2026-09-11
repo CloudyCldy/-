@@ -35,4 +35,19 @@ function prepare(text) {
   };
 }
 
-module.exports = { prepare, pool };
+async function transaction(work) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await work({ query: (text, params) => client.query(text, params) });
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { prepare, pool, transaction };

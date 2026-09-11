@@ -2,9 +2,9 @@ const { askSanzu } = require('../services/sanzuService');
 
 async function projectContext(database) {
   const [project, tasks, users] = await Promise.all([
-    database.prepare('SELECT * FROM projects WHERE name = ?').get('Sakura Coffee'),
-    database.prepare(`SELECT tasks.title, tasks.status, tasks.priority, tasks.due_date, users.name AS assignee_name FROM tasks LEFT JOIN users ON users.id = tasks.assigned_to ORDER BY tasks.due_date`).all(),
-    database.prepare('SELECT name, role, active FROM users ORDER BY name').all()
+    database.prepare('SELECT * FROM projects WHERE organization_id = ? ORDER BY id LIMIT 1').get(req.session.user.organization_id),
+    database.prepare(`SELECT tasks.title, tasks.status, tasks.priority, tasks.due_date, users.name AS assignee_name FROM tasks LEFT JOIN users ON users.id = tasks.assigned_to WHERE tasks.organization_id = ? ORDER BY tasks.due_date`).all(req.session.user.organization_id),
+    database.prepare('SELECT name, role, active FROM users WHERE organization_id = ? ORDER BY name').all(req.session.user.organization_id)
   ]);
   return { project, tasks, users };
 }

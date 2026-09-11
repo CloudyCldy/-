@@ -3,6 +3,22 @@ const { pool } = require('../server/database');
 
 async function init() {
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS organizations (
+      id SERIAL PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
+      email TEXT, description TEXT, github_url TEXT, github_owner TEXT,
+      github_repository TEXT, status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS roles (
+      id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE, description TEXT NOT NULL DEFAULT ''
+    );
+    INSERT INTO roles (name, description) VALUES
+      ('admin', 'Administración completa de la organización'),
+      ('project_manager', 'Gestión de proyectos asignados'),
+      ('member', 'Trabajo en tareas y proyectos asignados'),
+      ('viewer', 'Acceso de solo lectura')
+    ON CONFLICT (name) DO NOTHING;
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, username TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL UNIQUE, password TEXT NOT NULL,
@@ -11,11 +27,30 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id INTEGER;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+    INSERT INTO organizations (name, slug, email, description)
+      VALUES ('Haitani', 'haitani', 'admin@haitani.local', 'Organización inicial de Haitani')
+      ON CONFLICT (slug) DO NOTHING;
+    UPDATE users SET organization_id = (SELECT id FROM organizations WHERE slug = 'haitani') WHERE organization_id IS NULL;
+    UPDATE users SET role_id = roles.id FROM roles WHERE roles.name = users.role AND users.role_id IS NULL;
     CREATE TABLE IF NOT EXISTS projects (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL,
       repository_url TEXT, github_owner TEXT, github_repository TEXT,
       start_date DATE, end_date DATE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS organization_id INTEGER;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS objective TEXT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS client TEXT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS manager_id INTEGER;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'planning';
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'medium';
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS progress INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS technologies TEXT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS risks TEXT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+    UPDATE projects SET organization_id = (SELECT id FROM organizations WHERE slug = 'haitani') WHERE organization_id IS NULL;
     CREATE TABLE IF NOT EXISTS tasks (
       id SERIAL PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -24,17 +59,56 @@ async function init() {
       start_date DATE, due_date DATE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS organization_id INTEGER;
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS creator_id INTEGER;
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS progress INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+    UPDATE tasks SET organization_id = projects.organization_id FROM projects WHERE projects.id = tasks.project_id AND tasks.organization_id IS NULL;
+    UPDATE tasks SET creator_id = (SELECT id FROM users WHERE organization_id = tasks.organization_id ORDER BY id LIMIT 1) WHERE creator_id IS NULL;
+    ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_status_check;
+    ALTER TABLE tasks ADD CONSTRAINT tasks_status_check CHECK (status IN ('pendiente', 'en_proceso', 'en_revision', 'bloqueada', 'completada'));
+    ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_priority_check;
+    ALTER TABLE tasks ADD CONSTRAINT tasks_priority_check CHECK (priority IN ('baja', 'media', 'alta', 'critica'));
+    CREATE TABLE IF NOT EXISTS project_members (
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (project_id, user_id)
+    );
+    INSERT INTO project_members (project_id, user_id, organization_id)
+      SELECT p.id, u.id, p.organization_id FROM projects p JOIN users u ON u.organization_id = p.organization_id
+      ON CONFLICT DO NOTHING;
+    CREATE TABLE IF NOT EXISTS activities (
+      id SERIAL PRIMARY KEY, organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      action TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS comments (
+      id SERIAL PRIMARY KEY, organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS github_configurations (
+      organization_id INTEGER PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
+      owner TEXT, repository TEXT, repository_url TEXT, token TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS files (
       id SERIAL PRIMARY KEY, filename TEXT NOT NULL UNIQUE, original_name TEXT NOT NULL,
       path TEXT NOT NULL, mime_type TEXT NOT NULL, size INTEGER NOT NULL, uploaded_by INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE files ADD COLUMN IF NOT EXISTS organization_id INTEGER;
+    UPDATE files SET organization_id = (SELECT organization_id FROM users WHERE users.id = files.uploaded_by) WHERE organization_id IS NULL;
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY, sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       content TEXT NOT NULL, delivery_status TEXT NOT NULL DEFAULT 'enviado' CHECK (delivery_status IN ('enviado', 'entregado', 'leido')),
       read_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS organization_id INTEGER;
+    UPDATE messages SET organization_id = (SELECT organization_id FROM users WHERE users.id = messages.sender_id) WHERE organization_id IS NULL;
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivery_status TEXT NOT NULL DEFAULT 'enviado';
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
     CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages (sender_id, receiver_id, created_at);
@@ -44,6 +118,8 @@ async function init() {
       deleted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (user_id, other_user_id)
     );
+    ALTER TABLE conversation_deletions ADD COLUMN IF NOT EXISTS organization_id INTEGER;
+    UPDATE conversation_deletions SET organization_id = (SELECT organization_id FROM users WHERE users.id = conversation_deletions.user_id) WHERE organization_id IS NULL;
     CREATE TABLE IF NOT EXISTS calls (
       id SERIAL PRIMARY KEY, caller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -52,6 +128,8 @@ async function init() {
       scheduled_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE calls ADD COLUMN IF NOT EXISTS organization_id INTEGER;
+    UPDATE calls SET organization_id = (SELECT organization_id FROM users WHERE users.id = calls.caller_id) WHERE organization_id IS NULL;
     ALTER TABLE calls ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ;
     ALTER TABLE calls DROP CONSTRAINT IF EXISTS calls_status_check;
     ALTER TABLE calls ADD CONSTRAINT calls_status_check CHECK (status IN ('initiated', 'answered', 'missed', 'scheduled'));
@@ -61,7 +139,13 @@ async function init() {
       absence_date DATE NOT NULL, subject TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE absences ADD COLUMN IF NOT EXISTS organization_id INTEGER;
+    UPDATE absences SET organization_id = (SELECT organization_id FROM users WHERE users.id = absences.user_id) WHERE organization_id IS NULL;
     CREATE INDEX IF NOT EXISTS absences_user_date_idx ON absences (user_id, absence_date DESC);
+    CREATE INDEX IF NOT EXISTS users_organization_idx ON users (organization_id);
+    CREATE INDEX IF NOT EXISTS projects_organization_idx ON projects (organization_id);
+    CREATE INDEX IF NOT EXISTS tasks_organization_idx ON tasks (organization_id);
+    CREATE INDEX IF NOT EXISTS activities_organization_idx ON activities (organization_id, created_at DESC);
   `);
   console.log('PostgreSQL inicializado correctamente.');
 }
