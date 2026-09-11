@@ -12,7 +12,7 @@ function parseGithubUrl(value) {
 }
 
 async function register(req, res) {
-  const { company_name, slug, email, description = '', github_url, first_name, last_name, admin_email, password } = req.body;
+  const { company_name, slug, email, description = '', github_url, first_name, last_name, admin_email, password, plan_key = 'free' } = req.body;
   const name = String(company_name || '').trim();
   const shortName = String(slug || '').trim().toLowerCase();
   const adminName = `${String(first_name || '').trim()} ${String(last_name || '').trim()}`.trim();
@@ -22,7 +22,14 @@ async function register(req, res) {
   try {
     const database = req.app.locals.database;
     const result = await database.transaction(async ({ query }) => {
-      const organization = (await query('INSERT INTO organizations (name, slug, email, description, github_url, github_owner, github_repository) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *', [name, shortName, String(email).trim(), String(description).trim(), github.url || null, github.owner || null, github.repository || null])).rows[0];
+      const plan = (await query('SELECT id, key FROM plans WHERE key = $1', [String(plan_key).trim().toLowerCase()])).rows[0];
+      if (!plan) {
+        const error = new Error('El plan seleccionado no existe.');
+        error.code = 'INVALID_PLAN';
+        throw error;
+      }
+      const subscriptionStatus = plan.key === 'free' ? 'active' : 'pending';
+      const organization = (await query('INSERT INTO organizations (name, slug, email, description, github_url, github_owner, github_repository, plan_id, subscription_status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *', [name, shortName, String(email).trim(), String(description).trim(), github.url || null, github.owner || null, github.repository || null, plan.id, subscriptionStatus])).rows[0];
       const role = (await query("SELECT id FROM roles WHERE name = 'admin'")).rows[0];
       const username = shortName.replace(/-/g, '_');
       const user = (await query('INSERT INTO users (name, username, email, password, role, role_id, organization_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, name, username, email, role, role_id, organization_id', [adminName, username, String(admin_email).trim(), await bcrypt.hash(String(password), 12), 'admin', role.id, organization.id])).rows[0];
@@ -32,13 +39,28 @@ async function register(req, res) {
     req.session.user = result.user;
     res.status(201).json({ organization: result.organization, user: result.user, redirect: '/admin/dashboard' });
   } catch (error) {
-    res.status(error.code === '23505' ? 409 : 400).json({ error: error.code === '23505' ? 'El slug, usuario o correo ya está registrado.' : 'No fue posible crear la organización.' });
+    res.status(error.code === '23505' ? 409 : 400).json({ error: error.code === '23505' ? 'El slug, usuario o correo ya está registrado.' : error.code === 'INVALID_PLAN' ? error.message : 'No fue posible crear la organización.' });
   }
 }
 
 async function current(req, res) {
-  const organization = await req.app.locals.database.prepare('SELECT id, name, slug, email, description, github_url, github_owner, github_repository, status, created_at, updated_at FROM organizations WHERE id = ?').get(req.session.user.organization_id);
+  const organization = await req.app.locals.database.prepare(`SELECT organizations.id, organizations.name, organizations.slug, organizations.email, organizations.description, organizations.github_url, organizations.github_owner, organizations.github_repository, organizations.status, organizations.plan_id, organizations.subscription_status, organizations.current_period_end, organizations.created_at, organizations.updated_at, plans.key AS plan_key, plans.name AS plan_name FROM organizations LEFT JOIN plans ON plans.id = organizations.plan_id WHERE organizations.id = ?`).get(req.session.user.organization_id);
   res.json(organization);
+}
+
+async function usage(req, res) {
+  const organizationId = req.session.user.organization_id;
+  const database = req.app.locals.database;
+  const plan = await database.prepare(`SELECT organizations.plan_id, organizations.subscription_status, organizations.current_period_end, plans.key, plans.name, plans.price_cents, plans.currency, plans.max_users, plans.max_projects, plans.max_storage_mb, plans.features FROM organizations JOIN plans ON plans.id = organizations.plan_id WHERE organizations.id = ?`).get(organizationId);
+  const [users, projects, files] = await Promise.all([
+    database.prepare('SELECT COUNT(*)::integer AS count FROM users WHERE organization_id = ?').get(organizationId),
+    database.prepare('SELECT COUNT(*)::integer AS count FROM projects WHERE organization_id = ?').get(organizationId),
+    database.prepare('SELECT COALESCE(SUM(size), 0)::bigint AS bytes FROM files WHERE organization_id = ?').get(organizationId)
+  ]);
+  const limits = plan.subscription_status === 'pending'
+    ? await database.prepare('SELECT max_users, max_projects, max_storage_mb FROM plans WHERE key = ?').get('free')
+    : plan;
+  res.json({ plan, limits, usage: { users: users.count, projects: projects.count, storage_mb: Number(files.bytes) / (1024 * 1024) } });
 }
 
 async function update(req, res) {
@@ -52,4 +74,4 @@ async function update(req, res) {
   } catch (error) { res.status(error.code === '23505' ? 409 : 400).json({ error: 'No fue posible actualizar la organización.' }); }
 }
 
-module.exports = { register, current, update };
+module.exports = { register, current, update, usage };

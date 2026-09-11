@@ -1,10 +1,10 @@
 const { askSanzu } = require('../services/sanzuService');
 
-async function projectContext(database) {
+async function projectContext(database, organizationId) {
   const [project, tasks, users] = await Promise.all([
-    database.prepare('SELECT * FROM projects WHERE organization_id = ? ORDER BY id LIMIT 1').get(req.session.user.organization_id),
-    database.prepare(`SELECT tasks.title, tasks.status, tasks.priority, tasks.due_date, users.name AS assignee_name FROM tasks LEFT JOIN users ON users.id = tasks.assigned_to WHERE tasks.organization_id = ? ORDER BY tasks.due_date`).all(req.session.user.organization_id),
-    database.prepare('SELECT name, role, active FROM users WHERE organization_id = ? ORDER BY name').all(req.session.user.organization_id)
+    database.prepare('SELECT * FROM projects WHERE organization_id = ? ORDER BY id LIMIT 1').get(organizationId),
+    database.prepare(`SELECT tasks.title, tasks.status, tasks.priority, tasks.due_date, users.name AS assignee_name FROM tasks LEFT JOIN users ON users.id = tasks.assigned_to WHERE tasks.organization_id = ? ORDER BY tasks.due_date`).all(organizationId),
+    database.prepare('SELECT name, role, active FROM users WHERE organization_id = ? ORDER BY name').all(organizationId)
   ]);
   return { project, tasks, users };
 }
@@ -25,7 +25,8 @@ function localAnswer(message, context) {
 async function chat(req, res) {
   const message = String(req.body.message || '').trim();
   if (!message) return res.status(400).json({ error: 'Escribe una pregunta.' });
-  const context = await projectContext(req.app.locals.database);
+  const context = await projectContext(req.app.locals.database, req.session.user.organization_id);
+  if (req.plan?.features?.ai !== true) return res.json({ answer: localAnswer(message, context), source: 'local', context });
   try {
     const result = await askSanzu({ message, context });
     const answer = result.answer || result.response || result.reply || result.message || result.data?.answer || result.data?.response || result.data?.reply || result.data?.message || result.data?.content;

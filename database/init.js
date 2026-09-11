@@ -3,6 +3,25 @@ const { pool } = require('../server/database');
 
 async function init() {
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS plans (
+      id SERIAL PRIMARY KEY,
+      key TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      price_cents INTEGER NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'MXN',
+      max_users INTEGER,
+      max_projects INTEGER,
+      max_storage_mb INTEGER,
+      features JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    );
+    INSERT INTO plans (key, name, price_cents, max_users, max_projects, max_storage_mb, features) VALUES
+      ('free', 'Free', 0, 3, 1, 100, '{"github":false,"ai":false,"calls":false,"custom_roles":false}'),
+      ('sano', 'Sano', 7000, 10, 5, 2048, '{"github":true,"ai":false,"calls":"audio","custom_roles":false}'),
+      ('hanemiya', 'Hanemiya', 10000, 25, NULL, 10240, '{"github":true,"ai":true,"calls":"video","custom_roles":true}'),
+      ('matsuno', 'Matsuno', 15000, 75, NULL, 51200, '{"github":true,"ai":true,"calls":"video","custom_roles":true}'),
+      ('inui', 'Inui', 20000, NULL, NULL, 204800, '{"github":true,"ai":true,"calls":"video","custom_roles":true}')
+    ON CONFLICT (key) DO NOTHING;
     CREATE TABLE IF NOT EXISTS organizations (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
       email TEXT, description TEXT, github_url TEXT, github_owner TEXT,
@@ -10,6 +29,13 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_id INTEGER REFERENCES plans(id);
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_status TEXT NOT NULL DEFAULT 'active';
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ;
+    ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_subscription_status_check;
+    ALTER TABLE organizations ADD CONSTRAINT organizations_subscription_status_check
+      CHECK (subscription_status IN ('active', 'pending', 'past_due', 'canceled'));
+    UPDATE organizations SET plan_id = (SELECT id FROM plans WHERE key = 'free') WHERE plan_id IS NULL;
     CREATE TABLE IF NOT EXISTS roles (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE, description TEXT NOT NULL DEFAULT ''
     );
