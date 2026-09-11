@@ -1,4 +1,4 @@
-const { askSanzu } = require('../services/sanzuService');
+const { ensureSanzuProject, askSanzu } = require('../services/sanzuService');
 
 async function projectContext(database, organizationId) {
   const [project, tasks, users] = await Promise.all([
@@ -25,11 +25,14 @@ function localAnswer(message, context) {
 async function chat(req, res) {
   const message = String(req.body.message || '').trim();
   if (!message) return res.status(400).json({ error: 'Escribe una pregunta.' });
-  const context = await projectContext(req.app.locals.database, req.session.user.organization_id);
+  const database = req.app.locals.database;
+  const context = await projectContext(database, req.session.user.organization_id);
   if (req.plan?.features?.ai !== true) return res.json({ answer: localAnswer(message, context), source: 'local', context });
   try {
-    const result = await askSanzu({ message, context });
-    const answer = result.answer || result.response || result.reply || result.message || result.data?.answer || result.data?.response || result.data?.reply || result.data?.message || result.data?.content;
+    const organization = await database.prepare('SELECT id, name, slug, description, sanzu_project_id, sanzu_token FROM organizations WHERE id = ?').get(req.session.user.organization_id);
+    await ensureSanzuProject(organization, database);
+    const result = await askSanzu(organization, message, req.body.conversationId, database);
+    const answer = result.response || result.answer || result.reply || result.message;
     if (!answer) throw new Error('La respuesta de Sanzu no tiene un formato compatible.');
     return res.json({ answer, source: 'sanzu', context });
   } catch (error) {

@@ -1,29 +1,29 @@
 # Haitani
 
-Haitani es un SaaS multi-tenant para administrar proyectos de TI. Cada usuario pertenece a una organización y las consultas del backend se filtran por el contexto de la sesión; el frontend no puede cambiar arbitrariamente de organización.
+Haitaniは、ITプロジェクトを管理するためのマルチテナントSaaSです。各ユーザーは1つの組織に所属し、バックエンドのクエリはセッションのコンテキストでフィルタリングされます。フロントエンドから任意に組織を切り替えることはできません。
 
-## Arquitectura multi-tenant
+## マルチテナントアーキテクチャ
 
-- `organizations` contiene el tenant, su slug, estado y configuración general de GitHub.
-- `roles` incluye `admin`, `project_manager`, `member` y `viewer`.
-- Usuarios, proyectos, tareas, archivos, mensajes, llamadas, ausencias, actividades y configuración de GitHub se relacionan con `organization_id`.
-- `project_members` controla la pertenencia a cada proyecto.
-- El registro de organización crea el tenant, el administrador inicial y su configuración GitHub en una transacción PostgreSQL.
-- `GET/POST/PUT /api/projects` y `/api/organizations/register` son los endpoints principales añadidos.
+- `organizations`にはテナント、slug、ステータス、GitHubの基本設定が保存されます。
+- `roles`には`admin`、`project_manager`、`member`、`viewer`が含まれます。
+- ユーザー、プロジェクト、タスク、ファイル、メッセージ、通話、欠勤、アクティビティ、GitHub設定は`organization_id`に関連付けられます。
+- `project_members`が各プロジェクトのメンバーシップを管理します。
+- 組織登録では、PostgreSQLのトランザクション内でテナント、初期管理者、GitHub設定を作成します。
+- `GET/POST/PUT /api/projects`と`/api/organizations/register`が主なAPIエンドポイントです。
 
-## Puesta en marcha y migración
+## セットアップと移行
 
-Haitaniは、**Sakura Coffee**を開発するチームを管理するための内部プラットフォームです。Sakura Coffeeは本プロジェクトとは別に既に存在しており、Haitaniはそのソースコードを含んでおらず、リポジトリを変更することもありません。GitHubとの連携は、参照および閲覧のみを目的としています。
+Haitaniは、**Sakura Coffee**を開発するチームを管理するための内部プラットフォームです。Sakura Coffeeは独立したプロジェクトとして存在しており、Haitaniはそのソースコードを含まず、リポジトリも変更しません。GitHub連携は情報の参照と表示のみに使用します。
 
 ## 機能
 
-- セッション認証、`bcrypt`、および`admin`/`member`ロールによる認証。
-- ダッシュボード、メンバー、タスク、優先度、ステータス、進捗状況。
-- PostgreSQLに永続化されるドラッグ＆ドロップ対応のカンバン。
+- セッション、`bcrypt`、`admin`/`member`ロールによる認証。
+- ダッシュボード、メンバー、タスク、優先度、ステータス、進捗管理。
+- PostgreSQLに保存されるドラッグ＆ドロップ対応のカンバンボード。
 - PostgreSQLの実際のタスクから生成されるガントチャート。
-- ファイル拡張子、MIMEタイプの検証、最大10 MBのサイズ制限、内部一意のファイル名を備えたファイル共有機能。
-- GitHubの公式APIを介した、プライベートリポジトリ、コミット、ブランチ、プルリクエスト、アクティビティの照会。
-- HTML5、CSS3、Vanilla JavaScriptによるレスポンシブなインターフェース。
+- 拡張子とMIMEタイプの検証、最大10 MBの制限、内部で一意なファイル名に対応したファイル共有。
+- GitHub公式APIによるプライベートリポジトリ、コミット、ブランチ、プルリクエスト、アクティビティの参照。
+- HTML5、CSS3、Vanilla JavaScriptで構築されたレスポンシブインターフェース。
 
 ## 技術
 
@@ -38,33 +38,29 @@ npm run db:seed
 npm start
 ```
 
-`npm run db:init` es idempotente: crea las tablas nuevas, crea la organización inicial `haitani` y asocia los datos existentes sin borrarlos. `npm run db:seed` conserva los datos de demostración del tenant inicial.
+`npm run db:init`は冪等性を持ち、新しいテーブルを作成し、初期組織`haitani`を作成し、既存データを削除せずに関連付けます。`npm run db:seed`は初期テナントのデモデータを維持します。
 
-Para crear otra organización se envía un `POST /api/organizations/register` con `company_name`, `slug`, `email`, `description`, `github_url`, `first_name`, `last_name`, `admin_email` y `password`. El administrador queda autenticado al terminar.
+別の組織を作成するには、`company_name`、`slug`、`email`、`description`、`github_url`、`first_name`、`last_name`、`admin_email`、`password`を含む`POST /api/organizations/register`を送信します。完了後、管理者は認証済みの状態になります。
 
-Para comprobar el aislamiento, inicia sesión con dos administradores en sesiones HTTP distintas, crea un proyecto en cada organización y verifica que `GET /api/projects` sólo devuelve el proyecto del tenant correspondiente. El backend también rechaza IDs de recursos pertenecientes a otra organización.
+分離を確認するには、異なるHTTPセッションで2人の管理者としてログインし、それぞれの組織にプロジェクトを作成して、`GET /api/projects`が該当するテナントのプロジェクトだけを返すことを確認します。バックエンドは別組織に属するリソースIDも拒否します。
 
-`http://localhost:3000` を開きます。開発時は `npm run dev` を使用してください。
+`http://localhost:3000`を開きます。開発時は`npm run dev`を使用できます。
 
 ## 環境変数
 
-`.env.example` を `.env` としてコピーし、`PORT`、`SESSION_SECRET`、`CORS_ORIGIN`、`DATABASE_URL` または `PGHOST`、`PGPORT`、`PGDATABASE`、`PGUSER`、`PGPASSWORD` を定義してください。GitHubのトークンはサーバー側の `github_configurations` にのみ保存され、フロントエンドには返されません。既存のトークンが公開された場合は直ちに失効させてください。
+`.env.example`を`.env`としてコピーし、`PORT`、`SESSION_SECRET`、`CORS_ORIGIN`、`DATABASE_URL`または`PGHOST`、`PGPORT`、`PGDATABASE`、`PGUSER`、`PGPASSWORD`を設定してください。GitHubのトークンはサーバー側の`github_configurations`にのみ保存され、フロントエンドには返されません。既存のトークンが公開された場合は直ちに無効化してください。
 
-PostgreSQLサーバーとデータベース `haitani` を作成してから `npm run db:init` と `npm run db:seed` を実行してください。SQLiteは使用しません。
+最初にPostgreSQLサーバーと`haitani`データベースを作成し、その後`npm run db:init`と`npm run db:seed`を実行してください。このプロジェクトではSQLiteを使用しません。
 
 ## Asistente Sanzu
 
-El panel de administrador incluye el asistente en `Asistente IA`. El servidor consulta por defecto `https://sanzu.onrender.com` mediante `/api/chat` y nunca envía el token al navegador. Para configurar otra ruta o autenticación, añade al `.env`:
+管理者パネルには`Asistente IA`が含まれています。サーバーはデフォルトで`https://sanzu.onrender.com`に接続します。各組織にはSanzu上の専用技術アカウントとプロジェクトが作成され、認証情報はPostgreSQLに保存され、ブラウザには送信されません。URLを設定するには、`.env`に次を追加します。
 
 ```env
 SANZU_API_URL=https://sanzu.onrender.com
-SANZU_CHAT_PATH=/api/chat
-SANZU_API_TOKEN=tu_token
-# Si Haruchiyo usa un UUID de proyecto propio, configúralo aquí.
-SANZU_PROJECT_ID=tu_project_id
 ```
 
-Si Sanzu no está disponible, el asistente conserva un modo local con respuestas sobre tareas vencidas y progreso del proyecto.
+Sanzuを利用できない場合、アシスタントは期限切れタスクやプロジェクトの進捗についてローカルモードで回答します。
 
-Sakura Coffeのリポジトリ
+Sakura Coffeeのリポジトリ。
 
