@@ -9,6 +9,7 @@ const session = require('express-session');
 const connectPgSimple = require('connect-pg-simple');
 const cors = require('cors');
 const database = require('./server/database');
+const billingRoutes = require('./server/routes/billingRoutes');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -19,7 +20,7 @@ app.locals.database = database;
 
 const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(value => value.trim()) : [];
 app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : false, credentials: true }));
-app.use('/api/billing', require('./server/routes/billingRoutes'));
+app.use('/api/billing/webhook', billingRoutes.webhookRouter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const isProd = process.env.NODE_ENV === 'production';
@@ -38,6 +39,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, app: 'Haitani', project: 'Sakura Coffee' }));
+app.use('/api/billing', billingRoutes.router);
 app.use('/api/plans', require('./server/routes/planRoutes'));
 app.use('/api/organizations', require('./server/routes/organizationRoutes'));
 app.use('/api/projects', require('./server/routes/projectRoutes'));
