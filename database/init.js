@@ -77,6 +77,12 @@ async function init() {
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS progress INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS technologies TEXT;
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS risks TEXT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS methodology_id TEXT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS requirements TEXT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_external_ref TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS projects_sanzu_external_ref_idx ON projects (sanzu_external_ref) WHERE sanzu_external_ref IS NOT NULL;
+    UPDATE projects SET methodology_id = 'AGILE' WHERE methodology_id IS NULL;
+    UPDATE projects SET sanzu_external_ref = 'haitani-proj-' || id WHERE sanzu_external_ref IS NULL;
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
     UPDATE projects SET organization_id = (SELECT id FROM organizations WHERE slug = 'haitani') WHERE organization_id IS NULL;
     CREATE TABLE IF NOT EXISTS tasks (

@@ -1,6 +1,6 @@
-const crypto = require('crypto');
-
 const DEFAULT_BASE_URL = 'https://sanzu.onrender.com';
+const PARTNER_PROJECTS_PATH = '/api/partner/projects';
+const CHAT_PATH = '/api/chatbot/message';
 
 function readableError(value) {
   if (typeof value === 'string' && value.trim()) return value;
@@ -16,17 +16,12 @@ function baseUrl() {
   return String(process.env.SANZU_API_URL || DEFAULT_BASE_URL).replace(/\/$/, '');
 }
 
-function technicalCredentials(organization) {
-  return {
-    email: `org-${organization.id}@haitani.internal`,
-    password: crypto.createHash('sha256').update(`haitani-sanzu-technical-account:${organization.id}:${organization.slug}`).digest('hex')
-  };
-}
-
 async function request(path, options = {}) {
+  const apiKey = process.env.SANZU_API_KEY;
+  if (!apiKey) throw new Error('SANZU_API_KEY no está configurada.');
   const response = await fetch(`${baseUrl()}${path}`, {
     ...options,
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...(options.headers || {}) }
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Api-Key': apiKey, ...(options.headers || {}) }
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -37,52 +32,25 @@ async function request(path, options = {}) {
   return data;
 }
 
-async function authenticate(organization) {
-  const credentials = technicalCredentials(organization);
-  try {
-    return (await request('/api/auth/login', { method: 'POST', body: JSON.stringify(credentials) })).data.token;
-  } catch (error) {
-    if (error.status !== 401 && error.status !== 404) throw error;
-    try {
-      return (await request('/api/auth/register', { method: 'POST', body: JSON.stringify({ name: `Haitani ${organization.name}`, ...credentials }) })).data.token;
-    } catch (registerError) {
-      if (registerError.status !== 409) throw registerError;
-      return (await request('/api/auth/login', { method: 'POST', body: JSON.stringify(credentials) })).data.token;
-    }
-  }
+async function syncProject(project) {
+  const payload = {
+    externalRef: project.sanzu_external_ref,
+    name: project.name,
+    methodologyId: project.methodology_id,
+    requirements: project.requirements
+  };
+  const result = await request(PARTNER_PROJECTS_PATH, { method: 'POST', body: JSON.stringify(payload) });
+  return result.data || result;
 }
 
-async function ensureSanzuProject(organization, database) {
-  if (organization.sanzu_project_id) return organization;
-  /* Cuenta técnica de Sanzu por organización; no es un usuario real de Haitani. */
-  const token = await authenticate(organization);
-  const project = await request('/api/projects', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      name: organization.name,
-      description: organization.description || `Proyecto de ${organization.name}`,
-      methodologyId: organization.sanzu_methodology_id || 'default'
-    })
-  });
-  await database.prepare('UPDATE organizations SET sanzu_project_id = ?, sanzu_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(project.data.id, token, organization.id);
-  organization.sanzu_project_id = project.data.id;
-  organization.sanzu_token = token;
-  return organization;
-}
-
-async function askSanzu(organization, message, conversationId, database) {
-  const current = await ensureSanzuProject(organization, database);
-  const body = { projectId: current.sanzu_project_id, message };
+async function askSanzu(project, message, conversationId, context = {}) {
+  const body = {
+    externalRef: project.sanzu_external_ref,
+    message,
+    context: { methodology_id: project.methodology_id, requirements: project.requirements, ...context }
+  };
   if (conversationId) body.conversationId = conversationId;
-  try {
-    return (await request('/api/chatbot/message', { method: 'POST', headers: { Authorization: `Bearer ${current.sanzu_token}` }, body: JSON.stringify(body) })).data;
-  } catch (error) {
-    if (error.status !== 401) throw error;
-    const token = await authenticate(current);
-    await database.prepare('UPDATE organizations SET sanzu_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(token, current.id);
-    return (await request('/api/chatbot/message', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(body) })).data;
-  }
+  return (await request(CHAT_PATH, { method: 'POST', body: JSON.stringify(body) })).data;
 }
 
-module.exports = { ensureSanzuProject, askSanzu };
+module.exports = { syncProject, askSanzu };

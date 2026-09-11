@@ -1,4 +1,4 @@
-const { ensureSanzuProject, askSanzu } = require('../services/sanzuService');
+const sanzuService = require('../services/sanzuService');
 
 async function projectContext(database, organizationId) {
   const [project, tasks, users] = await Promise.all([
@@ -10,16 +10,17 @@ async function projectContext(database, organizationId) {
 }
 
 function localAnswer(message, context) {
+  const methodology = context.project?.methodology_id || 'sin metodología definida';
   const openTasks = context.tasks.filter(task => task.status !== 'completada');
   const overdue = openTasks.filter(task => task.due_date && new Date(`${task.due_date}T23:59:59`) < new Date());
   const normalized = message.toLowerCase();
-  if (normalized.includes('venc') || normalized.includes('retras')) return overdue.length ? `Hay ${overdue.length} tarea(s) vencida(s): ${overdue.map(task => task.title).join(', ')}.` : 'No hay tareas vencidas registradas.';
+  if (normalized.includes('venc') || normalized.includes('retras')) return overdue.length ? `Con metodología ${methodology}, hay ${overdue.length} tarea(s) vencida(s): ${overdue.map(task => task.title).join(', ')}.` : `Con metodología ${methodology}, no hay tareas vencidas registradas.`;
   if (normalized.includes('progreso') || normalized.includes('avance')) {
     const completed = context.tasks.filter(task => task.status === 'completada').length;
     const progress = context.tasks.length ? Math.round(completed / context.tasks.length * 100) : 0;
-    return `El proyecto tiene un avance estimado del ${progress}% (${completed} de ${context.tasks.length} tareas completadas) y ${openTasks.length} pendientes.`;
+    return `Con metodología ${methodology}, el proyecto tiene un avance estimado del ${progress}% (${completed} de ${context.tasks.length} tareas completadas) y ${openTasks.length} pendientes.`;
   }
-  return `Puedo ayudarte a revisar Sakura Coffee. Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${context.users.filter(user => user.active).length} integrante(s) activo(s). La API remota no respondió, así que esta es una lectura local del proyecto.`;
+  return `Puedo ayudarte a revisar Sakura Coffee. La metodología actual es ${methodology}. Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${context.users.filter(user => user.active).length} integrante(s) activo(s). La API remota no respondió, así que esta es una lectura local del proyecto.`;
 }
 
 async function chat(req, res) {
@@ -29,9 +30,10 @@ async function chat(req, res) {
   const context = await projectContext(database, req.session.user.organization_id);
   if (req.plan?.features?.ai !== true) return res.json({ answer: localAnswer(message, context), source: 'local', context });
   try {
-    const organization = await database.prepare('SELECT id, name, slug, description, sanzu_project_id, sanzu_token FROM organizations WHERE id = ?').get(req.session.user.organization_id);
-    await ensureSanzuProject(organization, database);
-    const result = await askSanzu(organization, message, req.body.conversationId, database);
+    const project = context.project;
+    if (!project) throw new Error('La organización no tiene un proyecto activo.');
+    await sanzuService.syncProject(project);
+    const result = await sanzuService.askSanzu(project, message, req.body.conversationId, { methodology_id: project.methodology_id, requirements: project.requirements });
     const answer = result.response || result.answer || result.reply || result.message;
     if (!answer) throw new Error('La respuesta de Sanzu no tiene un formato compatible.');
     return res.json({ answer, source: 'sanzu', context });
