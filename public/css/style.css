@@ -153,6 +153,16 @@ label{display:block;color:var(--muted);margin:var(--sp-4) 0 var(--sp-2);font-siz
 .inline{display:flex;align-items:center;gap:var(--sp-2);margin:0}
 .inline .select{width:auto}
 
+fieldset{border:1px solid var(--line);border-radius:var(--r-md);padding:var(--sp-5) var(--sp-4) var(--sp-4);margin:var(--sp-4) 0 0}
+legend{padding:0 var(--sp-2);margin-left:var(--sp-2);color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+input[type="radio"],input[type="checkbox"]{accent-color:var(--pink);width:16px;height:16px;flex-shrink:0}
+label.card{display:flex;align-items:flex-start;gap:var(--sp-3);margin:0;padding:var(--sp-4);cursor:pointer;border:1px solid var(--line);border-radius:var(--r-md);background:var(--panel);transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
+label.card:hover{border-color:color-mix(in srgb,var(--pink) 45%,var(--line))}
+label.card:has(input:checked){border-color:var(--pink);box-shadow:0 0 0 1px var(--pink)}
+label.card input[type="radio"]{margin-top:3px}
+label.card strong{display:block;font-size:14px;margin-bottom:4px}
+label.card .muted{display:block;font-size:12px;line-height:1.5}
+
 /* =========================================================
    PROFILE / TEAM
    ========================================================= */
