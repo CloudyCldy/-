@@ -20,12 +20,14 @@ const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split('
 app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : false, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+const isProd = process.env.NODE_ENV === 'production';
 app.use(session({
   store: new PgSession({ pool: database.pool, createTableIfMissing: true, tableName: 'user_sessions' }),
   secret: process.env.SESSION_SECRET || 'change-this-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 12 }
+  // 'none' permite peticiones cross-origin; los navegadores exigen secure: true en ese caso.
+  cookie: { httpOnly: true, sameSite: isProd ? 'none' : 'lax', secure: isProd, maxAge: 1000 * 60 * 60 * 12 }
 }));
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
