@@ -14,9 +14,8 @@ function backUrl() {
 }
 
 async function createSubscription({ plan, organizationId, payerEmail }) {
-  const checkoutPayerEmail = process.env.SANDBOX_MODE === 'true'
-    ? process.env.MERCADOPAGO_TEST_PAYER_EMAIL
-    : payerEmail;
+  const testPayerEmail = String(process.env.MERCADOPAGO_TEST_PAYER_EMAIL || '').trim();
+  const checkoutPayerEmail = testPayerEmail || payerEmail;
   if (!checkoutPayerEmail) throw new Error('Configura MERCADOPAGO_TEST_PAYER_EMAIL con el correo del usuario comprador de prueba de Mercado Pago.');
   const response = await new PreApproval(client()).create({ body: {
     reason: `Haitani - ${plan.name}`,
