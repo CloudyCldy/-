@@ -14,10 +14,14 @@ function backUrl() {
 }
 
 async function createSubscription({ plan, organizationId, payerEmail }) {
+  const checkoutPayerEmail = process.env.SANDBOX_MODE === 'true'
+    ? process.env.MERCADOPAGO_TEST_PAYER_EMAIL
+    : payerEmail;
+  if (!checkoutPayerEmail) throw new Error('Configura MERCADOPAGO_TEST_PAYER_EMAIL con el correo del usuario comprador de prueba de Mercado Pago.');
   const response = await new PreApproval(client()).create({ body: {
     reason: `Haitani - ${plan.name}`,
     external_reference: `${organizationId}:${plan.id}`,
-    payer_email: payerEmail,
+    payer_email: checkoutPayerEmail,
     auto_recurring: { frequency: 1, frequency_type: 'months', transaction_amount: plan.price_cents / 100, currency_id: plan.currency },
     back_url: backUrl(),
     status: 'pending'
