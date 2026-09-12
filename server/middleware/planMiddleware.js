@@ -3,7 +3,8 @@ const fs = require('fs');
 async function getPlan(req) {
   const organization = await req.app.locals.database.prepare('SELECT plan_id, subscription_status FROM organizations WHERE id = ?').get(req.session.user.organization_id);
   if (!organization) return null;
-  if (process.env.SANDBOX_MODE !== 'true' && ['pending', 'past_due'].includes(organization.subscription_status)) return req.app.locals.database.prepare('SELECT * FROM plans WHERE key = ?').get('free');
+  const sandboxMode = String(process.env.SANDBOX_MODE || '').trim().toLowerCase() === 'true';
+  if (!sandboxMode && ['pending', 'past_due'].includes(organization.subscription_status)) return req.app.locals.database.prepare('SELECT * FROM plans WHERE key = ?').get('free');
   return req.app.locals.database.prepare('SELECT * FROM plans WHERE id = ?').get(organization.plan_id);
 }
 

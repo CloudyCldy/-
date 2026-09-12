@@ -7,7 +7,8 @@ async function planFor(database, organizationId) {
     FROM organizations JOIN plans ON plans.id = organizations.plan_id
     WHERE organizations.id = ?
   `).get(organizationId);
-  if (process.env.SANDBOX_MODE !== 'true' && ['pending', 'past_due'].includes(plan?.subscription_status)) return database.prepare(`
+  const sandboxMode = String(process.env.SANDBOX_MODE || '').trim().toLowerCase() === 'true';
+  if (!sandboxMode && ['pending', 'past_due'].includes(plan?.subscription_status)) return database.prepare(`
     SELECT plans.key, plans.name, plans.max_users, plans.max_projects,
            plans.max_storage_mb, plans.features, organizations.subscription_status
     FROM organizations JOIN plans ON plans.key = 'free'
