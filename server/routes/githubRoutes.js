@@ -1,12 +1,13 @@
 const router = require('express').Router();
 const controller = require('../controllers/githubController');
 const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
+const { requireFeature } = require('../middleware/planMiddleware');
 router.use(requireAuth);
-router.get('/repository', controller.repository);
-router.get('/commits', controller.commits);
-router.get('/branches', controller.branches);
-router.get('/pull-requests', controller.pulls);
-router.get('/activity', controller.activity);
+router.get('/repository', requireFeature('github'), controller.repository);
+router.get('/commits', requireFeature('github'), controller.commits);
+router.get('/branches', requireFeature('github'), controller.branches);
+router.get('/pull-requests', requireFeature('github'), controller.pulls);
+router.get('/activity', requireFeature('github'), controller.activity);
 router.get('/test', requireAdmin, controller.test);
 router.post('/configure', requireAdmin, controller.configure);
 module.exports = router;

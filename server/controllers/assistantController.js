@@ -1,7 +1,7 @@
 const sanzuService = require('../services/sanzuService');
 
 async function projectContext(database, organizationId) {
-  const [project, tasks, users] = await Promise.all([
+  const [project, tasks, users, github] = await Promise.all([
     database.prepare('SELECT * FROM projects WHERE organization_id = ? ORDER BY id LIMIT 1').get(organizationId),
     database.prepare(`SELECT tasks.title, tasks.status, tasks.priority, tasks.due_date, users.name AS assignee_name FROM tasks LEFT JOIN users ON users.id = tasks.assigned_to WHERE tasks.organization_id = ? ORDER BY tasks.due_date`).all(organizationId),
     database.prepare('SELECT name, role, active FROM users WHERE organization_id = ? ORDER BY name').all(organizationId),
