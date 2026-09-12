@@ -1,6 +1,4 @@
 const bcrypt = require('bcrypt');
-const fs = require('fs');
-const path = require('path');
 
 async function list(req, res) {
   const users = await req.app.locals.database.prepare(`SELECT id, name, username, email, role, role_id, active, github_username, profile_photo, created_at FROM users WHERE organization_id = ? ORDER BY name`).all(req.session.user.organization_id);
@@ -35,7 +33,7 @@ async function update(req, res) {
 }
 async function profile(req, res) {
   const database = req.app.locals.database;
-  const user = await database.prepare('SELECT id, password, profile_photo FROM users WHERE id = ?').get(req.session.user.id);
+  const user = await database.prepare('SELECT id, password, profile_photo, profile_asset_id FROM users WHERE id = ?').get(req.session.user.id);
   if (!user) return res.status(404).json({ error: 'El usuario no existe.' });
   const { current_password, new_password } = req.body;
   if (new_password) {
@@ -43,17 +41,24 @@ async function profile(req, res) {
     if (String(new_password).length < 8) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres.' });
   }
   let profilePhoto = user.profile_photo;
+  let profileAssetId = user.profile_asset_id;
   if (req.file) {
-    profilePhoto = `/uploads/${req.file.filename}`;
-    if (user.profile_photo) fs.unlink(path.join(__dirname, '..', '..', user.profile_photo.replace(/^\//, '')), () => {});
+    const asset = await database.prepare('INSERT INTO stored_assets (organization_id, uploaded_by, kind, mime_type, content) VALUES (?, ?, ?, ?, ?) RETURNING id').run(req.session.user.organization_id, req.session.user.id, 'profile-photo', req.file.mimetype, req.file.buffer);
+    profileAssetId = asset.lastInsertRowid;
+    profilePhoto = `/api/users/${req.session.user.id}/profile-photo`;
   }
-  await database.prepare('UPDATE users SET password = COALESCE(?, password), profile_photo = COALESCE(?, profile_photo) WHERE id = ?').run(new_password ? await bcrypt.hash(String(new_password), 12) : null, req.file ? profilePhoto : null, user.id);
+  await database.prepare('UPDATE users SET password = COALESCE(?, password), profile_photo = COALESCE(?, profile_photo), profile_asset_id = COALESCE(?, profile_asset_id) WHERE id = ?').run(new_password ? await bcrypt.hash(String(new_password), 12) : null, req.file ? profilePhoto : null, req.file ? profileAssetId : null, user.id);
   req.session.user.profile_photo = profilePhoto;
   res.json({ ok: true, profile_photo: profilePhoto });
+}
+async function profilePhoto(req, res) {
+  const asset = await req.app.locals.database.prepare('SELECT stored_assets.mime_type, stored_assets.content FROM stored_assets JOIN users ON users.profile_asset_id = stored_assets.id WHERE users.id = ? AND users.organization_id = ? AND stored_assets.kind = ?').get(req.params.id, req.session.user.organization_id, 'profile-photo');
+  if (!asset) return res.status(404).end();
+  res.type(asset.mime_type).send(asset.content);
 }
 async function remove(req, res) {
   const result = await req.app.locals.database.prepare("DELETE FROM users WHERE id = ? AND organization_id = ? AND role <> 'admin'").run(req.params.id, req.session.user.organization_id);
   if (!result.changes) return res.status(404).json({ error: 'El integrante no existe.' });
   res.json({ ok: true });
 }
-module.exports = { list, create, update, profile, remove };
+module.exports = { list, create, update, profile, profilePhoto, remove };

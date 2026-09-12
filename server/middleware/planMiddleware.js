@@ -27,7 +27,7 @@ async function checkStorageLimit(req, res, next) {
     if (plan?.max_storage_mb == null || !req.file) return next();
     const current = await req.app.locals.database.prepare('SELECT COALESCE(SUM(size), 0)::bigint AS bytes FROM files WHERE organization_id = ?').get(req.session.user.organization_id);
     if (Number(current.bytes) + req.file.size > Number(plan.max_storage_mb) * 1024 * 1024) {
-      fs.unlink(req.file.path, () => {});
+      if (req.file.path) fs.unlink(req.file.path, () => {});
       return res.status(403).json({ error: 'Alcanzaste el límite de almacenamiento de tu plan actual. Actualiza tu plan para subir más archivos.' });
     }
     next();

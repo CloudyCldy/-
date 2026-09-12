@@ -4,5 +4,6 @@ const upload = require('../middleware/uploadMiddleware');
 const { requireAuth } = require('../middleware/authMiddleware');
 
 router.post('/', requireAuth, upload.imageUpload.single('background'), controller.upload);
+router.get('/:id', requireAuth, controller.get);
 
 module.exports = router;

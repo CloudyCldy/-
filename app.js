@@ -10,6 +10,7 @@ const connectPgSimple = require('connect-pg-simple');
 const cors = require('cors');
 const database = require('./server/database');
 const billingRoutes = require('./server/routes/billingRoutes');
+const { requireAllowedIp } = require('./server/middleware/ipBlockMiddleware');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -32,6 +33,7 @@ app.use(session({
   // 'none' permite peticiones cross-origin; los navegadores exigen secure: true en ese caso.
   cookie: { httpOnly: true, sameSite: isProd ? 'none' : 'lax', secure: isProd, maxAge: 1000 * 60 * 60 * 12 }
 }));
+app.use(requireAllowedIp);
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.js') || filePath.endsWith('.css')) res.setHeader('Cache-Control', 'no-store');
@@ -55,6 +57,7 @@ app.use('/api/calls', require('./server/routes/callRoutes'));
 app.use('/api/music', require('./server/routes/musicRoutes'));
 app.use('/api/notifications', require('./server/routes/notificationRoutes'));
 app.use('/api/absences', require('./server/routes/absenceRoutes'));
+app.use('/api/security/ip-blocks', require('./server/routes/ipBlockRoutes'));
 app.use('/api/assistant', require('./server/routes/assistantRoutes'));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.use((error, req, res, next) => {

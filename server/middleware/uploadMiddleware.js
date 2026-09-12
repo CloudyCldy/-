@@ -1,12 +1,8 @@
 const multer = require('multer');
 const path = require('path');
-const crypto = require('crypto');
 
 const allowed = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv', 'zip', 'png', 'jpg', 'jpeg']);
-const storage = multer.diskStorage({
-  destination: path.join(__dirname, '..', '..', 'uploads'),
-  filename: (req, file, callback) => callback(null, `${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`)
-});
+const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },

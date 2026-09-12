@@ -3,6 +3,7 @@ const { pool } = require('../server/database');
 
 async function init() {
   await pool.query(`
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
     CREATE TABLE IF NOT EXISTS plans (
       id SERIAL PRIMARY KEY,
       key TEXT UNIQUE NOT NULL,
@@ -146,7 +147,18 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     ALTER TABLE files ADD COLUMN IF NOT EXISTS organization_id INTEGER;
+    ALTER TABLE files ADD COLUMN IF NOT EXISTS content BYTEA;
     UPDATE files SET organization_id = (SELECT organization_id FROM users WHERE users.id = files.uploaded_by) WHERE organization_id IS NULL;
+    CREATE TABLE IF NOT EXISTS stored_assets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL, kind TEXT NOT NULL, mime_type TEXT NOT NULL,
+      content BYTEA NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_asset_id UUID REFERENCES stored_assets(id) ON DELETE SET NULL;
+    CREATE TABLE IF NOT EXISTS blocked_ips (
+      id SERIAL PRIMARY KEY, ip INET NOT NULL UNIQUE, reason TEXT NOT NULL DEFAULT '', blocked_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY, sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
