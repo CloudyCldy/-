@@ -1,11 +1,23 @@
 const github = require('../services/githubService');
+async function projectFor(req, projectId = req.query.project_id || req.body?.project_id) {
+	const database = req.app.locals.database;
+	const id = projectId ? Number(projectId) : null;
+	if (id && Number.isInteger(id)) return database.prepare('SELECT id, organization_id FROM projects WHERE id = ? AND organization_id = ?').get(id, req.session.user.organization_id);
+	return database.prepare('SELECT id, organization_id FROM projects WHERE organization_id = ? ORDER BY created_at ASC, id ASC LIMIT 1').get(req.session.user.organization_id);
+}
 async function configFor(req) {
-	return req.app.locals.database.prepare('SELECT owner, repository AS repo, repository_url AS url, token FROM github_configurations WHERE organization_id = ?').get(req.session.user.organization_id);
+	const project = await projectFor(req);
+	if (!project) return null;
+	return req.app.locals.database.prepare('SELECT owner, repository AS repo, repository_url AS url, token, project_id FROM github_project_configurations WHERE project_id = ? AND organization_id = ?').get(project.id, req.session.user.organization_id);
 }
 async function configure(req, res) {
+	const project = await projectFor(req, req.body.project_id);
+	if (!project) return res.status(404).json({ error: 'El proyecto seleccionado no existe.' });
 	if (!req.body.owner || !req.body.repo || !req.body.token) return res.status(400).json({ error: 'Owner, repositorio y token son obligatorios.' });
-	await req.app.locals.database.prepare(`INSERT INTO github_configurations (organization_id, owner, repository, repository_url, token) VALUES (?, ?, ?, ?, ?) ON CONFLICT (organization_id) DO UPDATE SET owner = EXCLUDED.owner, repository = EXCLUDED.repository, repository_url = EXCLUDED.repository_url, token = EXCLUDED.token, updated_at = CURRENT_TIMESTAMP`).run(req.session.user.organization_id, req.body.owner.trim(), req.body.repo.trim(), req.body.url || `https://github.com/${req.body.owner.trim()}/${req.body.repo.trim()}`, req.body.token);
-	res.json({ ok: true, message: 'Configuración de GitHub guardada de forma privada en el servidor.' });
+	const owner = req.body.owner.trim();
+	const repository = req.body.repo.trim();
+	await req.app.locals.database.prepare(`INSERT INTO github_project_configurations (project_id, organization_id, owner, repository, repository_url, token) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (project_id) DO UPDATE SET owner = EXCLUDED.owner, repository = EXCLUDED.repository, repository_url = EXCLUDED.repository_url, token = EXCLUDED.token, updated_at = CURRENT_TIMESTAMP`).run(project.id, req.session.user.organization_id, owner, repository, req.body.url || `https://github.com/${owner}/${repository}`, req.body.token);
+	res.json({ ok: true, project_id: project.id, message: 'Configuración de GitHub guardada de forma privada para este proyecto.' });
 }
 async function send(operation, req, res, transform = value => value) { try { const result = await operation(await configFor(req)); if (!result.configured) return res.json({ configured: false, message: 'GitHub aún no está configurado.' }); if (result.error) return res.status(502).json({ configured: true, error: result.error }); res.json({ configured: true, data: transform(result.data) }); } catch (error) { res.status(502).json({ configured: true, error: 'No fue posible conectarse con GitHub.' }); } }
 const repository = (req, res) => send(github.repository, req, res, result => result.data);

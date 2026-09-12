@@ -128,6 +128,18 @@ async function init() {
       owner TEXT, repository TEXT, repository_url TEXT, token TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS github_project_configurations (
+      project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      owner TEXT NOT NULL, repository TEXT NOT NULL, repository_url TEXT, token TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    INSERT INTO github_project_configurations (project_id, organization_id, owner, repository, repository_url, token)
+      SELECT p.id, p.organization_id, legacy.owner, legacy.repository, legacy.repository_url, legacy.token
+      FROM github_configurations legacy
+      JOIN projects p ON p.organization_id = legacy.organization_id
+      WHERE legacy.owner IS NOT NULL AND legacy.repository IS NOT NULL AND legacy.token IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM github_project_configurations current_config WHERE current_config.project_id = p.id);
     CREATE TABLE IF NOT EXISTS files (
       id SERIAL PRIMARY KEY, filename TEXT NOT NULL UNIQUE, original_name TEXT NOT NULL,
       path TEXT NOT NULL, mime_type TEXT NOT NULL, size INTEGER NOT NULL, uploaded_by INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
