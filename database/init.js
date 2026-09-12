@@ -159,6 +159,14 @@ async function init() {
       id SERIAL PRIMARY KEY, ip INET NOT NULL UNIQUE, reason TEXT NOT NULL DEFAULT '', blocked_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS security_events (
+      id BIGSERIAL PRIMARY KEY, ip INET NOT NULL, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      organization_id INTEGER REFERENCES organizations(id) ON DELETE SET NULL, user_agent TEXT NOT NULL DEFAULT '',
+      method TEXT NOT NULL, path TEXT NOT NULL, status INTEGER NOT NULL, event_type TEXT NOT NULL DEFAULT 'request',
+      unusual BOOLEAN NOT NULL DEFAULT FALSE, reason TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS security_events_ip_created_idx ON security_events (ip, created_at DESC);
+    CREATE INDEX IF NOT EXISTS security_events_created_idx ON security_events (created_at DESC);
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY, sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

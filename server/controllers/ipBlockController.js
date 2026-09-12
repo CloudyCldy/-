@@ -8,7 +8,15 @@ async function list(req, res) {
     FROM blocked_ips LEFT JOIN users ON users.id = blocked_ips.blocked_by
     ORDER BY blocked_ips.created_at DESC
   `).all();
-  res.json({ current_ip: clientIp(req).replace(/^::ffff:/, ''), blocks });
+  const activity = await req.app.locals.database.prepare(`
+    SELECT security_events.id, security_events.ip::text AS ip, security_events.user_agent,
+           security_events.method, security_events.path, security_events.status,
+           security_events.event_type, security_events.unusual, security_events.reason,
+           security_events.created_at, users.name AS user_name
+    FROM security_events LEFT JOIN users ON users.id = security_events.user_id
+    ORDER BY security_events.created_at DESC LIMIT 200
+  `).all();
+  res.json({ current_ip: clientIp(req).replace(/^::ffff:/, ''), blocks, activity });
 }
 
 async function create(req, res) {

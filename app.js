@@ -11,6 +11,7 @@ const cors = require('cors');
 const database = require('./server/database');
 const billingRoutes = require('./server/routes/billingRoutes');
 const { requireAllowedIp } = require('./server/middleware/ipBlockMiddleware');
+const securityAudit = require('./server/middleware/securityAuditMiddleware');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -33,6 +34,7 @@ app.use(session({
   // 'none' permite peticiones cross-origin; los navegadores exigen secure: true en ese caso.
   cookie: { httpOnly: true, sameSite: isProd ? 'none' : 'lax', secure: isProd, maxAge: 1000 * 60 * 60 * 12 }
 }));
+app.use(securityAudit);
 app.use(requireAllowedIp);
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
