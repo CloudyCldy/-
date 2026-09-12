@@ -177,6 +177,9 @@ async function registerView(error=''){
 }
 const loginViewBase=loginView;
 loginView=function(error=''){loginViewBase(error);const button=document.createElement('button');button.type='button';button.className='btn secondary btn-block';button.id='show-register';button.textContent='Crear organización';document.querySelector('.login-box')?.append(button);button.onclick=()=>registerView()};
+renderAssistant=async function(){layout(await assistant());let repositoryName='Repositorio';try{const github=await api('/github/repository');repositoryName=github.data?.name||repositoryName}catch{}document.querySelector('.assistant-kicker')?.replaceChildren(document.createTextNode(`Sanzu / ${repositoryName}`));document.querySelector('.assistant-message small')?.replaceChildren(document.createTextNode(`Listo para consultar ${repositoryName}`))};
+const renderGithubBase=renderGithub;
+renderGithub=async function(section='repository'){await renderGithubBase(section);if(section!=='repository')return;let repositoryName='Repositorio';try{const github=await api('/github/repository');repositoryName=github.data?.name||repositoryName}catch{}const subtitle=document.querySelector('.heading p');if(subtitle)subtitle.textContent=`Información real del repositorio ${repositoryName}.`};
 const appRender=render;
 render=async function(){if(location.hash.includes('relax'))return renderRelax();return appRender()};
 window.addEventListener('hashchange',render);render();

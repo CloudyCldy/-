@@ -4,9 +4,10 @@ async function projectContext(database, organizationId) {
   const [project, tasks, users] = await Promise.all([
     database.prepare('SELECT * FROM projects WHERE organization_id = ? ORDER BY id LIMIT 1').get(organizationId),
     database.prepare(`SELECT tasks.title, tasks.status, tasks.priority, tasks.due_date, users.name AS assignee_name FROM tasks LEFT JOIN users ON users.id = tasks.assigned_to WHERE tasks.organization_id = ? ORDER BY tasks.due_date`).all(organizationId),
-    database.prepare('SELECT name, role, active FROM users WHERE organization_id = ? ORDER BY name').all(organizationId)
+    database.prepare('SELECT name, role, active FROM users WHERE organization_id = ? ORDER BY name').all(organizationId),
+    database.prepare('SELECT repository FROM github_project_configurations WHERE organization_id = ? ORDER BY updated_at DESC LIMIT 1').get(organizationId)
   ]);
-  return { project, tasks, users };
+  return { project, tasks, users, repositoryName: github?.repository || project?.name || 'Repositorio' };
 }
 
 function localAnswer(message, context) {
@@ -20,7 +21,7 @@ function localAnswer(message, context) {
     const progress = context.tasks.length ? Math.round(completed / context.tasks.length * 100) : 0;
     return `Con metodología ${methodology}, el proyecto tiene un avance estimado del ${progress}% (${completed} de ${context.tasks.length} tareas completadas) y ${openTasks.length} pendientes.`;
   }
-  return `Puedo ayudarte a revisar Sakura Coffee. La metodología actual es ${methodology}. Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${context.users.filter(user => user.active).length} integrante(s) activo(s). La API remota no respondió, así que esta es una lectura local del proyecto.`;
+  return `Puedo ayudarte a revisar ${context.repositoryName}. La metodología actual es ${methodology}. Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${context.users.filter(user => user.active).length} integrante(s) activo(s). La API remota no respondió, así que esta es una lectura local del proyecto.`;
 }
 
 async function chat(req, res) {
