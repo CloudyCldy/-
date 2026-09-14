@@ -20,6 +20,18 @@ const PgSession = connectPgSimple(session);
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 app.locals.database = database;
 
+async function ensureRuntimeSchema() {
+  try {
+    await database.pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_username TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_token TEXT;
+    `);
+  } catch (error) {
+    console.error('No fue posible asegurar el esquema de usuarios:', error);
+    throw error;
+  }
+}
+
 const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(value => value.trim()) : [];
 app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : false, credentials: true }));
 app.use('/api/billing/webhook', billingRoutes.webhookRouter);
@@ -100,4 +112,12 @@ webSocketServer.on('connection', (socket, request) => {
   });
   socket.on('close', () => { if (socket.userId && callClients.get(socket.userId) === socket) callClients.delete(socket.userId); });
 });
-server.listen(port, () => console.log(`Haitani disponible en http://localhost:${port}`));
+async function start() {
+  await ensureRuntimeSchema();
+  server.listen(port, () => console.log(`Haitani disponible en http://localhost:${port}`));
+}
+
+start().catch(error => {
+  console.error('Fallo al iniciar Haitani:', error);
+  process.exit(1);
+});
