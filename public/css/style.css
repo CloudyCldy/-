@@ -113,6 +113,18 @@ label{display:block;color:var(--muted);margin:var(--sp-4) 0 var(--sp-2);font-siz
 .bar{height:6px;background:var(--ink);margin-top:var(--sp-4);border-radius:var(--r-pill);overflow:hidden}
 .bar i{height:100%;background:var(--pink);display:block;border-radius:var(--r-pill)}
 .alert{padding:var(--sp-4);background:var(--panel-2);border-left:3px solid var(--pink);color:var(--white);border-radius:0 var(--r-md) var(--r-md) 0;line-height:1.55}
+.project-health{overflow:hidden;border-color:color-mix(in srgb,var(--pink) 35%,var(--line));background:linear-gradient(135deg,var(--panel),color-mix(in srgb,var(--panel-2) 72%,var(--panel)))}
+.project-health-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-5);padding-bottom:var(--sp-5);border-bottom:1px solid var(--line)}
+.project-health-head h2{margin-bottom:var(--sp-1)}
+.project-health-head p{margin:0;max-width:62ch}
+.health-score{display:grid;grid-template-columns:auto auto;align-items:baseline;min-width:120px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--ink);text-align:right}
+.health-score strong{font:700 32px 'Space Grotesk';line-height:1}.health-score span{color:var(--muted);font-size:12px}.health-score small{grid-column:1/-1;color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.06em}.health-atencion small{color:var(--yellow)}.health-riesgo small{color:var(--pink)}
+.health-overview{display:grid;grid-template-columns:minmax(220px,1fr) minmax(320px,.85fr);gap:var(--sp-6);align-items:center;padding:var(--sp-5) 0}
+.health-meter-track,.health-progress-row i,.health-workload-row i{display:block;height:9px;background:var(--ink);border-radius:var(--r-pill);overflow:hidden}.health-meter-track i{display:block;height:100%;background:linear-gradient(90deg,var(--pink),var(--yellow),var(--green));border-radius:inherit}.health-meter-labels{display:flex;justify-content:space-between;margin-top:7px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+.health-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-2)}.health-metrics div{padding-left:10px;border-left:2px solid var(--line)}.health-metrics strong{display:block;font:700 22px 'Space Grotesk'}.health-metrics span{display:block;color:var(--muted);font-size:11px;line-height:1.25}
+.health-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-6);padding-top:var(--sp-5);border-top:1px solid var(--line)}.health-detail-grid h3{margin-bottom:var(--sp-4)}.health-subtitle{margin-top:var(--sp-6)!important;padding-top:var(--sp-4);border-top:1px solid var(--line)}
+.health-progress-row{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin-bottom:var(--sp-4);font-size:12px}.health-progress-row strong{color:var(--white)}.health-progress-row i,.health-workload-row i{grid-column:1/-1;height:6px}.health-progress-row b,.health-workload-row b{display:block;height:100%;background:var(--lilac);border-radius:inherit}.health-list{display:grid;gap:9px;margin:0;padding:0;list-style:none}.health-list li{padding-left:18px;color:var(--muted);font-size:12px;line-height:1.45;position:relative}.health-list li:before{content:'!';position:absolute;left:0;color:var(--yellow);font-weight:700}
+.health-workload{display:grid;gap:var(--sp-3)}.health-workload-row{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:12px}.health-workload-row strong{font-weight:600}.health-workload-row small{color:var(--muted);font-weight:400}.health-workload-row b{background:var(--green)}.health-activity{display:grid;gap:10px}.health-activity div{display:grid;gap:2px;padding-left:10px;border-left:2px solid var(--lilac)}.health-activity strong{font-size:12px}.health-activity small{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* =========================================================
    TABLES
@@ -535,6 +547,8 @@ label.card .muted{grid-column:2;font-size:12px;line-height:1.5}
   .kanban{overflow-x:auto}
   .kanban .column{min-width:260px}
   .timeline-row{grid-template-columns:1fr}
+   .health-overview,.health-detail-grid{grid-template-columns:1fr}
+   .health-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
   .form-grid{grid-template-columns:1fr}
   .form-grid .full{grid-column:auto}
 }
@@ -549,4 +563,7 @@ label.card .muted{grid-column:2;font-size:12px;line-height:1.5}
   .kanban{grid-template-columns:1fr;overflow:visible}
   .kanban .column{min-width:0}
   .table-wrap{margin-inline:calc(var(--sp-3) * -1);padding-inline:var(--sp-3)}
+   .project-health-head{flex-direction:column}
+   .health-score{width:100%;text-align:left}
+   .health-metrics{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:var(--sp-4)}
 }
