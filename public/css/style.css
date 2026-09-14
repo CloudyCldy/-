@@ -21,8 +21,12 @@
 :root[data-theme="ryutan"]{--ink:#FEFCEA;--panel:#FEFCEA;--panel-2:#13202B;--muted:#627079;--line:#7D9B9F;--pink:#E7B7B9;--lilac:#C4B5C8;--green:#94B2BA;--yellow:#ECD88C;--white:#13202B}
 
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;scrollbar-color:color-mix(in srgb,var(--pink) 60%,var(--muted)) transparent;scrollbar-width:thin}
 body{margin:0;background:var(--ink);color:var(--white);font:15px/1.5 'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:transparent;border-radius:999px}
+*::-webkit-scrollbar-thumb{background:linear-gradient(180deg,color-mix(in srgb,var(--pink) 70%,var(--white) 30%),color-mix(in srgb,var(--lilac) 58%,var(--pink) 42%));border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+*::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,color-mix(in srgb,var(--pink) 85%,var(--white) 15%),color-mix(in srgb,var(--lilac) 70%,var(--pink) 30%));border-color:transparent}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 h1,h2,h3{font-family:'Space Grotesk','DM Sans',sans-serif;font-weight:600;letter-spacing:-.01em}
