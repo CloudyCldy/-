@@ -172,7 +172,7 @@ async function init() {
     CREATE INDEX IF NOT EXISTS security_events_created_idx ON security_events (created_at DESC);
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY, sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      receiver_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       content TEXT NOT NULL, delivery_status TEXT NOT NULL DEFAULT 'enviado' CHECK (delivery_status IN ('enviado', 'entregado', 'leido')),
       read_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -180,7 +180,9 @@ async function init() {
     UPDATE messages SET organization_id = (SELECT organization_id FROM users WHERE users.id = messages.sender_id) WHERE organization_id IS NULL;
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivery_status TEXT NOT NULL DEFAULT 'enviado';
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
-    ALTER TABLE messages ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS group_id INTEGER;
+    ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_group_id_fkey;
+    ALTER TABLE messages ADD CONSTRAINT messages_group_id_fkey FOREIGN KEY (group_id) REFERENCES chat_groups(id) ON DELETE CASCADE;
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_id INTEGER REFERENCES files(id) ON DELETE SET NULL;
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_name TEXT;
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_mime TEXT;

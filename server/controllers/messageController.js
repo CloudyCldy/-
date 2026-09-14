@@ -101,7 +101,7 @@ async function sendGroupMessage(req, res) {
   const content = String(req.body.content || '').trim();
   if (!content && !req.file && !req.body.attachment_id) return res.status(400).json({ error: 'Escribe un mensaje o adjunta un documento.' });
   const attachment = await ensureAttachment(req.app.locals.database, req, content, req.file?.mimetype, req.file?.originalname).catch(error => { throw error; });
-  const result = await req.app.locals.database.prepare('INSERT INTO messages (sender_id, receiver_id, organization_id, content, delivery_status, conversation_type, group_id, attachment_id, attachment_name, attachment_mime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id').run(req.session.user.id, 0, req.session.user.organization_id, content.slice(0, 2000) || '', 'enviado', 'group', groupId, attachment?.id || null, attachment?.name || null, attachment?.mime || null);
+  const result = await req.app.locals.database.prepare('INSERT INTO messages (sender_id, receiver_id, organization_id, content, delivery_status, conversation_type, group_id, attachment_id, attachment_name, attachment_mime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id').run(req.session.user.id, null, req.session.user.organization_id, content.slice(0, 2000) || '', 'enviado', 'group', groupId, attachment?.id || null, attachment?.name || null, attachment?.mime || null);
   res.status(201).json({ id: result.lastInsertRowid, attachment: attachment || null });
 }
 

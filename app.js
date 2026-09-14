@@ -30,6 +30,11 @@ async function ensureRuntimeSchema() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_username TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_token TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+      ALTER TABLE messages ALTER COLUMN receiver_id DROP NOT NULL;
+      UPDATE messages SET receiver_id = NULL WHERE receiver_id = 0;
+      ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_group_id_fkey;
+      ALTER TABLE messages ADD CONSTRAINT messages_group_id_fkey FOREIGN KEY (group_id) REFERENCES chat_groups(id) ON DELETE CASCADE;
     `);
   } catch (error) {
     console.error('No fue posible asegurar el esquema de usuarios:', error);
