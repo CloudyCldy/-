@@ -46,13 +46,14 @@ async function listGroups(req, res) {
   const groups = await req.app.locals.database.prepare(`
     SELECT g.id, g.name, g.created_at,
            COUNT(members.user_id)::integer AS members_count,
-           (SELECT COUNT(*)::integer FROM messages WHERE organization_id = ? AND conversation_type = 'group' AND group_id = g.id) AS messages_count
+           (SELECT COUNT(*)::integer FROM messages WHERE organization_id = ? AND conversation_type = 'group' AND group_id = g.id) AS messages_count,
+           (SELECT MAX(created_at) FROM messages WHERE organization_id = ? AND conversation_type = 'group' AND group_id = g.id) AS last_message_at
     FROM chat_groups g
     LEFT JOIN chat_group_members members ON members.group_id = g.id AND members.organization_id = ?
     WHERE g.organization_id = ?
     GROUP BY g.id, g.name, g.created_at
     ORDER BY g.created_at DESC
-  `).all(req.session.user.organization_id, req.session.user.organization_id, req.session.user.organization_id);
+  `).all(req.session.user.organization_id, req.session.user.organization_id, req.session.user.organization_id, req.session.user.organization_id);
   res.json(groups);
 }
 
@@ -60,7 +61,7 @@ async function getGroup(req, res) {
   const groupId = Number(req.params.groupId);
   const group = await req.app.locals.database.prepare('SELECT * FROM chat_groups WHERE id = ? AND organization_id = ?').get(groupId, req.session.user.organization_id);
   if (!group) return res.status(404).json({ error: 'El grupo no existe.' });
-  const members = await req.app.locals.database.prepare('SELECT u.id, u.name, u.username, u.profile_photo, gm.role FROM chat_group_members gm JOIN users u ON u.id = gm.user_id WHERE gm.group_id = ? AND gm.organization_id = ? ORDER BY u.name').all(groupId, req.session.user.organization_id);
+  const members = await req.app.locals.database.prepare('SELECT u.id, u.name, u.username, u.email, u.profile_photo, u.last_seen_at, gm.role FROM chat_group_members gm JOIN users u ON u.id = gm.user_id WHERE gm.group_id = ? AND gm.organization_id = ? ORDER BY u.name').all(groupId, req.session.user.organization_id);
   const messages = await req.app.locals.database.prepare(`SELECT m.id, m.content, m.created_at, m.sender_id, m.delivery_status, m.attachment_id, m.attachment_name, m.attachment_mime, u.name AS sender_name, u.profile_photo AS sender_photo FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.organization_id = ? AND m.conversation_type = 'group' AND m.group_id = ? ORDER BY m.created_at`).all(req.session.user.organization_id, groupId);
   res.json({ group, members, messages });
 }

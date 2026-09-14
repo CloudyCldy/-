@@ -493,6 +493,95 @@ const renderGithubBase=renderGithub;
 renderGithub=async function(section='repository'){await renderGithubBase(section);if(section!=='repository')return;let repositoryName='Repositorio';try{const github=await api('/github/repository');repositoryName=github.data?.name||repositoryName}catch{}const subtitle=document.querySelector('.heading p');if(subtitle)subtitle.textContent=`Información real del repositorio ${repositoryName}.`};
 const renderSettingsBase=renderSettings;
 renderSettings=async function(){await renderSettingsBase();let data;try{data=await api('/security/ip-blocks')}catch(error){return}const section=document.createElement('section');section.className='card mt-4';section.innerHTML=`<h2>Bloqueo de IP</h2><p class="muted">IP actual: ${esc(data.current_ip||'No disponible')}</p><form id="ip-block-form" class="form-grid"><label>Dirección IPv4<input class="input" name="ip" placeholder="203.0.113.10" required></label><label>Motivo<input class="input" name="reason" placeholder="Actividad sospechosa"></label><div class="actions full"><button class="btn danger">Bloquear IP</button></div></form><div class="table-wrap"><table class="table"><thead><tr><th>IP</th><th>Motivo</th><th>Fecha</th><th></th></tr></thead><tbody>${data.blocks.map(block=>`<tr><td>${esc(block.ip)}</td><td>${esc(block.reason||'Sin motivo')}</td><td>${esc(block.created_at)}</td><td><button class="btn secondary unblock-ip" data-id="${block.id}">Desbloquear</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay IPs bloqueadas.</td></tr>'}</tbody></table></div>`;section.insertAdjacentHTML('beforeend',`<h2 class="mt-4">Actividad reciente</h2><div class="table-wrap"><table class="table"><thead><tr><th>IP</th><th>Usuario</th><th>Navegador</th><th>Ruta</th><th>Estado</th><th>Inusual</th><th>Fecha</th><th></th></tr></thead><tbody>${data.activity.map(event=>`<tr><td>${esc(event.ip)}</td><td>${esc(event.user_name||'No autenticado')}</td><td title="${esc(event.user_agent)}">${esc(event.user_agent||'No disponible').slice(0,60)}</td><td>${esc(event.method)} ${esc(event.path)}</td><td>${event.status}</td><td>${event.unusual?`<span class="badge pink">${esc(event.reason||'Sí')}</span>`:'No'}</td><td>${esc(event.created_at)}</td><td><button class="btn secondary block-event-ip" data-ip="${esc(event.ip)}">Bloquear</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No hay actividad registrada.</td></tr>'}</tbody></table></div>`);document.querySelector('.content')?.append(section);section.querySelector('#ip-block-form').onsubmit=async event=>{event.preventDefault();try{await api('/security/ip-blocks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});notify('IP bloqueada');renderSettings()}catch(error){notify(error.message)}};section.querySelectorAll('.unblock-ip').forEach(button=>button.onclick=async()=>{try{await api(`/security/ip-blocks/${button.dataset.id}`,{method:'DELETE'});notify('IP desbloqueada');renderSettings()}catch(error){notify(error.message)}});section.querySelectorAll('.block-event-ip').forEach(button=>button.onclick=async()=>{try{await api('/security/ip-blocks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip:button.dataset.ip,reason:'Bloqueada desde el registro de actividad'})});notify('IP bloqueada');renderSettings()}catch(error){notify(error.message)}})};
+function formatLastSeen(dateStr){
+  if (!dateStr) return 'Nunca';
+  const date = new Date(dateStr);
+  const diffMs = Date.now() - date.getTime();
+  if (Number.isNaN(date.getTime())) return 'Sin información';
+  if (diffMs < 60000) return 'Ahora mismo';
+  if (diffMs < 3600000) return `${Math.max(1, Math.floor(diffMs / 60000))} min atrás`;
+  if (diffMs < 86400000) return `${Math.max(1, Math.floor(diffMs / 3600000))} h atrás`;
+  const days = Math.max(1, Math.floor(diffMs / 86400000));
+  return `${days} día${days === 1 ? '' : 's'} atrás`;
+}
+const renderMessagesBase2=renderMessages;
+renderMessages=async function(){
+  await renderMessagesBase2();
+  const params=new URLSearchParams(location.hash.split('?')[1]||'');
+  const selectedId=params.get('user');
+  const selectedGroupId=params.get('group');
+  const conversation=document.querySelector('.conversation');
+  if(!conversation)return;
+  const extra=document.querySelector('.conversation-extra');
+  if(extra)extra.remove();
+  const details=document.createElement('div');
+  details.className='conversation-extra';
+  try {
+    if(selectedGroupId){
+      const groupDetail=await api(`/messages/groups/${selectedGroupId}`);
+      const members=groupDetail.members || [];
+      const memberList=members.length?members.map(member=>`<div class="group-member-item">${avatarMarkup(member,'message-avatar')}<div><strong>${esc(member.name)}</strong><small>${esc(member.email||'Sin correo')} · ${esc(formatLastSeen(member.last_seen_at))}</small></div></div>`).join(''):'<div class="empty">No hay miembros en este grupo.</div>';
+      details.innerHTML=`<div class="conversation-details"><div class="conversation-details-header"><strong>Miembros del grupo</strong><button class="btn secondary mini" id="add-group-member" type="button">+ Añadir miembro</button></div><div class="group-members">${memberList}</div></div>`;
+      conversation.append(details);
+      document.querySelector('#add-group-member')?.addEventListener('click',async()=>{
+        const users=await api('/users').catch(()=>[]);
+        const currentMembers=new Set((groupDetail.members||[]).map(member=>member.id));
+        const candidates=users.filter(user=>user.active&&user.id!==state.user.id&&!currentMembers.has(user.id));
+        if(!candidates.length){notify('Todos los integrantes ya forman parte de este grupo.');return;}
+        const query=window.prompt('Escribe el nombre, usuario o correo del integrante a añadir:', '').trim();
+        if(!query){return;}
+        const match=candidates.find(user=>[user.name,user.username,user.email].some(value=>String(value||'').toLowerCase().includes(query.toLowerCase())));
+        if(!match){notify('No se encontró un integrante con ese dato.');return;}
+        try{
+          await api(`/messages/groups/${selectedGroupId}/members`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:match.id})});
+          notify('Miembro añadido al grupo');
+          renderMessages();
+        }catch(error){notify(error.message)}
+      });
+      return;
+    }
+    if(selectedId){
+      const users=await api('/users').catch(()=>[]);
+      const user=users.find(item=>String(item.id)===String(selectedId));
+      if(user){
+        const detailsHtml=`<div class="conversation-details"><strong>Detalles de contacto</strong><div class="contact-details-grid"><div><span class="muted">Correo</span><p>${esc(user.email||'Sin correo')}</p></div><div><span class="muted">Usuario</span><p>@${esc(user.username||'Sin usuario')}</p></div><div><span class="muted">Última vez</span><p>${esc(formatLastSeen(user.last_seen_at))}</p></div></div></div>`;
+        details.innerHTML=detailsHtml;
+        conversation.append(details);
+      }
+    }
+  }catch(error){
+    console.warn('No fue posible cargar detalles adicionales del chat:', error.message);
+  }
+};
+const renderSettingsBase2=renderSettings;
+renderSettings=async function(){
+  await renderSettingsBase2();
+  const section=document.querySelector('.card.mt-4');
+  if(!section)return;
+  try {
+    const data=await api('/security/ip-blocks');
+    const tables=section.querySelectorAll('table.table');
+    const blocksTable=tables[0];
+    const activityTable=tables[1];
+    if(blocksTable){
+      const blocksPage=paginateItems(data.blocks||[], 'securityBlocks', 5);
+      const blocksContainer=blocksTable.closest('.table-wrap');
+      blocksContainer?.querySelector('.security-blocks-pagination')?.remove();
+      blocksTable.querySelector('tbody').innerHTML=blocksPage.items.map(block=>`<tr><td>${esc(block.ip)}</td><td>${esc(block.reason||'Sin motivo')}</td><td>${esc(block.created_at)}</td><td><button class="btn secondary unblock-ip" data-id="${block.id}">Desbloquear</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay IPs bloqueadas.</td></tr>';
+      blocksContainer?.insertAdjacentHTML('afterend', paginationMarkup('securityBlocks', 'renderSettings', blocksPage.totalPages, blocksPage.currentPage, blocksPage.totalItems, 5));
+    }
+    if(activityTable){
+      const activityPage=paginateItems(data.activity||[], 'securityActivity', 8);
+      const activityContainer=activityTable.closest('.table-wrap');
+      activityContainer?.querySelector('.security-activity-pagination')?.remove();
+      activityTable.querySelector('tbody').innerHTML=activityPage.items.map(event=>`<tr><td>${esc(event.ip)}</td><td>${esc(event.user_name||'No autenticado')}</td><td title="${esc(event.user_agent)}">${esc(event.user_agent||'No disponible').slice(0,60)}</td><td>${esc(event.method)} ${esc(event.path)}</td><td>${event.status}</td><td>${event.unusual?`<span class="badge pink">${esc(event.reason||'Sí')}</span>`:'No'}</td><td>${esc(event.created_at)}</td><td><button class="btn secondary block-event-ip" data-ip="${esc(event.ip)}">Bloquear</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No hay actividad registrada.</td></tr>';
+      activityContainer?.insertAdjacentHTML('afterend', paginationMarkup('securityActivity', 'renderSettings', activityPage.totalPages, activityPage.currentPage, activityPage.totalItems, 8));
+    }
+    bindPaginationControls();
+  }catch(error){
+    console.warn('No fue posible recargar la seguridad paginada:', error.message);
+  }
+};
 const appRender=render;
 render=async function(){if(location.hash.includes('relax'))return renderRelax();return appRender()};
 window.addEventListener('hashchange',render);render();

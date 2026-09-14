@@ -56,6 +56,7 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id INTEGER;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_username TEXT;

@@ -1,7 +1,7 @@
 const bcrypt = require('bcrypt');
 
 async function list(req, res) {
-  const users = await req.app.locals.database.prepare(`SELECT id, name, username, email, role, role_id, active, github_username, gitlab_username, profile_photo, created_at FROM users WHERE organization_id = ? ORDER BY name`).all(req.session.user.organization_id);
+  const users = await req.app.locals.database.prepare(`SELECT id, name, username, email, role, role_id, active, github_username, gitlab_username, profile_photo, last_seen_at, created_at FROM users WHERE organization_id = ? ORDER BY name`).all(req.session.user.organization_id);
   res.json(users);
 }
 async function create(req, res) {
