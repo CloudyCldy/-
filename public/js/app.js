@@ -5,12 +5,12 @@ function blockedView(reason='Tu dirección IP no puede acceder a esta aplicació
 let currentTheme = localStorage.getItem('haitani-theme') || 'ran';
 let notificationTimer;
 document.documentElement.dataset.theme = currentTheme;
-let ganttZoom = 'day';
-let ganttGroupBy = 'none';
 let ganttStatusFilter = '';
 let ganttAssigneeFilter = '';
-const ganttCollapsedGroups = new Set();
-const GANTT_ZOOM = { day: { label: 'Día', unit: 'day', colWidth: 56 }, week: { label: 'Semana', unit: 'week', colWidth: 150 }, month: { label: 'Mes', unit: 'month', colWidth: 210 } };
+let ganttCalendarMonth = (() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d })();
+const GANTT_WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+function startOfWeekMonday(date) { const d = new Date(date); const offset = (d.getDay() + 6) % 7; d.setDate(d.getDate() - offset); d.setHours(0, 0, 0, 0); return d }
+function toISODate(date) { return date.toISOString().slice(0, 10) }
 function addDays(dateStr, delta) { const base = dateStr || new Date().toISOString().slice(0, 10); const date = new Date(`${base}T00:00:00`); date.setDate(date.getDate() + delta); return date.toISOString().slice(0, 10) }
 function themeToggle(){return `<div class="theme-switch" role="group" aria-label="Tema visual"><button class="theme-option ${currentTheme==='ran'?'active':''}" data-theme="ran">蘭</button><button class="theme-option ${currentTheme==='ryutan'?'active':''}" data-theme="ryutan">竜 胆</button></div>`}
 function bindTheme(){document.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>{currentTheme=button.dataset.theme;localStorage.setItem('haitani-theme',currentTheme);document.documentElement.dataset.theme=currentTheme;document.querySelectorAll('.theme-option').forEach(option=>option.classList.toggle('active',option.dataset.theme===currentTheme))})}
@@ -61,102 +61,133 @@ function messagesForList(messages){const out=[];let lastDay='';messages.forEach(
 async function messagesView(selectedId){const users=(await api('/users')).filter(user=>user.active&&user.id!==state.user.id);const selected=users.find(user=>String(user.id)===String(selectedId))||users[0];const messages=selected?await api(`/messages?user_id=${selected.id}`):[];const conversationKey=selected?`${Math.min(state.user.id,selected.id)}-${Math.max(state.user.id,selected.id)}`:'';const previews=await Promise.all(users.map(async user=>{const key=`${Math.min(state.user.id,user.id)}-${Math.max(state.user.id,user.id)}`;const thread=user.id===selected?.id?messages:await api(`/messages?user_id=${user.id}`).catch(()=>[]);const last=thread[thread.length-1];return {user,key,last}}));const bgKind=selected?chatBackgroundKind(conversationKey):'gradient';const swatches=[['gradient','Aurora'],['solid','Profundo'],['lavender','Lavanda'],['warm','Cálido']];return `${heading('Mensajes','Conversaciones directas con las personas del equipo.')}<section class="messages-layout"><aside class="card conversation-list">${previews.map(({user,last})=>`<button class="conversation-user ${selected&&user.id===selected.id?'active':''}" data-id="${user.id}">${avatarMarkup(user,'message-avatar')}<span class="conversation-user-body"><span class="conversation-user-top"><strong>${esc(user.name)}</strong>${last?`<time>${timeShort(last.created_at)}</time>`:''}</span><small>${last?`${last.sender_id===state.user.id?'Tú: ':''}${esc(last.content).slice(0,42)}${last.content.length>42?'…':''}`:`@${esc(user.username)}`}</small></span></button>`).join('')||'<div class="empty">No hay otros usuarios activos.</div>'}</aside><section class="card conversation"><div class="conversation-header">${selected?`<div class="conversation-who">${avatarMarkup(selected,'message-avatar')}<div><h2>${esc(selected.name)}</h2><small class="muted">@${esc(selected.username)}</small></div></div><div class="conversation-tools"><div class="bg-swatches" role="group" aria-label="Fondo de la conversación">${swatches.map(([value,label])=>`<button type="button" class="bg-swatch bg-${value} ${bgKind===value?'active':''}" data-bg="${value}" title="${label}"></button>`).join('')}<label class="bg-swatch bg-upload-label" title="Subir foto de fondo"><input class="chat-bg-upload" type="file" accept="image/png,image/jpeg,image/webp" data-key="${conversationKey}" hidden>+</label></div><div class="icon-group conversation-calls"><button class="icon-btn call-user" data-id="${selected.id}" data-video="false" title="Llamar" aria-label="Llamar">☎</button><button class="icon-btn call-user" data-id="${selected.id}" data-video="true" title="Videollamada" aria-label="Videollamada">▣</button></div></div>`:'<h2>Selecciona una conversación</h2>'}</div><div class="message-list" data-bg-key="${conversationKey}" style="background:${chatBackground(conversationKey)}">${messagesForList(messages).map(item=>item.divider?`<div class="day-divider"><span>${esc(item.divider)}</span></div>`:(message=>`<article class="message ${message.sender_id===state.user.id?'mine':''}">${message.sender_id===state.user.id?'':avatarMarkup({name:message.sender_name,profile_photo:message.sender_photo},'message-avatar')}<div class="bubble"><p>${esc(message.content)}</p><small>${timeShort(message.created_at)}</small></div></article>`)(item.message)).join('')||'<div class="empty">No hay mensajes todavía.</div>'}</div>${selected?`<form id="message-form" class="message-form"><textarea class="textarea" name="content" rows="1" placeholder="Escribe un mensaje..." required></textarea><button class="btn send-btn" title="Enviar" aria-label="Enviar">➤</button></form>`:''}</section></section><div id="call-modal" class="call-modal" hidden><div class="call-panel"><div class="call-head"><strong>Llamada</strong><button class="btn danger" id="hangup">Colgar</button></div><video id="call-remote" autoplay playsinline></video><video id="call-local" autoplay muted playsinline></video></div></div>`}
 async function renderMessages(){signalSocket();const selectedId=new URLSearchParams(location.hash.split('?')[1]||'').get('user');layout(await messagesView(selectedId));const list=document.querySelector('.message-list');if(list)list.scrollTop=list.scrollHeight;document.querySelectorAll('.conversation-user').forEach(button=>button.onclick=()=>{location.hash=`#/${state.user.role}/messages?user=${button.dataset.id}`;renderMessages()});document.querySelectorAll('.call-user').forEach(button=>button.onclick=()=>startCall(button.dataset.id,button.dataset.video==='true'));document.querySelector('#hangup')?.addEventListener('click',endCall);const swatchGroup=document.querySelector('.bg-swatches');const upload=document.querySelector('.chat-bg-upload');if(swatchGroup){const key=list?.dataset.bgKey;document.querySelectorAll('.bg-swatch[data-bg]').forEach(swatch=>swatch.onclick=()=>{const backgrounds={gradient:'linear-gradient(135deg,#13202B,#2A3541)',solid:'#2A3541',lavender:'linear-gradient(135deg,#767E99,#C4B5C8)',warm:'linear-gradient(135deg,#201B19,#13202B)'};localStorage.setItem(`haitani-chat-bg-${key}`,backgrounds[swatch.dataset.bg]);renderMessages()})}upload?.addEventListener('change',async()=>{if(!upload.files[0])return;try{const form=new FormData();form.append('background',upload.files[0]);const result=await api('/chat-backgrounds',{method:'POST',body:form});localStorage.setItem(`haitani-chat-bg-${upload.dataset.key}`,`url(${result.url}) center/cover no-repeat`);renderMessages()}catch(error){notify(error.message)}});const textarea=document.querySelector('#message-form textarea');if(textarea){textarea.addEventListener('input',()=>{textarea.style.height='auto';textarea.style.height=`${Math.min(textarea.scrollHeight,140)}px`});textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.querySelector('#message-form').requestSubmit()}})}document.querySelector('#message-form')?.addEventListener('submit',async event=>{event.preventDefault();const content=new FormData(event.target).get('content');if(!String(content).trim())return;try{await api('/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:selectedId,content})});renderMessages()}catch(error){notify(error.message)}})}
 async function gantt(){
-  const allTasks=await api('/tasks');
-  const users=state.user.role==='admin'?await api('/users'):[];
-  const today=new Date();today.setHours(0,0,0,0);
-  const fallbackStart=new Date(today);
-  const fallbackEnd=new Date(today);fallbackEnd.setDate(fallbackEnd.getDate()+14);
-  const dates=allTasks.flatMap(t=>[t.start_date&&new Date(`${t.start_date}T00:00:00`),t.due_date&&new Date(`${t.due_date}T00:00:00`)]).filter(Boolean);
-  const dayMs=86400000;
-  const cfg=GANTT_ZOOM[ganttZoom];
-  const rangeStart=new Date(Math.min(...dates.map(date=>date.getTime()),fallbackStart.getTime()));
-  const rangeEnd=new Date(Math.max(...dates.map(date=>date.getTime()),fallbackEnd.getTime()));
-  if(cfg.unit==='week'){
-    rangeStart.setDate(rangeStart.getDate()-((rangeStart.getDay()+6)%7));
-    rangeEnd.setDate(rangeEnd.getDate()+(7-((rangeEnd.getDay()+6)%7)-1));
-  }else if(cfg.unit==='month'){
-    rangeStart.setDate(1);
-    rangeEnd.setMonth(rangeEnd.getMonth()+1,0);
+  const allTasksRaw = await api('/tasks');
+  const users = state.user.role === 'admin' ? await api('/users') : [];
+  const dayMs = 86400000;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const monthDate = ganttCalendarMonth;
+  const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+  const gridStart = startOfWeekMonday(monthStart);
+  const gridEndOffset = 6 - ((monthEnd.getDay() + 6) % 7);
+  const gridEnd = new Date(monthEnd); gridEnd.setDate(gridEnd.getDate() + gridEndOffset);
+  const totalGridDays = Math.round((gridEnd - gridStart) / dayMs) + 1;
+  const weeksCount = totalGridDays / 7;
+
+  const progress = { pendiente: 0, en_proceso: 50, completada: 100 };
+  const parsedTasks = allTasksRaw
+    .filter(t => (!ganttStatusFilter || t.status === ganttStatusFilter) && (!ganttAssigneeFilter || String(t.assigned_to || '') === ganttAssigneeFilter))
+    .map(t => {
+      const start = t.start_date ? new Date(`${t.start_date}T00:00:00`) : (t.due_date ? new Date(`${t.due_date}T00:00:00`) : null);
+      const due = t.due_date ? new Date(`${t.due_date}T00:00:00`) : start;
+      return { ...t, startDate: start, dueDate: due };
+    });
+  const scheduledTasks = parsedTasks.filter(t => t.startDate);
+  const unscheduledTasks = parsedTasks.filter(t => !t.startDate);
+
+  const MAX_LANES = 4;
+  const weeksHtml = [];
+  for (let w = 0; w < weeksCount; w++) {
+    const weekStart = new Date(gridStart.getTime() + w * 7 * dayMs);
+    const weekEnd = new Date(weekStart.getTime() + 6 * dayMs);
+    const weekTasks = scheduledTasks.filter(t => t.startDate <= weekEnd && t.dueDate >= weekStart)
+      .sort((a, b) => (a.startDate - b.startDate) || ((b.dueDate - b.startDate) - (a.dueDate - a.startDate)));
+    const lanesOccupied = [];
+    const bars = []; let overflow = 0;
+    weekTasks.forEach(task => {
+      const segStart = task.startDate < weekStart ? weekStart : task.startDate;
+      const segEnd = task.dueDate > weekEnd ? weekEnd : task.dueDate;
+      const colStart = Math.round((segStart - weekStart) / dayMs);
+      const colSpan = Math.round((segEnd - segStart) / dayMs) + 1;
+      let lane = 0;
+      while (lane < MAX_LANES) {
+        const occ = lanesOccupied[lane] || (lanesOccupied[lane] = []);
+        const clash = occ.some(range => colStart < range.end && (colStart + colSpan) > range.start);
+        if (!clash) { occ.push({ start: colStart, end: colStart + colSpan }); break }
+        lane++;
+      }
+      if (lane >= MAX_LANES) { overflow++; return }
+      bars.push({ task, colStart, colSpan, lane, continuesLeft: task.startDate < weekStart, continuesRight: task.dueDate > weekEnd });
+    });
+    const lanesUsed = Math.min(MAX_LANES, Math.max(1, bars.reduce((m, b) => Math.max(m, b.lane + 1), 0)));
+    const dayBoxes = [];
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(weekStart.getTime() + d * dayMs);
+      const outside = date.getMonth() !== monthDate.getMonth();
+      const isToday = date.getTime() === today.getTime();
+      dayBoxes.push(`<div class="gantt-cal-day ${outside ? 'is-out' : ''} ${isToday ? 'is-today' : ''}" data-date="${toISODate(date)}"><span class="gantt-cal-daynum">${date.getDate()}</span></div>`);
+    }
+    const barsHtml = bars.map(bar => {
+      const percent = progress[bar.task.status] ?? 0;
+      return `<div class="gantt-cal-bar ${bar.task.status}" draggable="true" data-id="${bar.task.id}" data-start="${bar.task.start_date || ''}" data-due="${bar.task.due_date || ''}" style="--col-start:${bar.colStart};--col-span:${bar.colSpan};--lane:${bar.lane}" title="${esc(bar.task.title)} · ${esc(bar.task.assignee_name || 'Sin asignar')} · ${percent}%">${bar.continuesLeft ? '<span class="gantt-cal-bar-arrow">‹</span>' : ''}<span class="gantt-cal-bar-label">${esc(bar.task.title)}</span>${bar.continuesRight ? '<span class="gantt-cal-bar-arrow">›</span>' : ''}</div>`;
+    }).join('');
+    const overflowHtml = overflow ? `<div class="gantt-cal-more" style="--lane:${MAX_LANES}">+${overflow} más</div>` : '';
+    weeksHtml.push(`<div class="gantt-cal-week"><div class="gantt-cal-days" style="--lanes:${lanesUsed + (overflow ? 1 : 0)}">${dayBoxes.join('')}</div><div class="gantt-cal-bars">${barsHtml}${overflowHtml}</div></div>`);
   }
-  const totalDays=Math.max(1,Math.round((rangeEnd-rangeStart)/dayMs)+1);
-  const dayColWidth=cfg.colWidth/(cfg.unit==='day'?1:cfg.unit==='week'?7:30);
-  const periods=[];
-  if(cfg.unit==='day'){
-    for(let index=0;index<totalDays;index++){const date=new Date(rangeStart.getTime()+index*dayMs);periods.push({date,days:1,label:date.toLocaleDateString('es',{day:'2-digit',month:'short'}),current:date.getTime()===today.getTime()})}
-  }else if(cfg.unit==='week'){
-    for(let index=0;index<totalDays;index+=7){const date=new Date(rangeStart.getTime()+index*dayMs);periods.push({date,days:Math.min(7,totalDays-index),label:`Sem ${date.toLocaleDateString('es',{day:'2-digit',month:'short'})}`,current:today>=date&&today<new Date(date.getTime()+7*dayMs)})}
-  }else{
-    let date=new Date(rangeStart);
-    while(date<=rangeEnd){const next=new Date(date.getFullYear(),date.getMonth()+1,1);const days=Math.round((Math.min(next,new Date(rangeEnd.getTime()+dayMs))-date)/dayMs);periods.push({date:new Date(date),days,label:date.toLocaleDateString('es',{month:'short',year:'numeric'}),current:today.getMonth()===date.getMonth()&&today.getFullYear()===date.getFullYear()});date=next}
-  }
-  const dayLabels=periods.map(period=>`<span class="gantt-period ${period.current?'current':''}" style="--period-days:${period.days}">${esc(period.label)}</span>`).join('');
-  const todayOffset=Math.round((today-rangeStart)/dayMs);
-  const progress={pendiente:0,en_proceso:50,completada:100};
-  const tasks=allTasks.filter(t=>(!ganttStatusFilter||t.status===ganttStatusFilter)&&(!ganttAssigneeFilter||String(t.assigned_to||'')===ganttAssigneeFilter));
-  const barHtml=task=>{const start=task.start_date?new Date(`${task.start_date}T00:00:00`):rangeStart;const end=task.due_date?new Date(`${task.due_date}T00:00:00`):start;const offset=Math.max(0,Math.round((start-rangeStart)/dayMs));const duration=Math.max(1,Math.round((end-start)/dayMs)+1);const percent=progress[task.status]??0;const marker=(todayOffset>=offset&&todayOffset<offset+duration)?`<i class="gantt-today-marker" style="left:${((todayOffset-offset)/duration*100)}%"></i>`:'';return `<div class="gantt-row"><div class="gantt-label"><strong>${esc(task.title)}</strong><small class="muted">${esc(task.assignee_name||'Sin asignar')}</small><small class="muted">${esc(task.start_date||'Sin inicio')} · ${esc(task.due_date||'Sin vencimiento')}</small></div><div class="gantt-track" style="--days:${totalDays};--gantt-col:${dayColWidth}px" data-id="${task.id}" data-start="${task.start_date||''}" data-due="${task.due_date||''}" data-total-days="${totalDays}">${marker}<div class="gantt-bar ${task.status}" style="--offset:${offset};--duration:${duration};--progress:${percent}%"><span class="resize-handle left" data-side="left" data-id="${task.id}"></span><span class="bar-body" data-id="${task.id}">${percent}%</span><span class="resize-handle right" data-side="right" data-id="${task.id}"></span></div></div><strong class="gantt-percent">${percent}%</strong></div>`};
-  const groups=new Map();
-  if(ganttGroupBy==='assignee'){tasks.forEach(t=>{const key=t.assignee_name||'Sin asignar';if(!groups.has(key))groups.set(key,[]);groups.get(key).push(t)})}else{groups.set('',tasks)}
-  const groupsHtml=[...groups.entries()].map(([key,groupTasks])=>{if(!key)return groupTasks.map(barHtml).join('');const collapsed=ganttCollapsedGroups.has(key);return `<div class="gantt-group"><button class="gantt-group-head" data-toggle-group="${esc(key)}">${collapsed?'▸':'▾'} ${esc(key)} <span class="muted">(${groupTasks.length})</span></button>${collapsed?'':groupTasks.map(barHtml).join('')}</div>`}).join('')||'<div class="empty">No hay tareas para mostrar.</div>';
-  const bodyWidth=totalDays*dayColWidth+320;
-  const zoomButtons=['day','week','month'].map(z=>`<button class="btn secondary gantt-zoom ${ganttZoom===z?'active':''}" data-zoom="${z}">${GANTT_ZOOM[z].label}</button>`).join('');
-  const assigneeOptions=users.filter(u=>u.role==='member').map(u=>`<option value="${u.id}" ${ganttAssigneeFilter===String(u.id)?'selected':''}>${esc(u.name)}</option>`).join('');
-  return `${heading('Gantt','Calendario real del proyecto. Cambia entre días, semanas y meses; arrastra las barras para ajustar las fechas.')}<section class="card gantt-card"><div class="gantt-controls"><div class="actions"><span class="muted gantt-controls-label">Escala</span>${zoomButtons}</div><div class="actions"><label class="inline"><span class="muted gantt-controls-label">Agrupar</span><select class="select" id="gantt-group"><option value="none" ${ganttGroupBy==='none'?'selected':''}>Sin agrupar</option><option value="assignee" ${ganttGroupBy==='assignee'?'selected':''}>Por integrante</option></select></label><label class="inline"><span class="muted gantt-controls-label">Estado</span><select class="select" id="gantt-status-filter"><option value="">Todos</option><option value="pendiente" ${ganttStatusFilter==='pendiente'?'selected':''}>Pendiente</option><option value="en_proceso" ${ganttStatusFilter==='en_proceso'?'selected':''}>En proceso</option><option value="completada" ${ganttStatusFilter==='completada'?'selected':''}>Completada</option></select></label>${assigneeOptions?`<label class="inline"><span class="muted gantt-controls-label">Integrante</span><select class="select" id="gantt-assignee-filter"><option value="">Todos</option>${assigneeOptions}</select></label>`:''}<button class="btn secondary" id="gantt-today-btn">Hoy</button></div></div><div class="gantt-scroll"><div class="gantt-body" style="min-width:${bodyWidth}px"><div class="gantt-calendar"><div class="gantt-calendar-label">Línea de tiempo</div><div class="gantt-days" style="--days:${totalDays};--gantt-col:${dayColWidth}px">${dayLabels}</div></div><div class="gantt-list">${groupsHtml}</div></div></div><div class="gantt-legend"><span><i class="gantt-dot pendiente"></i>Pendiente 0%</span><span><i class="gantt-dot en_proceso"></i>En proceso 50%</span><span><i class="gantt-dot completada"></i>Completada 100%</span></div></section>`
+
+  const monthLabel = monthDate.toLocaleDateString('es', { month: 'long', year: 'numeric' });
+  const assigneeOptions = users.filter(u => u.role === 'member').map(u => `<option value="${u.id}" ${ganttAssigneeFilter === String(u.id) ? 'selected' : ''}>${esc(u.name)}</option>`).join('');
+  const unscheduledHtml = unscheduledTasks.length ? `<section class="card mt-4"><h3>Tareas sin fecha</h3><div class="grid stats">${unscheduledTasks.map(t => `<div class="gantt-unscheduled-item"><strong>${esc(t.title)}</strong><small class="muted">${esc(t.assignee_name || 'Sin asignar')}</small></div>`).join('')}</div></section>` : '';
+
+  return `${heading('Gantt', 'Calendario del proyecto. Cambia de mes, arrastra una tarea a otro día para moverla y haz clic sobre ella para editar su estado o sus fechas.')}<section class="card gantt-card"><div class="gantt-controls"><div class="actions"><button class="btn secondary" id="gantt-prev-month" aria-label="Mes anterior">‹</button><strong class="gantt-month-label">${monthLabel}</strong><button class="btn secondary" id="gantt-next-month" aria-label="Mes siguiente">›</button><button class="btn secondary" id="gantt-today-btn">Hoy</button></div><div class="actions"><label class="inline"><span class="muted gantt-controls-label">Estado</span><select class="select" id="gantt-status-filter"><option value="">Todos</option><option value="pendiente" ${ganttStatusFilter === 'pendiente' ? 'selected' : ''}>Pendiente</option><option value="en_proceso" ${ganttStatusFilter === 'en_proceso' ? 'selected' : ''}>En proceso</option><option value="completada" ${ganttStatusFilter === 'completada' ? 'selected' : ''}>Completada</option></select></label>${assigneeOptions ? `<label class="inline"><span class="muted gantt-controls-label">Integrante</span><select class="select" id="gantt-assignee-filter"><option value="">Todos</option>${assigneeOptions}</select></label>` : ''}</div></div><div class="gantt-cal-weekdays">${GANTT_WEEKDAY_LABELS.map(l => `<span>${l}</span>`).join('')}</div><div class="gantt-cal-grid">${weeksHtml.join('')}</div><div class="gantt-legend"><span><i class="gantt-dot pendiente"></i>Pendiente 0%</span><span><i class="gantt-dot en_proceso"></i>En proceso 50%</span><span><i class="gantt-dot completada"></i>Completada 100%</span></div></section>${unscheduledHtml}`
 }
 async function renderGantt(){layout(await gantt());bindGanttEvents()}
 function bindGanttEvents(){
-  document.querySelectorAll('.gantt-zoom').forEach(btn=>btn.onclick=()=>{ganttZoom=btn.dataset.zoom;renderGantt()});
-  document.querySelector('#gantt-group')?.addEventListener('change',e=>{ganttGroupBy=e.target.value;renderGantt()});
+  document.querySelector('#gantt-prev-month')?.addEventListener('click',()=>{ganttCalendarMonth=new Date(ganttCalendarMonth.getFullYear(),ganttCalendarMonth.getMonth()-1,1);renderGantt()});
+  document.querySelector('#gantt-next-month')?.addEventListener('click',()=>{ganttCalendarMonth=new Date(ganttCalendarMonth.getFullYear(),ganttCalendarMonth.getMonth()+1,1);renderGantt()});
+  document.querySelector('#gantt-today-btn')?.addEventListener('click',()=>{const d=new Date();ganttCalendarMonth=new Date(d.getFullYear(),d.getMonth(),1);renderGantt()});
   document.querySelector('#gantt-status-filter')?.addEventListener('change',e=>{ganttStatusFilter=e.target.value;renderGantt()});
   document.querySelector('#gantt-assignee-filter')?.addEventListener('change',e=>{ganttAssigneeFilter=e.target.value;renderGantt()});
-  document.querySelectorAll('[data-toggle-group]').forEach(btn=>btn.onclick=()=>{const key=btn.dataset.toggleGroup;ganttCollapsedGroups.has(key)?ganttCollapsedGroups.delete(key):ganttCollapsedGroups.add(key);renderGantt()});
-  document.querySelector('#gantt-today-btn')?.addEventListener('click',()=>{const scrollEl=document.querySelector('.gantt-scroll');const marker=document.querySelector('.gantt-today-marker');if(scrollEl&&marker){const rect=marker.getBoundingClientRect();const scrollRect=scrollEl.getBoundingClientRect();scrollEl.scrollLeft+=(rect.left-scrollRect.left)-scrollRect.width/2}});
-  document.querySelectorAll('.bar-body').forEach(handle=>handle.addEventListener('pointerdown',e=>startGanttDrag(e,'move')));
-  document.querySelectorAll('.resize-handle').forEach(handle=>handle.addEventListener('pointerdown',e=>{e.stopPropagation();startGanttDrag(e,handle.dataset.side==='left'?'resize-left':'resize-right')}))
-}
-function startGanttDrag(event,mode){
-  event.preventDefault();
-  const id=event.currentTarget.dataset.id;
-  const track=document.querySelector(`.gantt-track[data-id="${id}"]`);
-  const bar=track?.querySelector('.gantt-bar');
-  if(!track||!bar)return;
-  const totalDays=Number(track.dataset.totalDays||1);
-  const dayWidth=track.getBoundingClientRect().width/totalDays;
-  const startX=event.clientX;
-  const originalStart=track.dataset.start;
-  const originalDue=track.dataset.due;
-  let dragged=false;
-  const onMove=moveEvent=>{const deltaDays=Math.round((moveEvent.clientX-startX)/dayWidth);if(deltaDays!==0)dragged=true;bar.style.transform=mode==='move'?`translateX(${deltaDays*dayWidth}px)`:'none'};
-  const onUp=async moveEvent=>{
-    document.removeEventListener('pointermove',onMove);
-    bar.style.transform='';
-    const deltaDays=Math.round((moveEvent.clientX-startX)/dayWidth);
-    if(!dragged||deltaDays===0){if(mode==='move')openGanttQuickEdit(id);return}
-    let newStart=originalStart,newDue=originalDue;
-    if(mode==='move'){newStart=addDays(originalStart,deltaDays);newDue=addDays(originalDue,deltaDays)}
-    else if(mode==='resize-right'){newDue=addDays(originalDue,deltaDays);if(new Date(newDue)<new Date(newStart))newDue=newStart}
-    else if(mode==='resize-left'){newStart=addDays(originalStart,deltaDays);if(new Date(newStart)>new Date(newDue))newStart=newDue}
-    try{const task=await api(`/tasks/${id}`);await api(`/tasks/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:task.title,description:task.description||'',assigned_to:task.assigned_to||'',priority:task.priority,status:task.status,start_date:newStart,due_date:newDue})});notify('Fechas actualizadas')}catch(error){notify(error.message)}
-    renderGantt()
-  };
-  document.addEventListener('pointermove',onMove);
-  document.addEventListener('pointerup',onUp,{once:true})
+  document.querySelectorAll('.gantt-cal-bar').forEach(bar=>{
+    bar.addEventListener('click',()=>{if(bar.dataset.dragging==='1')return;openGanttQuickEdit(bar.dataset.id)});
+    bar.addEventListener('dragstart',event=>{bar.dataset.dragging='1';event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('id',bar.dataset.id);event.dataTransfer.setData('start',bar.dataset.start);event.dataTransfer.setData('due',bar.dataset.due)});
+    bar.addEventListener('dragend',()=>{setTimeout(()=>{bar.dataset.dragging='0'},0)});
+  });
+  document.querySelectorAll('.gantt-cal-day').forEach(day=>{
+    day.addEventListener('dragover',event=>{event.preventDefault();day.classList.add('drop-target')});
+    day.addEventListener('dragleave',()=>day.classList.remove('drop-target'));
+    day.addEventListener('drop',async event=>{
+      event.preventDefault();day.classList.remove('drop-target');
+      const id=event.dataTransfer.getData('id');const originalStart=event.dataTransfer.getData('start');const originalDue=event.dataTransfer.getData('due');
+      if(!id||!originalStart)return;
+      const targetDate=day.dataset.date;
+      const deltaDays=Math.round((new Date(`${targetDate}T00:00:00`)-new Date(`${originalStart}T00:00:00`))/86400000);
+      if(!deltaDays)return;
+      const newStart=addDays(originalStart,deltaDays);
+      const newDue=originalDue?addDays(originalDue,deltaDays):newStart;
+      try{
+        const task=await api(`/tasks/${id}`);
+        await api(`/tasks/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:task.title,description:task.description||'',assigned_to:task.assigned_to||'',priority:task.priority,status:task.status,start_date:newStart,due_date:newDue})});
+        notify('Fechas actualizadas');
+      }catch(error){notify(error.message)}
+      renderGantt();
+    });
+  });
+  document.querySelectorAll('.gantt-cal-more').forEach(more=>more.addEventListener('click',()=>notify('Hay más tareas esta semana de las que caben. Filtra por integrante o estado para verlas todas.')));
 }
 async function openGanttQuickEdit(id){
   let task;try{task=await api(`/tasks/${id}`)}catch(error){notify(error.message);return}
   document.querySelectorAll('.gantt-popover').forEach(node=>node.remove());
   const popover=document.createElement('div');
   popover.className='gantt-popover';
-  popover.innerHTML=`<strong>${esc(task.title)}</strong><label>Estado<select class="select" id="gp-status"><option value="pendiente" ${task.status==='pendiente'?'selected':''}>Pendiente</option><option value="en_proceso" ${task.status==='en_proceso'?'selected':''}>En proceso</option><option value="completada" ${task.status==='completada'?'selected':''}>Completada</option></select></label><div class="actions"><button class="btn" id="gp-save">Guardar</button><button type="button" class="btn secondary" id="gp-close">Cerrar</button></div>`;
+  popover.innerHTML=`<strong>${esc(task.title)}</strong><label>Estado<select class="select" id="gp-status"><option value="pendiente" ${task.status==='pendiente'?'selected':''}>Pendiente</option><option value="en_proceso" ${task.status==='en_proceso'?'selected':''}>En proceso</option><option value="completada" ${task.status==='completada'?'selected':''}>Completada</option></select></label><label>Fecha inicial<input class="input" type="date" id="gp-start" value="${task.start_date||''}"></label><label>Fecha límite<input class="input" type="date" id="gp-due" value="${task.due_date||''}"></label><div class="actions"><button class="btn" id="gp-save">Guardar</button><button type="button" class="btn secondary" id="gp-close">Cerrar</button></div>`;
   document.body.append(popover);
-  const bar=document.querySelector(`.gantt-track[data-id="${id}"] .gantt-bar`);
-  const rect=bar.getBoundingClientRect();
-  popover.style.left=`${Math.min(rect.left,window.innerWidth-260)}px`;
-  popover.style.top=`${rect.bottom+8}px`;
+  const anchor=document.querySelector(`.gantt-cal-bar[data-id="${id}"]`)||document.body;
+  const rect=anchor.getBoundingClientRect();
+  popover.style.left=`${Math.max(8,Math.min(rect.left,window.innerWidth-280))}px`;
+  popover.style.top=`${Math.min(rect.bottom+8,window.innerHeight-260)}px`;
   const close=()=>{popover.remove();document.removeEventListener('pointerdown',onOutside)};
   const onOutside=e=>{if(!popover.contains(e.target))close()};
   setTimeout(()=>document.addEventListener('pointerdown',onOutside),0);
   document.querySelector('#gp-close').onclick=close;
-  document.querySelector('#gp-save').onclick=async()=>{try{await api(`/tasks/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:task.title,description:task.description||'',assigned_to:task.assigned_to||'',priority:task.priority,status:document.querySelector('#gp-status').value,start_date:task.start_date||'',due_date:task.due_date||''})});notify('Tarea actualizada');close();renderGantt()}catch(error){notify(error.message)}}
+  document.querySelector('#gp-save').onclick=async()=>{
+    try{
+      const start=document.querySelector('#gp-start').value;
+      const due=document.querySelector('#gp-due').value;
+      await api(`/tasks/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:task.title,description:task.description||'',assigned_to:task.assigned_to||'',priority:task.priority,status:document.querySelector('#gp-status').value,start_date:start,due_date:due})});
+      notify('Tarea actualizada');close();renderGantt()
+    }catch(error){notify(error.message)}
+  }
 }
 const renderMessagesLegacy=renderMessages;
 renderMessages=async function(){await renderMessagesLegacy();const callHead=document.querySelector('.call-head');if(callHead&&!document.querySelector('#mute-call'))callHead.insertAdjacentHTML('beforeend','<button class="btn secondary" id="mute-call">Silenciar micrófono</button>');document.querySelector('#mute-call')?.addEventListener('click',toggleMute);const calls=await api('/calls').catch(()=>[]);if(calls.length&&!document.querySelector('.missed-calls')){const node=document.createElement('section');node.className='missed-calls';node.innerHTML=`<h2>Llamadas perdidas</h2>${calls.map(call=>`<div class="missed-call">${avatarMarkup({name:call.caller_name,profile_photo:call.caller_photo},'message-avatar')}<span><strong>${esc(call.caller_name)}</strong><small>${call.call_type==='video'?'Videollamada':'Llamada'} · ${new Date(call.created_at).toLocaleString('es')}</small></span></div>`).join('')}`;document.querySelector('.conversation-list')?.prepend(node)}}
