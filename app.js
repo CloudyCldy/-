@@ -23,8 +23,13 @@ app.locals.database = database;
 async function ensureRuntimeSchema() {
   try {
     await database.pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id INTEGER;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_username TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_token TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
     `);
   } catch (error) {
     console.error('No fue posible asegurar el esquema de usuarios:', error);
