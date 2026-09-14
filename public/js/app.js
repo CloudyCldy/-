@@ -55,6 +55,9 @@ function notificationDot(type){return `<i class="notification-dot" data-type="${
 async function refreshNotifications(){if(!state.user)return;try{state.notifications=await api('/notifications');document.querySelectorAll('.notification-dot').forEach(dot=>{const count=state.notifications[dot.dataset.type]||0;dot.hidden=!count;dot.title=`${count} notificaciones`})}catch{} }
 function startNotificationPolling(){clearInterval(notificationTimer);notificationTimer=setInterval(refreshNotifications,30000)}
 function notify(message) { const node = document.createElement('div'); node.className='toast'; node.textContent=message; document.body.append(node); setTimeout(() => node.remove(), 3000); }
+let slowLoaderTimer = null;
+function showSlowLoader(){ if (document.querySelector('#page-slow-loader')) return; const loader=document.createElement('div'); loader.id='page-slow-loader'; loader.className='page-loader'; loader.innerHTML=`<div class="page-loader-card"><div class="page-loader-spinner"></div><div class="page-loader-copy"><strong>Cargando...</strong><span>La página está tardando más de lo habitual.</span></div></div>`; document.body.append(loader); }
+function hideSlowLoader(){ const loader=document.querySelector('#page-slow-loader'); if(loader) loader.remove(); if(slowLoaderTimer){ clearTimeout(slowLoaderTimer); slowLoaderTimer=null; } }
 const PRIVACY_NOTICE_KEY='haitani-privacy-accepted-v1';
 function privacyNotice(){return `<div class="privacy-overlay" id="privacy-notice" role="dialog" aria-modal="true" aria-labelledby="privacy-title"><section class="privacy-notice"><div class="eyebrow">Aviso importante</div><h2 id="privacy-title">Privacidad y acuerdos de uso</h2><div class="privacy-content"><p>Haitani es una plataforma para gestionar organizaciones, proyectos, tareas, archivos, mensajes, llamadas, actividad de GitHub y registros administrativos de inasistencias.</p><p>Usamos estos datos para gestionar el trabajo, mantener la seguridad y cumplir las obligaciones aplicables. El acceso está limitado según el rol de cada usuario y las contraseñas se almacenan de forma protegida. No vendemos datos personales.</p><p>Debes mantener tus credenciales en secreto, usar la aplicación únicamente para fines autorizados y no subir contenido ilegal, dañino o confidencial sin permiso. Puedes solicitar acceso, corrección o eliminación de tus datos escribiendo a <strong>adminpruebassakura@gmail.com</strong>.</p><p class="muted">Lee el documento completo en <strong>POLITICA_PRIVACIDAD_Y_ACUERDOS</strong> antes de continuar.</p></div><button class="btn" id="accept-privacy">He leído y acepto</button></section></div>`}
 function loginView(error='') { app.innerHTML=`<main class="login"><form class="login-box" id="login-form"><div class="brand">HAI<span>TANI</span></div><div class="eyebrow">Centro de control</div><h1>Haitani</h1><p class="muted">Organiza el trabajo de tu organización con una vista clara del proyecto.</p>${error?`<div class="alert">${esc(error)}</div>`:''}<label>Usuario o correo<input class="input" name="username" required autofocus></label><label>Contraseña<input class="input" name="password" type="password" required></label><button class="btn btn-block">Iniciar sesión</button></form>${localStorage.getItem(PRIVACY_NOTICE_KEY)?'':privacyNotice()}</main>`;document.querySelector('#accept-privacy')?.addEventListener('click',()=>{localStorage.setItem(PRIVACY_NOTICE_KEY,'1');document.querySelector('#privacy-notice')?.remove();document.querySelector('#login-form input')?.focus()}); document.querySelector('#login-form').onsubmit=async event=>{event.preventDefault();try{const data=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});state.user=data.user;state.plan=data.plan;location.hash=data.redirect;render()}catch(error){loginView(error.message)}}}
@@ -821,5 +824,14 @@ renderSettings=async function(){
   }
 };
 const appRender=render;
-render=async function(){if(location.hash.includes('relax'))return renderRelax();return appRender()};
+render=async function(){
+  if(slowLoaderTimer) clearTimeout(slowLoaderTimer);
+  slowLoaderTimer=setTimeout(showSlowLoader,10000);
+  try{
+    if(location.hash.includes('relax'))return await renderRelax();
+    return await appRender();
+  } finally {
+    hideSlowLoader();
+  }
+};
 window.addEventListener('hashchange',render);render();
