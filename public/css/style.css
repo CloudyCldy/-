@@ -264,7 +264,8 @@ label.card .muted{grid-column:2;font-size:12px;line-height:1.5}
 .gantt-calendar{padding-bottom:var(--sp-3);border-bottom:1px solid var(--line)}
 .gantt-calendar-label{font-weight:700;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .gantt-days{display:grid;grid-template-columns:repeat(var(--days),minmax(var(--gantt-col,54px),1fr));color:var(--muted);font-size:11px;text-align:center}
-.gantt-days span{padding:0 4px;border-left:1px solid var(--line);white-space:nowrap}
+.gantt-period{grid-column:span var(--period-days);padding:0 8px;border-left:1px solid var(--line);white-space:nowrap;text-transform:capitalize;overflow:hidden;text-overflow:ellipsis}
+.gantt-period.current{color:var(--pink);font-weight:700}
 .gantt-list{display:grid;gap:var(--sp-3);padding-top:var(--sp-4)}
 .gantt-group{display:grid;gap:var(--sp-3)}
 .gantt-group-head{grid-column:1/-1;text-align:left;border:0;background:var(--panel-2);color:var(--white);padding:9px 12px;font-weight:700;border-radius:var(--r-sm);margin-bottom:2px}
@@ -272,7 +273,7 @@ label.card .muted{grid-column:2;font-size:12px;line-height:1.5}
 .gantt-label strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
 .gantt-track{height:34px;display:grid;grid-template-columns:repeat(var(--days),minmax(var(--gantt-col,54px),1fr));align-items:center;position:relative;background:repeating-linear-gradient(90deg,transparent 0,transparent calc((100% / var(--days)) - 1px),var(--line) calc((100% / var(--days)) - 1px),var(--line) calc(100% / var(--days)))}
 .gantt-today-marker{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--pink);z-index:2;pointer-events:none}
-.gantt-bar{grid-column:calc(var(--offset) + 1) / span var(--duration);height:22px;min-width:40px;background:var(--yellow);position:relative;border-radius:var(--r-sm);overflow:hidden}
+.gantt-bar{position:absolute;left:calc(var(--offset) * 100% / var(--days));width:max(40px,calc(var(--duration) * 100% / var(--days)));height:22px;top:6px;min-width:40px;background:var(--yellow);border-radius:var(--r-sm);overflow:hidden}
 .gantt-bar:before{content:"";position:absolute;inset:0;width:var(--progress);background:var(--green)}
 .gantt-bar.en_proceso{background:var(--yellow)}.gantt-bar.completada{background:var(--green)}
 .bar-body{position:relative;z-index:1;height:100%;display:flex;align-items:center;justify-content:flex-end;padding:0 10px;color:var(--ink);font-size:11px;font-weight:700;cursor:grab;-webkit-user-select:none;user-select:none;touch-action:none}
