@@ -131,6 +131,114 @@ function statusViewerMarkup(name, data){
 function myStatusEditorMarkup(existing){
   return `<div class="status-overlay" id="status-overlay" role="dialog" aria-modal="true"><div class="status-viewer status-editor"><div class="status-viewer-head"><strong>Mi estado</strong><button class="icon-btn" id="close-status-viewer" aria-label="Cerrar">✕</button></div>${existing?`<div class="status-viewer-body">${existing.image?`<img src="${esc(existing.image)}" alt="Mi estado">`:''}${existing.content?`<p>${esc(existing.content)}</p>`:''}</div><small class="muted status-viewer-time">Publicado ${new Date(existing.createdAt).toLocaleString('es')}</small><div class="actions mt-3"><button class="btn danger" id="delete-my-status">Eliminar estado</button></div>`:`<form id="status-form" class="form-grid"><label class="full">Texto<textarea class="textarea" name="content" rows="3" placeholder="¿Qué estás pensando?"></textarea></label><label class="full">Imagen (opcional)<input class="input" type="file" name="image" accept="image/png,image/jpeg,image/webp"></label><div class="actions full"><button class="btn">Publicar estado</button></div></form>`}</div></div>`;
 }
+async function messagesView(selectedId = null){
+  const params=new URLSearchParams(location.hash.split('?')[1]||'');
+  const selectedGroupId=params.get('group');
+  const activeId=selectedId || params.get('user') || '';
+  const [users, groups]=await Promise.all([
+    api('/users').catch(()=>[]),
+    api('/messages/groups').catch(()=>[])
+  ]);
+
+  let selectedContact=null;
+  let selectedGroupDetail=null;
+  let selectedMessages=[];
+
+  if(selectedGroupId){
+    try{
+      selectedGroupDetail=await api(`/messages/groups/${selectedGroupId}`);
+    }catch(error){
+      selectedGroupDetail=null;
+    }
+    selectedMessages=selectedGroupDetail?.messages || [];
+  }else if(activeId){
+    selectedContact=users.find(user=>String(user.id)===String(activeId)) || null;
+    try{
+      selectedMessages=await api(`/messages?user_id=${activeId}`).catch(()=>[]);
+    }catch(error){
+      selectedMessages=[];
+    }
+  }
+
+  const conversationKey = selectedGroupId ? groupKey(selectedGroupId) : (selectedContact ? directKey(selectedContact.id) : 'general');
+  const conversationBackground = chatBackground(conversationKey);
+
+  const directConversations = users.filter(user=>user.active && user.id!==state.user.id).map(user=>{
+    const active=String(activeId)===String(user.id) ? 'active' : '';
+    return `<button type="button" class="conversation-user ${active}" data-id="${user.id}"><div class="conversation-user-main">${avatarMarkup(user,'message-avatar')}<div><strong>${esc(user.name)}</strong><small>${esc(user.username ? '@'+user.username : user.email || '')}</small></div></div><span class="conversation-status">${isConvMuted(directKey(user.id))?'Silenciado':isConvBlocked(directKey(user.id))?'Bloqueado':''}</span></button>`;
+  }).join('') || '<div class="empty">No hay contactos activos.</div>';
+
+  const groupConversations = groups.map(group=>{
+    const active=String(selectedGroupId)===String(group.id) ? 'active' : '';
+    return `<button type="button" class="conversation-user ${active}" data-group-id="${group.id}"><div class="conversation-user-main"><span class="message-avatar group-avatar">G</span><div><strong>${esc(group.name)}</strong><small>${group.members_count ?? 0} miembros</small></div></div><span class="conversation-status">${group.last_message_at ? timeShort(group.last_message_at) : ''}</span></button>`;
+  }).join('') || '<div class="empty">No hay grupos.</div>';
+
+  const currentTitle=selectedGroupDetail?.group?.name || selectedContact?.name || 'Mensajes';
+  const currentSubtitle=selectedGroupDetail
+    ? `${selectedGroupDetail.members.length} miembros${selectedGroupDetail.messages?.length ? ` · Último mensaje ${esc(formatLastSeen(selectedGroupDetail.messages[selectedGroupDetail.messages.length-1]?.created_at))}` : ''}`
+    : selectedContact
+      ? `@${esc(selectedContact.username || selectedContact.email || '')}${selectedContact.last_seen_at ? ` · Última vez ${esc(formatLastSeen(selectedContact.last_seen_at))}` : ''}`
+      : 'Selecciona una conversación';
+
+  const messageMarkup = selectedMessages.length
+    ? messagesForList(selectedMessages).map(entry=>{
+        if(entry.divider){
+          return `<div class="day-divider">${esc(entry.divider)}</div>`;
+        }
+        const message=entry.message;
+        const isMine = message.sender_id === state.user.id;
+        return `<div class="message ${isMine ? 'mine' : ''}"><div class="message-bubble">${message.sender_photo || message.sender_name ? `<div class="message-meta"><span class="message-avatar-wrap">${avatarMarkup({name:message.sender_name,profile_photo:message.sender_photo},'message-avatar')}</span><strong>${esc(message.sender_name || 'Usuario')}</strong></div>` : ''}<p>${esc(message.content || 'Archivo adjunto')}</p>${message.attachment_id ? `<a class="message-attachment" href="/api/files/${message.attachment_id}/download">${esc(message.attachment_name || 'Archivo adjunto')}</a>` : ''}<small>${timeShort(message.created_at)}</small></div></div>`;
+      }).join('')
+    : '<div class="empty">No hay mensajes en esta conversación.</div>';
+
+  return `
+    <section class="messages-shell">
+      ${statusStripMarkup(users)}
+      <div class="messages-layout">
+        <aside class="conversation-list">
+          <div class="conversation-list-header">
+            <h2>Mensajes</h2>
+            <button class="btn secondary mini" id="new-group" type="button">+ Grupo</button>
+          </div>
+          <div class="conversation-section">
+            <div class="conversation-label">Contactos</div>
+            ${directConversations}
+          </div>
+          <div class="conversation-section">
+            <div class="conversation-label">Grupos</div>
+            ${groupConversations}
+          </div>
+        </aside>
+        <div class="conversation">
+          <div class="conversation-header">
+            <div class="conversation-who">
+              ${selectedGroupDetail ? '<span class="message-avatar group-avatar">G</span>' : selectedContact ? avatarMarkup(selectedContact,'message-avatar') : '<span class="message-avatar group-avatar">?</span>'}
+              <div>
+                <h2>${esc(currentTitle)}</h2>
+                <small class="muted">${currentSubtitle}</small>
+              </div>
+            </div>
+            <div class="conversation-tools">
+              <button class="btn secondary mini" id="toggle-contact-info" type="button">Info</button>
+              <button class="icon-btn" id="mute-conversation" type="button" title="Silenciar conversación" aria-label="Silenciar conversación">🔔</button>
+              <button class="icon-btn danger" id="block-conversation" type="button" title="Bloquear conversación" aria-label="Bloquear conversación">🚫</button>
+            </div>
+          </div>
+          <div class="message-list" data-bg-key="${esc(conversationKey)}" style="background:${esc(conversationBackground)};">
+            ${messageMarkup}
+          </div>
+          <form id="message-form" class="message-form" data-group-id="${esc(selectedGroupId || '')}">
+            <label class="file-pill">
+              <input type="file" name="file" class="file-input">
+            </label>
+            <textarea class="textarea" name="content" rows="1" placeholder="Escribe un mensaje..."></textarea>
+            <button class="btn" type="submit">Enviar</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  `;
+}
 async function renderMessages(){
   signalSocket();
   const params=new URLSearchParams(location.hash.split('?')[1]||'');
