@@ -1,5 +1,19 @@
 async function list(req, res) {
-  const calls = await req.app.locals.database.prepare(`SELECT calls.id, calls.call_type, calls.status, calls.scheduled_at, calls.created_at, users.id AS caller_id, users.name AS caller_name, users.profile_photo AS caller_photo FROM calls JOIN users ON users.id = calls.caller_id WHERE calls.receiver_id = ? AND calls.organization_id = ? ORDER BY calls.created_at DESC LIMIT 30`).all(req.session.user.id, req.session.user.organization_id);
+  const calls = await req.app.locals.database.prepare(`
+    SELECT calls.id, calls.call_type, calls.status, calls.scheduled_at, calls.created_at,
+           calls.caller_id, calls.receiver_id, users.name AS caller_name, users.profile_photo AS caller_photo,
+           CASE WHEN calls.caller_id = ? THEN 'outgoing' ELSE 'incoming' END AS direction,
+           CASE
+             WHEN calls.status = 'answered' THEN 'realizada'
+             WHEN calls.status = 'missed' THEN 'perdida'
+             WHEN calls.status = 'scheduled' THEN 'programada'
+             ELSE 'iniciada'
+           END AS status_label
+    FROM calls
+    JOIN users ON users.id = calls.caller_id
+    WHERE calls.organization_id = ? AND (calls.caller_id = ? OR calls.receiver_id = ?)
+    ORDER BY calls.created_at DESC LIMIT 60
+  `).all(req.session.user.id, req.session.user.organization_id, req.session.user.id, req.session.user.id);
   res.json(calls);
 }
 

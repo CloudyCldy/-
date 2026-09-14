@@ -54,6 +54,7 @@ app.use('/api/files', require('./server/routes/fileRoutes'));
 app.use('/api/dashboard', require('./server/routes/dashboardRoutes'));
 app.use('/api/github', require('./server/routes/githubRoutes'));
 app.use('/api/messages', require('./server/routes/messageRoutes'));
+app.use('/api/incidences', require('./server/routes/incidenceRoutes'));
 app.use('/api/chat-backgrounds', require('./server/routes/chatBackgroundRoutes'));
 app.use('/api/calls', require('./server/routes/callRoutes'));
 app.use('/api/music', require('./server/routes/musicRoutes'));

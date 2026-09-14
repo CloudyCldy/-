@@ -51,13 +51,15 @@ async function init() {
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, username TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL UNIQUE, password TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin', 'member')), active INTEGER NOT NULL DEFAULT 1,
-      github_username TEXT, profile_photo TEXT,
+      role TEXT NOT NULL CHECK (role IN ('admin', 'member', 'project_manager', 'viewer')), active INTEGER NOT NULL DEFAULT 1,
+      github_username TEXT, gitlab_username TEXT, gitlab_token TEXT, profile_photo TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id INTEGER;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_username TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_token TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
     INSERT INTO organizations (name, slug, email, description)
       VALUES ('Haitani', 'haitani', 'admin@haitani.local', 'Organización inicial de Haitani')
@@ -177,6 +179,26 @@ async function init() {
     UPDATE messages SET organization_id = (SELECT organization_id FROM users WHERE users.id = messages.sender_id) WHERE organization_id IS NULL;
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivery_status TEXT NOT NULL DEFAULT 'enviado';
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_id INTEGER REFERENCES files(id) ON DELETE SET NULL;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_name TEXT;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_mime TEXT;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS conversation_type TEXT NOT NULL DEFAULT 'direct' CHECK (conversation_type IN ('direct', 'group'));
+    CREATE TABLE IF NOT EXISTS chat_groups (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS chat_group_members (
+      group_id INTEGER NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (group_id, user_id)
+    );
     CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages (sender_id, receiver_id, created_at);
     CREATE TABLE IF NOT EXISTS conversation_deletions (
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -207,6 +229,19 @@ async function init() {
     );
     ALTER TABLE absences ADD COLUMN IF NOT EXISTS organization_id INTEGER;
     UPDATE absences SET organization_id = (SELECT organization_id FROM users WHERE users.id = absences.user_id) WHERE organization_id IS NULL;
+    CREATE TABLE IF NOT EXISTS incidences (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_review', 'resolved', 'appealed')),
+      assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      appeal_reason TEXT,
+      appealed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE INDEX IF NOT EXISTS absences_user_date_idx ON absences (user_id, absence_date DESC);
     CREATE INDEX IF NOT EXISTS users_organization_idx ON users (organization_id);
     CREATE INDEX IF NOT EXISTS projects_organization_idx ON projects (organization_id);

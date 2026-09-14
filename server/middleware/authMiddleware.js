@@ -3,8 +3,8 @@ async function requireAuth(req, res, next) {
   try {
     const user = await req.app.locals.database.prepare(`
       SELECT users.id, users.name, users.username, users.email, users.role, users.role_id,
-             users.organization_id, users.active, users.github_username, users.profile_photo,
-             organizations.name AS organization_name, organizations.slug AS organization_slug
+             users.organization_id, users.active, users.github_username, users.gitlab_username,
+             users.profile_photo, organizations.name AS organization_name, organizations.slug AS organization_slug
       FROM users JOIN organizations ON organizations.id = users.organization_id
       WHERE users.id = ? AND users.active = 1 AND organizations.status = 'active'
     `).get(req.session.user.id);
