@@ -129,7 +129,52 @@ async function gantt(){
   const assigneeOptions = users.filter(u => u.role === 'member').map(u => `<option value="${u.id}" ${ganttAssigneeFilter === String(u.id) ? 'selected' : ''}>${esc(u.name)}</option>`).join('');
   const unscheduledHtml = unscheduledTasks.length ? `<section class="card mt-4"><h3>Tareas sin fecha</h3><div class="grid stats">${unscheduledTasks.map(t => `<div class="gantt-unscheduled-item"><strong>${esc(t.title)}</strong><small class="muted">${esc(t.assignee_name || 'Sin asignar')}</small></div>`).join('')}</div></section>` : '';
 
-  return `${heading('Gantt', 'Calendario del proyecto. Cambia de mes, arrastra una tarea a otro día para moverla y haz clic sobre ella para editar su estado o sus fechas.')}<section class="card gantt-card"><div class="gantt-controls"><div class="actions"><button class="btn secondary" id="gantt-prev-month" aria-label="Mes anterior">‹</button><strong class="gantt-month-label">${monthLabel}</strong><button class="btn secondary" id="gantt-next-month" aria-label="Mes siguiente">›</button><button class="btn secondary" id="gantt-today-btn">Hoy</button></div><div class="actions"><label class="inline"><span class="muted gantt-controls-label">Estado</span><select class="select" id="gantt-status-filter"><option value="">Todos</option><option value="pendiente" ${ganttStatusFilter === 'pendiente' ? 'selected' : ''}>Pendiente</option><option value="en_proceso" ${ganttStatusFilter === 'en_proceso' ? 'selected' : ''}>En proceso</option><option value="completada" ${ganttStatusFilter === 'completada' ? 'selected' : ''}>Completada</option></select></label>${assigneeOptions ? `<label class="inline"><span class="muted gantt-controls-label">Integrante</span><select class="select" id="gantt-assignee-filter"><option value="">Todos</option>${assigneeOptions}</select></label>` : ''}</div></div><div class="gantt-cal-weekdays">${GANTT_WEEKDAY_LABELS.map(l => `<span>${l}</span>`).join('')}</div><div class="gantt-cal-grid">${weeksHtml.join('')}</div><div class="gantt-legend"><span><i class="gantt-dot pendiente"></i>Pendiente 0%</span><span><i class="gantt-dot en_proceso"></i>En proceso 50%</span><span><i class="gantt-dot completada"></i>Completada 100%</span></div></section>${unscheduledHtml}`
+  const timelineHtml = ganttTimelineHtml(scheduledTasks, dayMs, today, progress);
+
+  return `${heading('Gantt', 'Calendario del proyecto. Cambia de mes, arrastra una tarea a otro día para moverla y haz clic sobre ella para editar su estado o sus fechas.')}<section class="card gantt-card"><div class="gantt-controls"><div class="actions"><button class="btn secondary" id="gantt-prev-month" aria-label="Mes anterior">‹</button><strong class="gantt-month-label">${monthLabel}</strong><button class="btn secondary" id="gantt-next-month" aria-label="Mes siguiente">›</button><button class="btn secondary" id="gantt-today-btn">Hoy</button></div><div class="actions"><label class="inline"><span class="muted gantt-controls-label">Estado</span><select class="select" id="gantt-status-filter"><option value="">Todos</option><option value="pendiente" ${ganttStatusFilter === 'pendiente' ? 'selected' : ''}>Pendiente</option><option value="en_proceso" ${ganttStatusFilter === 'en_proceso' ? 'selected' : ''}>En proceso</option><option value="completada" ${ganttStatusFilter === 'completada' ? 'selected' : ''}>Completada</option></select></label>${assigneeOptions ? `<label class="inline"><span class="muted gantt-controls-label">Integrante</span><select class="select" id="gantt-assignee-filter"><option value="">Todos</option>${assigneeOptions}</select></label>` : ''}</div></div><div class="gantt-cal-weekdays">${GANTT_WEEKDAY_LABELS.map(l => `<span>${l}</span>`).join('')}</div><div class="gantt-cal-grid">${weeksHtml.join('')}</div><div class="gantt-legend"><span><i class="gantt-dot pendiente"></i>Pendiente 0%</span><span><i class="gantt-dot en_proceso"></i>En proceso 50%</span><span><i class="gantt-dot completada"></i>Completada 100%</span></div></section>${unscheduledHtml}${timelineHtml}`
+}
+function ganttTimelineHtml(scheduledTasks, dayMs, today, progress) {
+  if (!scheduledTasks.length) {
+    return `<section class="card gantt-timeline-card mt-4"><h2>Vista de barras (Gantt)</h2><div class="empty">No hay tareas con fechas para mostrar en la línea de tiempo. Asigna una fecha inicial y una fecha límite a una tarea para verla aquí.</div></section>`;
+  }
+  const dayWidth = window.matchMedia('(max-width:850px)').matches ? 22 : 32;
+  let rangeStart = new Date(Math.min(...scheduledTasks.map(t => t.startDate.getTime())));
+  let rangeEnd = new Date(Math.max(...scheduledTasks.map(t => t.dueDate.getTime())));
+  rangeStart.setDate(rangeStart.getDate() - 2);
+  rangeEnd.setDate(rangeEnd.getDate() + 2);
+  if (rangeStart > today) rangeStart = new Date(today.getTime() - 2 * dayMs);
+  if (rangeEnd < today) rangeEnd = new Date(today.getTime() + 2 * dayMs);
+  const totalDays = Math.min(Math.round((rangeEnd - rangeStart) / dayMs) + 1, 400);
+
+  const months = [];
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(rangeStart.getTime() + i * dayMs);
+    const label = d.toLocaleDateString('es', { month: 'long', year: 'numeric' });
+    if (months.length && months[months.length - 1].label === label) months[months.length - 1].span++;
+    else months.push({ label, span: 1 });
+  }
+  const monthsHtml = months.map(m => `<div class="gantt-timeline-month" style="--span:${m.span}">${esc(m.label)}</div>`).join('');
+
+  const daysHtml = [];
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(rangeStart.getTime() + i * dayMs);
+    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+    const isToday = d.getTime() === today.getTime();
+    daysHtml.push(`<div class="gantt-timeline-day ${isWeekend ? 'is-weekend' : ''} ${isToday ? 'is-today' : ''}">${d.getDate()}</div>`);
+  }
+
+  const todayOffset = Math.round((today - rangeStart) / dayMs);
+
+  const rowsHtml = scheduledTasks
+    .sort((a, b) => a.startDate - b.startDate)
+    .map(t => {
+      const startOffset = Math.round((t.startDate - rangeStart) / dayMs);
+      const span = Math.max(1, Math.round((t.dueDate - t.startDate) / dayMs) + 1);
+      const percent = progress[t.status] ?? 0;
+      return `<div class="gantt-timeline-row"><div class="gantt-timeline-row-label"><strong>${esc(t.title)}</strong><small class="muted">${esc(t.assignee_name || 'Sin asignar')}</small></div><div class="gantt-timeline-track" data-row-start="${toISODate(rangeStart)}"><div class="gantt-timeline-bar ${t.status}" draggable="true" data-id="${t.id}" data-start="${t.start_date || ''}" data-due="${t.due_date || ''}" style="--start:${startOffset};--span:${span}" title="${esc(t.title)} · ${esc(t.assignee_name || 'Sin asignar')} · ${percent}%">${esc(t.title)}</div></div></div>`;
+    }).join('');
+
+  return `<section class="card gantt-timeline-card mt-4"><h2>Vista de barras (Gantt)</h2><p class="muted">Arrastra una barra para mover la tarea; haz clic sobre ella para editar su estado o sus fechas.</p><div class="gantt-timeline-scroll"><div class="gantt-timeline" style="--day-w:${dayWidth}px" data-range-start="${toISODate(rangeStart)}"><div class="gantt-timeline-header"><div class="gantt-timeline-header-label">Tarea</div><div><div class="gantt-timeline-scale-months">${monthsHtml}</div><div class="gantt-timeline-days">${daysHtml.join('')}</div></div></div><div class="gantt-timeline-body">${rowsHtml}</div><div class="gantt-timeline-today-line" style="--today:${todayOffset}"></div></div></div></section>`;
 }
 async function renderGantt(){layout(await gantt());bindGanttEvents()}
 function bindGanttEvents(){
@@ -164,6 +209,47 @@ function bindGanttEvents(){
     });
   });
   document.querySelectorAll('.gantt-cal-more').forEach(more=>more.addEventListener('click',()=>notify('Hay más tareas esta semana de las que caben. Filtra por integrante o estado para verlas todas.')));
+  bindGanttTimelineEvents();
+}
+function bindGanttTimelineEvents(){
+  document.querySelectorAll('.gantt-timeline-bar').forEach(bar=>{
+    bar.addEventListener('click',()=>{if(bar.dataset.dragging==='1')return;openGanttQuickEdit(bar.dataset.id)});
+    bar.addEventListener('dragstart',event=>{
+      bar.dataset.dragging='1';
+      event.dataTransfer.effectAllowed='move';
+      event.dataTransfer.setData('id',bar.dataset.id);
+      event.dataTransfer.setData('start',bar.dataset.start);
+      event.dataTransfer.setData('due',bar.dataset.due);
+      event.dataTransfer.setData('startOffset',bar.style.getPropertyValue('--start'));
+    });
+    bar.addEventListener('dragend',()=>{setTimeout(()=>{bar.dataset.dragging='0'},0)});
+  });
+  document.querySelectorAll('.gantt-timeline-track').forEach(track=>{
+    track.addEventListener('dragover',event=>{event.preventDefault();track.classList.add('drop-target')});
+    track.addEventListener('dragleave',()=>track.classList.remove('drop-target'));
+    track.addEventListener('drop',async event=>{
+      event.preventDefault();track.classList.remove('drop-target');
+      const id=event.dataTransfer.getData('id');
+      const originalStart=event.dataTransfer.getData('start');
+      const originalDue=event.dataTransfer.getData('due');
+      const startOffset=parseInt(event.dataTransfer.getData('startOffset')||'0',10);
+      if(!id||!originalStart)return;
+      const timeline=track.closest('.gantt-timeline');
+      const dayWidth=parseFloat(getComputedStyle(timeline).getPropertyValue('--day-w'))||32;
+      const rect=track.getBoundingClientRect();
+      const dayIndex=Math.floor((event.clientX-rect.left)/dayWidth);
+      const deltaDays=dayIndex-startOffset;
+      if(!deltaDays)return;
+      const newStart=addDays(originalStart,deltaDays);
+      const newDue=originalDue?addDays(originalDue,deltaDays):newStart;
+      try{
+        const task=await api(`/tasks/${id}`);
+        await api(`/tasks/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:task.title,description:task.description||'',assigned_to:task.assigned_to||'',priority:task.priority,status:task.status,start_date:newStart,due_date:newDue})});
+        notify('Fechas actualizadas');
+      }catch(error){notify(error.message)}
+      renderGantt();
+    });
+  });
 }
 async function openGanttQuickEdit(id){
   let task;try{task=await api(`/tasks/${id}`)}catch(error){notify(error.message);return}
