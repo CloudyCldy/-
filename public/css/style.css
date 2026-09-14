@@ -299,39 +299,45 @@ label.card .muted{grid-column:2;font-size:12px;line-height:1.5}
 }
 
 /* =========================================================
-   GANTT — LÍNEA DE TIEMPO (barras horizontales por tarea)
+   GANTT — DIAGRAMA HORIZONTAL (real Gantt chart, below calendar)
    ========================================================= */
-.gantt-timeline-card{overflow:hidden}
-.gantt-timeline-card > p.muted{margin:0 0 var(--sp-4)}
-.gantt-timeline-scroll{overflow-x:auto;overscroll-behavior-x:contain;border:1px solid var(--line);border-radius:var(--r-md)}
-.gantt-timeline{position:relative;display:grid;min-width:max-content;background:var(--panel)}
-.gantt-timeline-header{display:grid;grid-template-columns:220px 1fr;position:sticky;top:0;z-index:2;background:var(--panel)}
-.gantt-timeline-header-label{padding:10px var(--sp-3);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;align-items:flex-end}
-.gantt-timeline-scale-months{display:grid;grid-auto-flow:column;grid-auto-columns:var(--day-w,32px);border-bottom:1px solid var(--line)}
-.gantt-timeline-month{grid-column:span var(--span);padding:4px 8px;font-size:11px;font-weight:700;color:var(--muted);border-left:1px solid var(--line);text-transform:capitalize;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gantt-timeline-days{display:grid;grid-auto-flow:column;grid-auto-columns:var(--day-w,32px);border-bottom:1px solid var(--line)}
-.gantt-timeline-day{text-align:center;font-size:10px;color:var(--muted);padding:5px 0;border-left:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
-.gantt-timeline-day.is-weekend{background:color-mix(in srgb,var(--panel-2) 35%,transparent)}
-.gantt-timeline-day.is-today{color:var(--pink);font-weight:700}
-.gantt-timeline-body{position:relative}
-.gantt-timeline-row{display:grid;grid-template-columns:220px 1fr;border-bottom:1px solid var(--line)}
-.gantt-timeline-row:last-child{border-bottom:0}
-.gantt-timeline-row-label{padding:10px var(--sp-3);border-right:1px solid var(--line);min-width:0;display:flex;flex-direction:column;justify-content:center;background:var(--panel);position:sticky;left:0;z-index:1}
-.gantt-timeline-row-label strong{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gantt-timeline-row-label small{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gantt-timeline-track{position:relative;height:48px;background-image:repeating-linear-gradient(to right,color-mix(in srgb,var(--line) 55%,transparent) 0,color-mix(in srgb,var(--line) 55%,transparent) 1px,transparent 1px,transparent var(--day-w,32px))}
-.gantt-timeline-track.drop-target{background-color:color-mix(in srgb,var(--pink) 14%,transparent)}
-.gantt-timeline-bar{position:absolute;top:9px;height:30px;left:calc(var(--start) * var(--day-w,32px));width:calc(var(--span) * var(--day-w,32px) - 4px);margin:0 2px;border-radius:var(--r-sm);background:var(--yellow);color:var(--ink);display:flex;align-items:center;padding:0 8px;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:grab;box-shadow:var(--shadow-sm);transition:transform .12s var(--ease),box-shadow .12s var(--ease)}
-.gantt-timeline-bar:hover{transform:translateY(-1px);box-shadow:var(--shadow-md);z-index:2}
-.gantt-timeline-bar:active{cursor:grabbing}
-.gantt-timeline-bar.en_proceso{background:var(--lilac)}
-.gantt-timeline-bar.completada{background:var(--green)}
-.gantt-timeline-today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--pink);left:calc(220px + var(--today) * var(--day-w,32px));pointer-events:none;z-index:1}
+.gantt-chart-card{overflow:hidden}
+.gantt-chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-4);margin-bottom:var(--sp-4);flex-wrap:wrap}
+.gantt-chart-head .actions{flex-shrink:0}
+.gantt-chart-head .btn.secondary{width:36px;height:36px;padding:0;display:grid;place-items:center;font:700 16px 'Space Grotesk';line-height:1}
+.gtc-wrap{display:flex;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.gtc-labels{flex:0 0 210px;border-right:1px solid var(--line);background:color-mix(in srgb,var(--panel-2) 60%,var(--ink) 40%)}
+.gtc-labels-head{height:57px;display:flex;align-items:center;padding:0 var(--sp-3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--line);box-sizing:border-box}
+.gtc-row-label-fixed{height:46px;display:flex;flex-direction:column;justify-content:center;padding:0 var(--sp-3);border-bottom:1px solid var(--line);box-sizing:border-box}
+.gtc-row-label-fixed span{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gtc-row-label-fixed small{font-size:11px}
+.gtc-scroll{flex:1;overflow-x:auto;overflow-y:hidden;min-width:0}
+.gtc-timeline{position:relative}
+.gtc-months{display:flex;height:29px;border-bottom:1px solid var(--line);box-sizing:border-box}
+.gtc-month{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;text-transform:capitalize;color:var(--muted);border-right:1px solid var(--line);white-space:nowrap;overflow:hidden;flex-shrink:0;box-sizing:border-box}
+.gtc-days{display:flex;height:28px;border-bottom:1px solid var(--line);box-sizing:border-box}
+.gtc-day{display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);border-right:1px solid color-mix(in srgb,var(--line) 55%,transparent);flex-shrink:0;box-sizing:border-box}
+.gtc-day.is-weekend{background:color-mix(in srgb,var(--panel-2) 55%,transparent)}
+.gtc-day.is-today{background:color-mix(in srgb,var(--pink) 20%,transparent);color:var(--pink);font-weight:700}
+.gtc-rows-area{position:relative}
+.gtc-today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--pink);z-index:1;pointer-events:none;opacity:.75}
+.gtc-row{position:relative;height:46px;border-bottom:1px solid var(--line);box-sizing:border-box}
+.gtc-bar{position:absolute;top:9px;height:28px;border-radius:var(--r-sm);background:var(--yellow);display:flex;align-items:center;padding:0 12px;overflow:hidden;cursor:grab;box-shadow:var(--shadow-sm);transition:box-shadow .12s var(--ease);user-select:none;touch-action:none}
+.gtc-bar:hover{box-shadow:var(--shadow-md);z-index:2}
+.gtc-bar.is-dragging{cursor:grabbing;z-index:3;box-shadow:var(--shadow-lg)}
+.gtc-bar.en_proceso{background:var(--lilac)}
+.gtc-bar.completada{background:var(--green)}
+.gtc-bar-fill{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,var(--ink) 22%,transparent);pointer-events:none}
+.gtc-bar-label{position:relative;font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.gtc-bar-handle{position:absolute;top:0;bottom:0;width:9px;background:transparent;border:0;padding:0;cursor:ew-resize;z-index:1}
+.gtc-bar-handle.left{left:0}
+.gtc-bar-handle.right{right:0}
+.gtc-bar-handle:hover{background:color-mix(in srgb,var(--ink) 28%,transparent)}
+.gtc-note{margin-top:var(--sp-3)}
 @media(max-width:850px){
-  .gantt-timeline-header-label,.gantt-timeline-row-label{padding:8px 10px}
-  .gantt-timeline-row-label strong{font-size:12px}
-  .gantt-timeline-track{height:40px}
-  .gantt-timeline-bar{top:7px;height:26px;font-size:11px;padding:0 6px}
+  .gtc-labels{flex:0 0 140px}
+  .gtc-row-label-fixed span{font-size:12px}
+  .gtc-row-label-fixed small{font-size:10px}
 }
 
 /* =========================================================
@@ -497,8 +503,11 @@ label.card .muted{grid-column:2;font-size:12px;line-height:1.5}
 :root[data-theme="ryutan"] .gantt-cal-days{background:#7D9B9F}
 :root[data-theme="ryutan"] .gantt-month-label{color:#FEFCEA}
 :root[data-theme="ryutan"] .gantt-cal-weekdays span{color:#7D9B9F}
-:root[data-theme="ryutan"] .gantt-timeline,:root[data-theme="ryutan"] .gantt-timeline-header,:root[data-theme="ryutan"] .gantt-timeline-row-label{background:#FEFCEA;color:#13202B}
-:root[data-theme="ryutan"] .gantt-timeline-day,:root[data-theme="ryutan"] .gantt-timeline-header-label{color:#627079}
+:root[data-theme="ryutan"] .gtc-labels{background:#13202B}
+:root[data-theme="ryutan"] .gtc-row-label-fixed span{color:#FEFCEA}
+:root[data-theme="ryutan"] .gtc-labels-head{color:#7D9B9F}
+:root[data-theme="ryutan"] .gtc-day{color:#627079}
+:root[data-theme="ryutan"] .gtc-month{color:#627079}
 
 /* =========================================================
    UTILITIES — small helpers so JS doesn't need inline styles

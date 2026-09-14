@@ -8,6 +8,8 @@ document.documentElement.dataset.theme = currentTheme;
 let ganttStatusFilter = '';
 let ganttAssigneeFilter = '';
 let ganttCalendarMonth = (() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d })();
+let ganttChartZoom = 32;
+let ganttChartMinDate = null;
 const GANTT_WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 function startOfWeekMonday(date) { const d = new Date(date); const offset = (d.getDay() + 6) % 7; d.setDate(d.getDate() - offset); d.setHours(0, 0, 0, 0); return d }
 function toISODate(date) { return date.toISOString().slice(0, 10) }
@@ -129,54 +131,135 @@ async function gantt(){
   const assigneeOptions = users.filter(u => u.role === 'member').map(u => `<option value="${u.id}" ${ganttAssigneeFilter === String(u.id) ? 'selected' : ''}>${esc(u.name)}</option>`).join('');
   const unscheduledHtml = unscheduledTasks.length ? `<section class="card mt-4"><h3>Tareas sin fecha</h3><div class="grid stats">${unscheduledTasks.map(t => `<div class="gantt-unscheduled-item"><strong>${esc(t.title)}</strong><small class="muted">${esc(t.assignee_name || 'Sin asignar')}</small></div>`).join('')}</div></section>` : '';
 
-  const timelineHtml = ganttTimelineHtml(scheduledTasks, dayMs, today, progress);
-
-  return `${heading('Gantt', 'Calendario del proyecto. Cambia de mes, arrastra una tarea a otro día para moverla y haz clic sobre ella para editar su estado o sus fechas.')}<section class="card gantt-card"><div class="gantt-controls"><div class="actions"><button class="btn secondary" id="gantt-prev-month" aria-label="Mes anterior">‹</button><strong class="gantt-month-label">${monthLabel}</strong><button class="btn secondary" id="gantt-next-month" aria-label="Mes siguiente">›</button><button class="btn secondary" id="gantt-today-btn">Hoy</button></div><div class="actions"><label class="inline"><span class="muted gantt-controls-label">Estado</span><select class="select" id="gantt-status-filter"><option value="">Todos</option><option value="pendiente" ${ganttStatusFilter === 'pendiente' ? 'selected' : ''}>Pendiente</option><option value="en_proceso" ${ganttStatusFilter === 'en_proceso' ? 'selected' : ''}>En proceso</option><option value="completada" ${ganttStatusFilter === 'completada' ? 'selected' : ''}>Completada</option></select></label>${assigneeOptions ? `<label class="inline"><span class="muted gantt-controls-label">Integrante</span><select class="select" id="gantt-assignee-filter"><option value="">Todos</option>${assigneeOptions}</select></label>` : ''}</div></div><div class="gantt-cal-weekdays">${GANTT_WEEKDAY_LABELS.map(l => `<span>${l}</span>`).join('')}</div><div class="gantt-cal-grid">${weeksHtml.join('')}</div><div class="gantt-legend"><span><i class="gantt-dot pendiente"></i>Pendiente 0%</span><span><i class="gantt-dot en_proceso"></i>En proceso 50%</span><span><i class="gantt-dot completada"></i>Completada 100%</span></div></section>${unscheduledHtml}${timelineHtml}`
+  return `${heading('Gantt', 'Calendario del proyecto. Cambia de mes, arrastra una tarea a otro día para moverla y haz clic sobre ella para editar su estado o sus fechas.')}<section class="card gantt-card"><div class="gantt-controls"><div class="actions"><button class="btn secondary" id="gantt-prev-month" aria-label="Mes anterior">‹</button><strong class="gantt-month-label">${monthLabel}</strong><button class="btn secondary" id="gantt-next-month" aria-label="Mes siguiente">›</button><button class="btn secondary" id="gantt-today-btn">Hoy</button></div><div class="actions"><label class="inline"><span class="muted gantt-controls-label">Estado</span><select class="select" id="gantt-status-filter"><option value="">Todos</option><option value="pendiente" ${ganttStatusFilter === 'pendiente' ? 'selected' : ''}>Pendiente</option><option value="en_proceso" ${ganttStatusFilter === 'en_proceso' ? 'selected' : ''}>En proceso</option><option value="completada" ${ganttStatusFilter === 'completada' ? 'selected' : ''}>Completada</option></select></label>${assigneeOptions ? `<label class="inline"><span class="muted gantt-controls-label">Integrante</span><select class="select" id="gantt-assignee-filter"><option value="">Todos</option>${assigneeOptions}</select></label>` : ''}</div></div><div class="gantt-cal-weekdays">${GANTT_WEEKDAY_LABELS.map(l => `<span>${l}</span>`).join('')}</div><div class="gantt-cal-grid">${weeksHtml.join('')}</div><div class="gantt-legend"><span><i class="gantt-dot pendiente"></i>Pendiente 0%</span><span><i class="gantt-dot en_proceso"></i>En proceso 50%</span><span><i class="gantt-dot completada"></i>Completada 100%</span></div></section>${unscheduledHtml}${ganttChartMarkup(scheduledTasks, unscheduledTasks)}`
 }
-function ganttTimelineHtml(scheduledTasks, dayMs, today, progress) {
-  if (!scheduledTasks.length) {
-    return `<section class="card gantt-timeline-card mt-4"><h2>Vista de barras (Gantt)</h2><div class="empty">No hay tareas con fechas para mostrar en la línea de tiempo. Asigna una fecha inicial y una fecha límite a una tarea para verla aquí.</div></section>`;
-  }
-  const dayWidth = window.matchMedia('(max-width:850px)').matches ? 22 : 32;
-  let rangeStart = new Date(Math.min(...scheduledTasks.map(t => t.startDate.getTime())));
-  let rangeEnd = new Date(Math.max(...scheduledTasks.map(t => t.dueDate.getTime())));
-  rangeStart.setDate(rangeStart.getDate() - 2);
-  rangeEnd.setDate(rangeEnd.getDate() + 2);
-  if (rangeStart > today) rangeStart = new Date(today.getTime() - 2 * dayMs);
-  if (rangeEnd < today) rangeEnd = new Date(today.getTime() + 2 * dayMs);
-  const totalDays = Math.min(Math.round((rangeEnd - rangeStart) / dayMs) + 1, 400);
+function ganttChartMarkup(scheduledTasks, unscheduledTasks) {
+  const dayMs = 86400000;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let min = null, max = null;
+  scheduledTasks.forEach(t => {
+    if (!min || t.startDate < min) min = t.startDate;
+    if (!max || t.dueDate > max) max = t.dueDate;
+  });
+  if (!min) { min = new Date(today); max = new Date(today) }
+  min = new Date(min); min.setDate(min.getDate() - 2);
+  max = new Date(max); max.setDate(max.getDate() + 5);
+  if (max < today) { max = new Date(today); max.setDate(max.getDate() + 14) }
+  if (min > today) { min = new Date(today); min.setDate(min.getDate() - 2) }
+  ganttChartMinDate = min;
+  const totalDays = Math.round((max - min) / dayMs) + 1;
+  const dayWidth = ganttChartZoom;
+  const todayOffset = Math.round((today - min) / dayMs);
 
   const months = [];
-  for (let i = 0; i < totalDays; i++) {
-    const d = new Date(rangeStart.getTime() + i * dayMs);
-    const label = d.toLocaleDateString('es', { month: 'long', year: 'numeric' });
-    if (months.length && months[months.length - 1].label === label) months[months.length - 1].span++;
-    else months.push({ label, span: 1 });
+  let cursor = new Date(min);
+  while (cursor <= max) {
+    const y = cursor.getFullYear(), m = cursor.getMonth();
+    const nextMonth = new Date(y, m + 1, 1);
+    const segEnd = nextMonth <= max ? new Date(nextMonth.getTime() - dayMs) : new Date(max);
+    const days = Math.round((segEnd - cursor) / dayMs) + 1;
+    months.push({ label: cursor.toLocaleDateString('es', { month: 'long', year: 'numeric' }), days });
+    cursor = nextMonth;
   }
-  const monthsHtml = months.map(m => `<div class="gantt-timeline-month" style="--span:${m.span}">${esc(m.label)}</div>`).join('');
-
-  const daysHtml = [];
+  const dayCells = [];
   for (let i = 0; i < totalDays; i++) {
-    const d = new Date(rangeStart.getTime() + i * dayMs);
-    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-    const isToday = d.getTime() === today.getTime();
-    daysHtml.push(`<div class="gantt-timeline-day ${isWeekend ? 'is-weekend' : ''} ${isToday ? 'is-today' : ''}">${d.getDate()}</div>`);
+    const date = new Date(min.getTime() + i * dayMs);
+    const isToday = date.getTime() === today.getTime();
+    const isWeekend = [0, 6].includes(date.getDay());
+    dayCells.push(`<div class="gtc-day ${isToday ? 'is-today' : ''} ${isWeekend ? 'is-weekend' : ''}" style="width:${dayWidth}px">${date.getDate()}</div>`);
   }
 
-  const todayOffset = Math.round((today - rangeStart) / dayMs);
+  const progress = { pendiente: 0, en_proceso: 50, completada: 100 };
+  const rows = [...scheduledTasks].sort((a, b) => a.startDate - b.startDate);
+  const labelsHtml = rows.map(t => `<div class="gtc-row-label-fixed"><span title="${esc(t.title)}">${esc(t.title)}</span><small class="muted">${esc(t.assignee_name || 'Sin asignar')}</small></div>`).join('');
+  const tracksHtml = rows.map(t => {
+    const offset = Math.round((t.startDate - min) / dayMs);
+    const span = Math.max(1, Math.round((t.dueDate - t.startDate) / dayMs) + 1);
+    const percent = progress[t.status] ?? 0;
+    return `<div class="gtc-row"><div class="gtc-bar ${t.status}" data-id="${t.id}" data-start="${t.start_date || ''}" data-due="${t.due_date || ''}" style="left:${offset * dayWidth}px;width:${Math.max(dayWidth - 4, span * dayWidth - 4)}px" title="${esc(t.title)} · ${esc(t.assignee_name || 'Sin asignar')} · ${percent}%"><span class="gtc-bar-fill" style="width:${percent}%"></span><button type="button" class="gtc-bar-handle left" data-edge="start" aria-label="Ajustar inicio"></button><span class="gtc-bar-label">${esc(t.title)}</span><button type="button" class="gtc-bar-handle right" data-edge="due" aria-label="Ajustar fin"></button></div></div>`;
+  }).join('');
+  const emptyState = rows.length ? '' : '<div class="empty">No hay tareas programadas para mostrar en el diagrama.</div>';
+  const unscheduledNote = unscheduledTasks.length ? `<p class="muted gtc-note">${unscheduledTasks.length} tarea(s) sin fecha no se muestran aquí; asígnales fecha inicial y límite para incluirlas.</p>` : '';
 
-  const rowsHtml = scheduledTasks
-    .sort((a, b) => a.startDate - b.startDate)
-    .map(t => {
-      const startOffset = Math.round((t.startDate - rangeStart) / dayMs);
-      const span = Math.max(1, Math.round((t.dueDate - t.startDate) / dayMs) + 1);
-      const percent = progress[t.status] ?? 0;
-      return `<div class="gantt-timeline-row"><div class="gantt-timeline-row-label"><strong>${esc(t.title)}</strong><small class="muted">${esc(t.assignee_name || 'Sin asignar')}</small></div><div class="gantt-timeline-track" data-row-start="${toISODate(rangeStart)}"><div class="gantt-timeline-bar ${t.status}" draggable="true" data-id="${t.id}" data-start="${t.start_date || ''}" data-due="${t.due_date || ''}" style="--start:${startOffset};--span:${span}" title="${esc(t.title)} · ${esc(t.assignee_name || 'Sin asignar')} · ${percent}%">${esc(t.title)}</div></div></div>`;
-    }).join('');
-
-  return `<section class="card gantt-timeline-card mt-4"><h2>Vista de barras (Gantt)</h2><p class="muted">Arrastra una barra para mover la tarea; haz clic sobre ella para editar su estado o sus fechas.</p><div class="gantt-timeline-scroll"><div class="gantt-timeline" style="--day-w:${dayWidth}px" data-range-start="${toISODate(rangeStart)}"><div class="gantt-timeline-header"><div class="gantt-timeline-header-label">Tarea</div><div><div class="gantt-timeline-scale-months">${monthsHtml}</div><div class="gantt-timeline-days">${daysHtml.join('')}</div></div></div><div class="gantt-timeline-body">${rowsHtml}</div><div class="gantt-timeline-today-line" style="--today:${todayOffset}"></div></div></div></section>`;
+  return `<section class="card gantt-chart-card mt-4">
+    <div class="gantt-chart-head">
+      <div><h2>Diagrama de Gantt</h2><p class="muted">Arrastra una barra para mover la tarea, o sus extremos para ajustar la duración. Haz clic sin arrastrar para editar.</p></div>
+      <div class="actions"><button class="btn secondary" id="gtc-zoom-out" aria-label="Alejar">−</button><button class="btn secondary" id="gtc-zoom-in" aria-label="Acercar">+</button></div>
+    </div>
+    ${rows.length ? `<div class="gtc-wrap"><div class="gtc-labels"><div class="gtc-labels-head">Tarea</div>${labelsHtml}</div><div class="gtc-scroll" id="gtc-scroll"><div class="gtc-timeline" style="width:${totalDays * dayWidth}px"><div class="gtc-months">${months.map(m => `<div class="gtc-month" style="width:${m.days * dayWidth}px">${esc(m.label)}</div>`).join('')}</div><div class="gtc-days">${dayCells.join('')}</div><div class="gtc-rows-area" style="height:${rows.length * 46}px">${todayOffset >= 0 && todayOffset < totalDays ? `<div class="gtc-today-line" style="left:${todayOffset * dayWidth}px"></div>` : ''}${tracksHtml}</div></div></div></div>` : emptyState}
+    ${unscheduledNote}
+    <div class="gantt-legend"><span><i class="gantt-dot pendiente"></i>Pendiente 0%</span><span><i class="gantt-dot en_proceso"></i>En proceso 50%</span><span><i class="gantt-dot completada"></i>Completada 100%</span></div>
+  </section>`;
 }
-async function renderGantt(){layout(await gantt());bindGanttEvents()}
+async function renderGantt(){layout(await gantt());bindGanttEvents();bindGanttChartEvents()}
+function bindGanttChartEvents() {
+  const dayWidth = ganttChartZoom;
+  const dayMs = 86400000;
+  document.querySelector('#gtc-zoom-in')?.addEventListener('click', () => { ganttChartZoom = Math.min(64, ganttChartZoom + 8); renderGantt() });
+  document.querySelector('#gtc-zoom-out')?.addEventListener('click', () => { ganttChartZoom = Math.max(12, ganttChartZoom - 8); renderGantt() });
+
+  document.querySelectorAll('.gtc-bar').forEach(bar => {
+    let drag = null;
+    const startDrag = (event, mode) => {
+      event.preventDefault();
+      drag = { mode, startX: event.clientX, originLeft: bar.offsetLeft, originWidth: bar.offsetWidth, moved: false };
+      bar.classList.add('is-dragging');
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp, { once: true });
+    };
+    const onMove = event => {
+      if (!drag) return;
+      const deltaX = event.clientX - drag.startX;
+      if (Math.abs(deltaX) > 3) drag.moved = true;
+      if (drag.mode === 'move') {
+        bar.style.left = `${Math.max(0, drag.originLeft + deltaX)}px`;
+      } else if (drag.mode === 'resize-start') {
+        const maxLeft = drag.originLeft + drag.originWidth - dayWidth;
+        const newLeft = Math.max(0, Math.min(maxLeft, drag.originLeft + deltaX));
+        bar.style.left = `${newLeft}px`;
+        bar.style.width = `${drag.originLeft + drag.originWidth - newLeft}px`;
+      } else if (drag.mode === 'resize-due') {
+        const newWidth = Math.max(dayWidth - 4, drag.originWidth + deltaX);
+        bar.style.width = `${newWidth}px`;
+      }
+    };
+    const onUp = async () => {
+      document.removeEventListener('pointermove', onMove);
+      bar.classList.remove('is-dragging');
+      if (!drag) return;
+      const { mode, moved } = drag;
+      drag = null;
+      if (!moved) { openGanttQuickEdit(bar.dataset.id); return }
+      const leftPx = parseFloat(bar.style.left);
+      const widthPx = parseFloat(bar.style.width);
+      const offsetDays = Math.round(leftPx / dayWidth);
+      const spanDays = Math.max(1, Math.round((widthPx + 4) / dayWidth));
+      const newStart = new Date(ganttChartMinDate.getTime() + offsetDays * dayMs);
+      let start_date = bar.dataset.start || toISODate(newStart);
+      let due_date = bar.dataset.due || start_date;
+      if (mode === 'move') {
+        start_date = toISODate(newStart);
+        due_date = toISODate(new Date(newStart.getTime() + (spanDays - 1) * dayMs));
+      } else if (mode === 'resize-start') {
+        start_date = toISODate(newStart);
+      } else if (mode === 'resize-due') {
+        due_date = toISODate(new Date(newStart.getTime() + (spanDays - 1) * dayMs));
+      }
+      try {
+        const task = await api(`/tasks/${bar.dataset.id}`);
+        await api(`/tasks/${bar.dataset.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: task.title, description: task.description || '', assigned_to: task.assigned_to || '', priority: task.priority, status: task.status, start_date, due_date }) });
+        notify('Fechas actualizadas');
+      } catch (error) { notify(error.message) }
+      renderGantt();
+    };
+    bar.addEventListener('pointerdown', event => {
+      if (event.target.closest('.gtc-bar-handle')) return;
+      startDrag(event, 'move');
+    });
+    bar.querySelector('.gtc-bar-handle.left')?.addEventListener('pointerdown', event => { event.stopPropagation(); startDrag(event, 'resize-start') });
+    bar.querySelector('.gtc-bar-handle.right')?.addEventListener('pointerdown', event => { event.stopPropagation(); startDrag(event, 'resize-due') });
+  });
+}
 function bindGanttEvents(){
   document.querySelector('#gantt-prev-month')?.addEventListener('click',()=>{ganttCalendarMonth=new Date(ganttCalendarMonth.getFullYear(),ganttCalendarMonth.getMonth()-1,1);renderGantt()});
   document.querySelector('#gantt-next-month')?.addEventListener('click',()=>{ganttCalendarMonth=new Date(ganttCalendarMonth.getFullYear(),ganttCalendarMonth.getMonth()+1,1);renderGantt()});
@@ -209,47 +292,6 @@ function bindGanttEvents(){
     });
   });
   document.querySelectorAll('.gantt-cal-more').forEach(more=>more.addEventListener('click',()=>notify('Hay más tareas esta semana de las que caben. Filtra por integrante o estado para verlas todas.')));
-  bindGanttTimelineEvents();
-}
-function bindGanttTimelineEvents(){
-  document.querySelectorAll('.gantt-timeline-bar').forEach(bar=>{
-    bar.addEventListener('click',()=>{if(bar.dataset.dragging==='1')return;openGanttQuickEdit(bar.dataset.id)});
-    bar.addEventListener('dragstart',event=>{
-      bar.dataset.dragging='1';
-      event.dataTransfer.effectAllowed='move';
-      event.dataTransfer.setData('id',bar.dataset.id);
-      event.dataTransfer.setData('start',bar.dataset.start);
-      event.dataTransfer.setData('due',bar.dataset.due);
-      event.dataTransfer.setData('startOffset',bar.style.getPropertyValue('--start'));
-    });
-    bar.addEventListener('dragend',()=>{setTimeout(()=>{bar.dataset.dragging='0'},0)});
-  });
-  document.querySelectorAll('.gantt-timeline-track').forEach(track=>{
-    track.addEventListener('dragover',event=>{event.preventDefault();track.classList.add('drop-target')});
-    track.addEventListener('dragleave',()=>track.classList.remove('drop-target'));
-    track.addEventListener('drop',async event=>{
-      event.preventDefault();track.classList.remove('drop-target');
-      const id=event.dataTransfer.getData('id');
-      const originalStart=event.dataTransfer.getData('start');
-      const originalDue=event.dataTransfer.getData('due');
-      const startOffset=parseInt(event.dataTransfer.getData('startOffset')||'0',10);
-      if(!id||!originalStart)return;
-      const timeline=track.closest('.gantt-timeline');
-      const dayWidth=parseFloat(getComputedStyle(timeline).getPropertyValue('--day-w'))||32;
-      const rect=track.getBoundingClientRect();
-      const dayIndex=Math.floor((event.clientX-rect.left)/dayWidth);
-      const deltaDays=dayIndex-startOffset;
-      if(!deltaDays)return;
-      const newStart=addDays(originalStart,deltaDays);
-      const newDue=originalDue?addDays(originalDue,deltaDays):newStart;
-      try{
-        const task=await api(`/tasks/${id}`);
-        await api(`/tasks/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:task.title,description:task.description||'',assigned_to:task.assigned_to||'',priority:task.priority,status:task.status,start_date:newStart,due_date:newDue})});
-        notify('Fechas actualizadas');
-      }catch(error){notify(error.message)}
-      renderGantt();
-    });
-  });
 }
 async function openGanttQuickEdit(id){
   let task;try{task=await api(`/tasks/${id}`)}catch(error){notify(error.message);return}
@@ -258,7 +300,7 @@ async function openGanttQuickEdit(id){
   popover.className='gantt-popover';
   popover.innerHTML=`<strong>${esc(task.title)}</strong><label>Estado<select class="select" id="gp-status"><option value="pendiente" ${task.status==='pendiente'?'selected':''}>Pendiente</option><option value="en_proceso" ${task.status==='en_proceso'?'selected':''}>En proceso</option><option value="completada" ${task.status==='completada'?'selected':''}>Completada</option></select></label><label>Fecha inicial<input class="input" type="date" id="gp-start" value="${task.start_date||''}"></label><label>Fecha límite<input class="input" type="date" id="gp-due" value="${task.due_date||''}"></label><div class="actions"><button class="btn" id="gp-save">Guardar</button><button type="button" class="btn secondary" id="gp-close">Cerrar</button></div>`;
   document.body.append(popover);
-  const anchor=document.querySelector(`.gantt-cal-bar[data-id="${id}"]`)||document.body;
+  const anchor=document.querySelector(`.gantt-cal-bar[data-id="${id}"]`)||document.querySelector(`.gtc-bar[data-id="${id}"]`)||document.body;
   const rect=anchor.getBoundingClientRect();
   popover.style.left=`${Math.max(8,Math.min(rect.left,window.innerWidth-280))}px`;
   popover.style.top=`${Math.min(rect.bottom+8,window.innerHeight-260)}px`;
