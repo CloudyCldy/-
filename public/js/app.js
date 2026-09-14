@@ -95,32 +95,237 @@ function chatBackgroundKind(key){const value=chatBackground(key);if(value.starts
 function timeShort(dateStr){return new Date(dateStr).toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})}
 function dayDivider(dateStr){const today=new Date();today.setHours(0,0,0,0);const d=new Date(dateStr);d.setHours(0,0,0,0);const diff=Math.round((today-d)/86400000);if(diff===0)return 'Hoy';if(diff===1)return 'Ayer';return d.toLocaleDateString('es',{day:'2-digit',month:'long',year:d.getFullYear()!==today.getFullYear()?'numeric':undefined})}
 function messagesForList(messages){const out=[];let lastDay='';messages.forEach(message=>{const label=dayDivider(message.created_at);if(label!==lastDay){out.push({divider:label});lastDay=label}out.push({message})});return out}
-async function messagesView(selectedId){
-  const params=new URLSearchParams(location.hash.split('?')[1]||'');
-  const selectedGroupId=params.get('group');
-  const users=(await api('/users')).filter(user=>user.active&&user.id!==state.user.id);
-  const groups=(await api('/messages/groups').catch(()=>[]));
-  const directPreviews=await Promise.all(users.map(async user=>{
-    const thread=await api(`/messages?user_id=${user.id}`).catch(()=>[]);
-    const last=thread[thread.length-1];
-    return {user,last};
-  }));
-  const selected=users.find(user=>String(user.id)===String(selectedId))||users[0]||null;
-  const selectedGroup=groups.find(group=>String(group.id)===String(selectedGroupId))||groups[0]||null;
-  const selectedGroupDetail=selectedGroup?await api(`/messages/groups/${selectedGroup.id}`).catch(()=>({group:selectedGroup,members:[],messages:[]})):null;
-  const latestGroupMessage=selectedGroupDetail?.messages?.length ? selectedGroupDetail.messages[selectedGroupDetail.messages.length - 1] : null;
-  const messages=selectedGroupDetail?selectedGroupDetail.messages:(selected?await api(`/messages?user_id=${selected.id}`):[]);
-  const conversationKey=selected?`${Math.min(state.user.id,selected.id)}-${Math.max(state.user.id,selected.id)}`:`group-${selectedGroup?.id||'0'}`;
-  const bgKind=selected?chatBackgroundKind(conversationKey):'gradient';
-  const swatches=[['gradient','Aurora'],['solid','Profundo'],['lavender','Lavanda'],['warm','CÃ¡lido']];
-  const directList=directPreviews.map(({user,last})=>`<button class="conversation-user ${selected&&user.id===selected.id?'active':''}" data-id="${user.id}">${avatarMarkup(user,'message-avatar')}<span class="conversation-user-body"><span class="conversation-user-top"><strong>${esc(user.name)}</strong>${last?`<time>${timeShort(last.created_at)}</time>`:''}</span><small>${last?`${last.sender_id===state.user.id?'TÃº: ':''}${esc(last.content||'Documento adjunto').slice(0,42)}${(last.content||'Documento adjunto').length>42?'â€¦':''}`:`@${esc(user.username)}`}</small></span></button>`).join('')||'<div class="empty">No hay otros usuarios activos.</div>';
-  const groupList=(groups.length?groups.map(group=>`<button class="conversation-user conversation-group ${selectedGroup&&group.id===selectedGroup.id?'active':''}" data-group-id="${group.id}"><span class="message-avatar group-avatar">G</span><span class="conversation-user-body"><span class="conversation-user-top"><strong>${esc(group.name)}</strong>${group.created_at?`<time>${timeShort(group.created_at)}</time>`:''}</span><small>${group.members_count||0} miembros</small></span></button>`).join(''):'<div class="empty">No hay grupos creados.</div>');
-  const conversationHeader=selectedGroupDetail?`<div class="conversation-who"><span class="message-avatar group-avatar">G</span><div><h2>${esc(selectedGroupDetail.group.name)}</h2><small class="muted">${selectedGroupDetail.members.length} miembros${latestGroupMessage ? ` · Último mensaje ${esc(formatLastSeen(latestGroupMessage.created_at))}` : ''}</small></div></div><div class="conversation-tools"><div class="bg-swatches" role="group" aria-label="Fondo de la conversación">${swatches.map(([value,label])=>`<button type="button" class="bg-swatch bg-${value} ${bgKind===value?'active':''}" data-bg="${value}" title="${label}"></button>`).join('')}<label class="bg-swatch bg-upload-label" title="Subir foto de fondo"><input class="chat-bg-upload" type="file" accept="image/png,image/jpeg,image/webp" data-key="${conversationKey}" hidden>${iconAsset('image','Subir fondo')}</label></div><div class="icon-group conversation-actions"><button class="icon-btn" id="refresh-group" title="Actualizar" aria-label="Actualizar">${iconAsset('send','Actualizar')}</button></div></div>`:selected?`<div class="conversation-who">${avatarMarkup(selected,'message-avatar')}<div><h2>${esc(selected.name)}</h2><small class="muted">@${esc(selected.username)}${selected.last_seen_at ? ` · Última vez ${esc(formatLastSeen(selected.last_seen_at))}` : ''}</small></div></div><div class="conversation-tools"><div class="bg-swatches" role="group" aria-label="Fondo de la conversación">${swatches.map(([value,label])=>`<button type="button" class="bg-swatch bg-${value} ${bgKind===value?'active':''}" data-bg="${value}" title="${label}"></button>`).join('')}<label class="bg-swatch bg-upload-label" title="Subir foto de fondo"><input class="chat-bg-upload" type="file" accept="image/png,image/jpeg,image/webp" data-key="${conversationKey}" hidden>${iconAsset('image','Subir fondo')}</label></div><div class="icon-group conversation-calls"><button class="icon-btn call-user" data-id="${selected.id}" data-video="false" title="Llamar" aria-label="Llamar">${iconAsset('call','Llamar')}</button><button class="icon-btn call-user" data-id="${selected.id}" data-video="true" title="Videollamada" aria-label="Videollamada">${iconAsset('video','Videollamada')}</button></div></div>`:'<h2>Selecciona una conversación</h2>';
-  const messageMarkup=messagesForList(messages).map(item=>item.divider?`<div class="day-divider"><span>${esc(item.divider)}</span></div>`:(message=>`<article class="message ${message.sender_id===state.user.id?'mine':''}">${message.sender_id===state.user.id?'':avatarMarkup({name:message.sender_name,profile_photo:message.sender_photo},'message-avatar')}<div class="bubble">${message.content?`<p>${esc(message.content)}</p>`:''}${message.attachment_id&&message.attachment_name?`<div class="chat-attachment"><div class="chat-attachment-file"><span class="chat-attachment-icon">${iconAsset('image','Archivo adjunto')}</span><strong>${esc(message.attachment_name)}</strong></div><div class="chat-attachment-actions"><a class="btn secondary" href="/api/files/${message.attachment_id}/view" target="_blank" rel="noopener">Ver</a><a class="btn secondary" href="/api/files/${message.attachment_id}/download" target="_blank" rel="noopener">Descargar</a></div></div>`:''}<small>${timeShort(message.created_at)}${message.sender_id===state.user.id?` · ${message.delivery_status==='leido'?'✓✓ leído':message.delivery_status==='entregado'?'✓✓ entregado':'✓ enviado'}`:''}</small></div></article>`)(item.message)).join('')||'<div class="empty">No hay mensajes todavía.</div>';
-  return `${heading('Mensajes',selectedGroupDetail?'Conversaciones de grupo con el equipo.':'Conversaciones directas con las personas del equipo.')}<section class="messages-layout"><aside class="card conversation-list"><div class="conversation-section-head"><strong>Directos</strong><button class="btn secondary mini" id="new-group" type="button">+ Grupo</button></div>${directList}<div class="conversation-section-head"><strong>Grupos</strong></div>${groupList}</aside><section class="card conversation"><div class="conversation-header">${conversationHeader}</div><div class="message-list" data-bg-key="${conversationKey}" style="background:${chatBackground(conversationKey)}">${messageMarkup}</div>${(selectedGroupDetail||selected)?`<form id="message-form" class="message-form" data-group-id="${selectedGroupDetail?selectedGroupDetail.group.id:''}"><textarea class="textarea" name="content" rows="1" placeholder="${selectedGroupDetail?'Escribe un mensaje al grupo...':'Escribe un mensaje...'}" required></textarea><label class="chat-file-picker" title="Adjuntar documento"><input type="file" name="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,image/pdf,image/png,image/jpeg,image/webp"><span>${iconAsset('image','Adjuntar documento')}</span></label><button class="btn send-btn" title="Enviar" aria-label="Enviar">${iconAsset('send','Enviar')}</button></form>`:''}</section></section><div id="call-modal" class="call-modal" hidden><div class="call-panel"><div class="call-head"><strong>Llamada</strong><button class="btn danger" id="hangup">Colgar</button></div><video id="call-remote" autoplay playsinline></video><video id="call-local" autoplay muted playsinline></video></div></div>`;
+/* ============ BLOQUEO Y SILENCIO POR CONVERSACIÓN (estilo WhatsApp) ============ */
+function convBlockKey(key){return `haitani-blocked-${key}`}
+function convMuteKey(key){return `haitani-muted-${key}`}
+function isConvBlocked(key){return localStorage.getItem(convBlockKey(key))==='1'}
+function isConvMuted(key){return localStorage.getItem(convMuteKey(key))==='1'}
+function setConvBlocked(key,value){value?localStorage.setItem(convBlockKey(key),'1'):localStorage.removeItem(convBlockKey(key))}
+function setConvMuted(key,value){value?localStorage.setItem(convMuteKey(key),'1'):localStorage.removeItem(convMuteKey(key))}
+function directKey(userId){return `${Math.min(state.user.id,Number(userId))}-${Math.max(state.user.id,Number(userId))}`}
+function groupKey(groupId){return `group-${groupId}`}
+
+/* ============ ESTADOS (historias tipo WhatsApp, guardadas localmente) ============ */
+const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
+function myStatusKey(){return `haitani-status-${state.user.id}`}
+function getMyStatus(){
+  try{
+    const raw = localStorage.getItem(myStatusKey());
+    if(!raw) return null;
+    const data = JSON.parse(raw);
+    if(Date.now() - data.createdAt > STATUS_TTL_MS){ localStorage.removeItem(myStatusKey()); return null }
+    return data;
+  }catch{ return null }
+}
+function saveMyStatus(content, image){ localStorage.setItem(myStatusKey(), JSON.stringify({ content: content || '', image: image || '', createdAt: Date.now() })) }
+function clearMyStatus(){ localStorage.removeItem(myStatusKey()) }
+function fileToDataUrl(file){ return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file) }) }
+function statusStripMarkup(users){
+  const mine = getMyStatus();
+  const others = users.slice(0, 12).map(u => `<button type="button" class="status-item" data-status-user="${u.id}" data-status-name="${esc(u.name)}"><span class="status-ring no-status">${avatarMarkup(u,'message-avatar')}</span><small>${esc((u.name||'').split(' ')[0])}</small></button>`).join('');
+  return `<div class="status-strip"><button type="button" class="status-item my-status" id="open-my-status"><span class="status-ring ${mine?'has-status':'no-status'}">${avatarMarkup(state.user,'message-avatar')}${mine?'':'<span class="status-add">+</span>'}</span><small>Mi estado</small></button>${others}</div>`;
+}
+function statusViewerMarkup(name, data){
+  return `<div class="status-overlay" id="status-overlay" role="dialog" aria-modal="true"><div class="status-viewer"><div class="status-viewer-head"><strong>${esc(name)}</strong><button class="icon-btn" id="close-status-viewer" aria-label="Cerrar">✕</button></div><div class="status-viewer-body">${data.image?`<img src="${esc(data.image)}" alt="Estado de ${esc(name)}">`:''}${data.content?`<p>${esc(data.content)}</p>`:''}${!data.image&&!data.content?'<p class="muted">Sin contenido.</p>':''}</div><small class="muted status-viewer-time">${new Date(data.createdAt).toLocaleString('es')}</small></div></div>`;
+}
+function myStatusEditorMarkup(existing){
+  return `<div class="status-overlay" id="status-overlay" role="dialog" aria-modal="true"><div class="status-viewer status-editor"><div class="status-viewer-head"><strong>Mi estado</strong><button class="icon-btn" id="close-status-viewer" aria-label="Cerrar">✕</button></div>${existing?`<div class="status-viewer-body">${existing.image?`<img src="${esc(existing.image)}" alt="Mi estado">`:''}${existing.content?`<p>${esc(existing.content)}</p>`:''}</div><small class="muted status-viewer-time">Publicado ${new Date(existing.createdAt).toLocaleString('es')}</small><div class="actions mt-3"><button class="btn danger" id="delete-my-status">Eliminar estado</button></div>`:`<form id="status-form" class="form-grid"><label class="full">Texto<textarea class="textarea" name="content" rows="3" placeholder="¿Qué estás pensando?"></textarea></label><label class="full">Imagen (opcional)<input class="input" type="file" name="image" accept="image/png,image/jpeg,image/webp"></label><div class="actions full"><button class="btn">Publicar estado</button></div></form>`}</div></div>`;
 }
 async function renderMessages(){
   signalSocket();
+  const params=new URLSearchParams(location.hash.split('?')[1]||'');
+  const selectedId=params.get('user');
+  const selectedGroupId=params.get('group');
+  layout(await messagesView(selectedId));
+  const list=document.querySelector('.message-list');
+  if(list)list.scrollTop=list.scrollHeight;
+  const conversationKey=list?.dataset.bgKey;
+
+  // ---- Llamadas perdidas + botón de silenciar micrófono (llamada activa) ----
+  const callHead=document.querySelector('.call-head');
+  if(callHead&&!document.querySelector('#mute-call'))callHead.insertAdjacentHTML('beforeend','<button class="btn secondary btn-with-icon" id="mute-call">'+iconAsset('mute','Silenciar micrófono')+'<span>Silenciar micrófono</span></button>');
+  document.querySelector('#mute-call')?.addEventListener('click',toggleMute);
+  const calls=await api('/calls').catch(()=>[]);
+  if(calls.length){
+    const node=document.createElement('section');
+    node.className='missed-calls';
+    node.innerHTML=`<h2>Llamadas perdidas</h2>${calls.map(call=>`<div class="missed-call">${avatarMarkup({name:call.caller_name,profile_photo:call.caller_photo},'message-avatar')}<span><strong>${esc(call.caller_name)}</strong><small>${call.call_type==='video'?'Videollamada':'Llamada'} · ${new Date(call.created_at).toLocaleString('es')}</small></span></div>`).join('')}`;
+    document.querySelector('.conversation-list')?.prepend(node);
+  }
+
+  // ---- Navegación entre conversaciones ----
+  document.querySelectorAll('.conversation-user').forEach(button=>button.onclick=()=>{
+    const query=new URLSearchParams(location.hash.split('?')[1]||'');
+    if(button.dataset.groupId){
+      query.set('group',button.dataset.groupId);
+      query.delete('user');
+    }else{
+      query.delete('group');
+      query.set('user',button.dataset.id);
+    }
+    location.hash=`#/${state.user.role}/messages?${query.toString()}`;
+    renderMessages();
+  });
+
+  document.querySelectorAll('.call-user').forEach(button=>button.onclick=()=>startCall(button.dataset.id,button.dataset.video==='true'));
+  document.querySelector('#hangup')?.addEventListener('click',endCall);
+
+  document.querySelector('#new-group')?.addEventListener('click',async()=>{
+    const name=prompt('Nombre del grupo');
+    if(!name||!name.trim())return;
+    try{
+      await api('/messages/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.trim(),members:[]})});
+      const query=new URLSearchParams(location.hash.split('?')[1]||'');
+      query.delete('user');
+      location.hash=`#/${state.user.role}/messages?${query.toString()}`;
+      renderMessages();
+    }catch(error){notify(error.message)}
+  });
+
+  // ---- Fondo del chat ----
+  const swatchGroup=document.querySelector('.bg-swatches');
+  const upload=document.querySelector('.chat-bg-upload');
+  if(swatchGroup){
+    const key=conversationKey;
+    document.querySelectorAll('.bg-swatch[data-bg]').forEach(swatch=>swatch.onclick=()=>{
+      const backgrounds={gradient:'linear-gradient(135deg,#13202B,#2A3541)',solid:'#2A3541',lavender:'linear-gradient(135deg,#767E99,#C4B5C8)',warm:'linear-gradient(135deg,#201B19,#13202B)'};
+      localStorage.setItem(`haitani-chat-bg-${key}`,backgrounds[swatch.dataset.bg]);
+      renderMessages();
+    })
+  }
+  upload?.addEventListener('change',async()=>{
+    if(!upload.files[0])return;
+    try{
+      const form=new FormData();
+      form.append('background',upload.files[0]);
+      const result=await api('/chat-backgrounds',{method:'POST',body:form});
+      localStorage.setItem(`haitani-chat-bg-${upload.dataset.key}`,`url(${result.url}) center/cover no-repeat`);
+      renderMessages();
+    }catch(error){notify(error.message)}
+  });
+
+  // ---- Silenciar / Bloquear conversación ----
+  document.querySelector('#mute-conversation')?.addEventListener('click',()=>{
+    const nowMuted=!isConvMuted(conversationKey);
+    setConvMuted(conversationKey,nowMuted);
+    notify(nowMuted?'Notificaciones silenciadas para esta conversación':'Notificaciones activadas');
+    renderMessages();
+  });
+  document.querySelector('#block-conversation')?.addEventListener('click',()=>{
+    const nowBlocked=!isConvBlocked(conversationKey);
+    if(nowBlocked&&!confirm('¿Bloquear a este contacto? No podrá llamarte ni tú podrás enviarle mensajes hasta desbloquearlo.'))return;
+    setConvBlocked(conversationKey,nowBlocked);
+    notify(nowBlocked?'Contacto bloqueado':'Contacto desbloqueado');
+    endCall();
+    renderMessages();
+  });
+
+  // ---- Panel de info: SOLO se abre al hacer click en el nombre del contacto/grupo ----
+  document.querySelector('#toggle-contact-info')?.addEventListener('click',async()=>{
+    const existing=document.querySelector('.conversation-extra');
+    if(existing){ existing.remove(); return }
+    const conversation=document.querySelector('.conversation');
+    if(!conversation)return;
+    const details=document.createElement('div');
+    details.className='conversation-extra';
+    details.innerHTML='<div class="conversation-details"><div class="empty">Cargando información...</div></div>';
+    conversation.append(details);
+    try{
+      if(selectedGroupId){
+        const groupDetail=await api(`/messages/groups/${selectedGroupId}`);
+        const members=groupDetail.members||[];
+        const memberList=members.length?members.map(member=>`<div class="group-member-item">${avatarMarkup(member,'message-avatar')}<div><strong>${esc(member.name)}</strong><small>${esc(member.email||'Sin correo')} · ${esc(formatLastSeen(member.last_seen_at))}</small></div></div>`).join(''):'<div class="empty">No hay miembros en este grupo.</div>';
+        details.innerHTML=`<div class="conversation-details"><div class="conversation-details-header"><strong>Miembros del grupo</strong><button class="btn secondary mini" id="add-group-member" type="button">+ Añadir miembro</button></div><div class="group-members">${memberList}</div></div>`;
+        document.querySelector('#add-group-member')?.addEventListener('click',async()=>{
+          const users=await api('/users').catch(()=>[]);
+          const currentMembers=new Set((groupDetail.members||[]).map(member=>member.id));
+          const candidates=users.filter(user=>user.active&&user.id!==state.user.id&&!currentMembers.has(user.id));
+          if(!candidates.length){notify('Todos los integrantes ya forman parte de este grupo.');return;}
+          const query=window.prompt('Escribe el nombre, usuario o correo del integrante a añadir:', '').trim();
+          if(!query){return;}
+          const match=candidates.find(user=>[user.name,user.username,user.email].some(value=>String(value||'').toLowerCase().includes(query.toLowerCase())));
+          if(!match){notify('No se encontró un integrante con ese dato.');return;}
+          try{
+            await api(`/messages/groups/${selectedGroupId}/members`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:match.id})});
+            notify('Miembro añadido al grupo');
+            renderMessages();
+          }catch(error){notify(error.message)}
+        });
+      }else if(selectedId){
+        const users=await api('/users').catch(()=>[]);
+        const user=users.find(item=>String(item.id)===String(selectedId));
+        if(user){
+          const uKey=directKey(user.id);
+          details.innerHTML=`<div class="conversation-details"><strong>Detalles de contacto</strong><div class="contact-details-grid"><div><span class="muted">Correo</span><p>${esc(user.email||'Sin correo')}</p></div><div><span class="muted">Usuario</span><p>@${esc(user.username||'Sin usuario')}</p></div><div><span class="muted">Última vez</span><p>${esc(formatLastSeen(user.last_seen_at))}</p></div></div><div class="actions mt-3"><button class="btn secondary" id="detail-mute">${isConvMuted(uKey)?'Activar notificaciones':'Silenciar notificaciones'}</button><button class="btn danger" id="detail-block">${isConvBlocked(uKey)?'Desbloquear contacto':'Bloquear contacto'}</button></div></div>`;
+          document.querySelector('#detail-mute')?.addEventListener('click',()=>{setConvMuted(uKey,!isConvMuted(uKey));renderMessages()});
+          document.querySelector('#detail-block')?.addEventListener('click',()=>{
+            const nowBlocked=!isConvBlocked(uKey);
+            if(nowBlocked&&!confirm('¿Bloquear a este contacto?'))return;
+            setConvBlocked(uKey,nowBlocked);renderMessages();
+          });
+        }else{
+          details.innerHTML='<div class="conversation-details"><div class="empty">No se encontró información.</div></div>';
+        }
+      }
+    }catch(error){
+      details.innerHTML=`<div class="conversation-details"><div class="empty">${esc(error.message)}</div></div>`;
+    }
+  });
+
+  // ---- Estados (historias) ----
+  document.querySelector('#open-my-status')?.addEventListener('click',()=>{
+    const existing=getMyStatus();
+    document.body.insertAdjacentHTML('beforeend',myStatusEditorMarkup(existing));
+    const overlay=document.querySelector('#status-overlay');
+    const close=()=>overlay.remove();
+    document.querySelector('#close-status-viewer').onclick=close;
+    overlay.addEventListener('click',e=>{if(e.target===overlay)close()});
+    document.querySelector('#delete-my-status')?.addEventListener('click',()=>{clearMyStatus();close();notify('Estado eliminado');renderMessages()});
+    document.querySelector('#status-form')?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const formData=new FormData(event.target);
+      const content=String(formData.get('content')||'').trim();
+      const file=formData.get('image');
+      let image='';
+      if(file&&file.size)image=await fileToDataUrl(file);
+      if(!content&&!image){notify('Escribe algo o añade una imagen para tu estado.');return}
+      saveMyStatus(content,image);
+      close();notify('Estado publicado');renderMessages();
+    });
+  });
+  document.querySelectorAll('[data-status-user]').forEach(button=>button.onclick=()=>{
+    notify(`${button.dataset.statusName} no tiene actualizaciones de estado recientes.`);
+  });
+
+  // ---- Composición de mensajes ----
+  const textarea=document.querySelector('#message-form textarea');
+  if(textarea){
+    textarea.addEventListener('input',()=>{
+      textarea.style.height='auto';
+      textarea.style.height=`${Math.min(textarea.scrollHeight,140)}px`;
+    });
+    textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.querySelector('#message-form').requestSubmit()}})
+  }
+  document.querySelector('#message-form')?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const form=event.target;
+    const formData=new FormData(form);
+    const content=String(formData.get('content')||'').trim();
+    if(!content && !(formData.get('file')&&formData.get('file').size))return;
+    const groupId=form.dataset.groupId;
+    if(groupId){
+      formData.append('content',content);
+    } else {
+      formData.append('user_id',selectedId||'');
+      formData.append('content',content);
+    }
+    try{
+      await api(groupId?`/messages/groups/${groupId}/messages`:'/messages',{method:'POST',body:formData});
+      renderMessages();
+    }catch(error){notify(error.message)}
+  });
+}
+
   const params=new URLSearchParams(location.hash.split('?')[1]||'');
   const selectedId=params.get('user');
   layout(await messagesView(selectedId));
@@ -197,7 +402,7 @@ async function renderMessages(){
       renderMessages();
     }catch(error){notify(error.message)}
   });
-}async function gantt(){
+async function gantt(){
   const allTasksRaw = await api('/tasks');
   const users = state.user.role === 'admin' ? await api('/users') : [];
   const dayMs = 86400000;
