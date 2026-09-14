@@ -320,6 +320,15 @@ label.card .muted{grid-column:2;font-size:12px;line-height:1.5}
 .gantt-dot.en_proceso{background:var(--lilac)}.gantt-dot.completada{background:var(--green)}
 .gantt-popover{position:fixed;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--sp-4);min-width:240px;box-shadow:var(--shadow-lg)}
 .gantt-popover strong{display:block;margin-bottom:var(--sp-2)}
+.task-detail-header{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);margin-bottom:var(--sp-3)}
+.task-detail-header strong{margin:0}
+.task-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2);margin-top:var(--sp-3)}
+.task-detail-grid > div{display:grid;gap:4px;padding:var(--sp-2);border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel-2)}
+.task-detail-grid span{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.task-detail-grid strong{margin:0;font-size:13px}
+.task-detail-description{margin-top:var(--sp-3)}
+.task-detail-description span{display:block;margin-bottom:var(--sp-2);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.task-detail-description p{margin:0;line-height:1.5;color:var(--white)}
 @media(max-width:850px){
   .gantt-controls{flex-direction:column;align-items:flex-start}
   .gantt-cal-weekdays span{font-size:9px;padding:4px 0}
