@@ -50,6 +50,10 @@ async function create(req, res) {
   const assignee = assigned_to ? await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(assigned_to, req.session.user.organization_id) : null;
   if (assigned_to && !assignee) return res.status(400).json({ error: 'El responsable no pertenece a tu organización.' });
   const result = await database.prepare(`INSERT INTO tasks (project_id, organization_id, creator_id, title, description, assigned_to, priority, start_date, due_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`).run(project.id, req.session.user.organization_id, req.session.user.id, title.trim(), description, assigned_to || null, priority, start_date || null, due_date || null, status);
+  if (req.file) {
+    const asset = await database.prepare('INSERT INTO stored_assets (organization_id, uploaded_by, kind, mime_type, content) VALUES (?, ?, ?, ?, ?) RETURNING id').run(req.session.user.organization_id, req.session.user.id, 'task-image', req.file.mimetype, req.file.buffer);
+    await database.prepare('UPDATE tasks SET image_asset_id = ? WHERE id = ? AND organization_id = ?').run(asset.lastInsertRowid, result.lastInsertRowid, req.session.user.organization_id);
+  }
   await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, project.id, 'task.created', `Tarea creada: ${title.trim()}`);
   res.status(201).json({ id: result.lastInsertRowid });
 }
@@ -66,6 +70,10 @@ async function update(req, res) {
   if (!TASK_PRIORITIES.has(values[3]) || !TASK_STATUSES.has(values[6])) return res.status(400).json({ error: 'Prioridad o estado no válido.' });
   if (values[2] && !(await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(values[2], req.session.user.organization_id))) return res.status(400).json({ error: 'El responsable no pertenece a tu organización.' });
   await database.prepare(`UPDATE tasks SET title = ?, description = ?, assigned_to = ?, priority = ?, start_date = ?, due_date = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?`).run(...values, id, req.session.user.organization_id);
+  if (req.file) {
+    const asset = await database.prepare('INSERT INTO stored_assets (organization_id, uploaded_by, kind, mime_type, content) VALUES (?, ?, ?, ?, ?) RETURNING id').run(req.session.user.organization_id, req.session.user.id, 'task-image', req.file.mimetype, req.file.buffer);
+    await database.prepare('UPDATE tasks SET image_asset_id = ? WHERE id = ? AND organization_id = ?').run(asset.lastInsertRowid, id, req.session.user.organization_id);
+  }
   await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, task.project_id, 'task.updated', `Tarea actualizada: ${values[0]}`);
   res.json({ ok: true });
 }
@@ -80,5 +88,14 @@ async function status(req, res) {
   await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, task.project_id, 'task.status_changed', `Estado de tarea cambiado a: ${req.body.status}`);
   res.json({ ok: true });
 }
+async function image(req, res) {
+  const id = taskId(req, res);
+  if (!id) return;
+  const asset = await req.app.locals.database.prepare(`SELECT stored_assets.mime_type, stored_assets.content
+    FROM tasks JOIN stored_assets ON stored_assets.id = tasks.image_asset_id
+    WHERE tasks.id = ? AND tasks.organization_id = ? AND stored_assets.organization_id = ? AND stored_assets.kind = 'task-image'`).get(id, req.session.user.organization_id, req.session.user.organization_id);
+  if (!asset) return res.status(404).end();
+  res.type(asset.mime_type).setHeader('Content-Disposition', 'inline').send(asset.content);
+}
 async function remove(req, res) { const id = taskId(req, res); if (!id) return; const database = req.app.locals.database; const task = await database.prepare('SELECT * FROM tasks WHERE id = ? AND organization_id = ?').get(id, req.session.user.organization_id); if (!task) return res.status(404).json({ error: 'La tarea no existe.' }); await database.prepare('DELETE FROM tasks WHERE id = ? AND organization_id = ?').run(id, req.session.user.organization_id); await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, task.project_id, 'task.deleted', `Tarea eliminada: ${task.title}`); res.json({ ok: true }); }
-module.exports = { list, get, create, update, status, remove };
+module.exports = { list, get, create, update, status, image, remove };

@@ -30,6 +30,7 @@ async function ensureRuntimeSchema() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_username TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_token TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS image_asset_id UUID REFERENCES stored_assets(id) ON DELETE SET NULL;
 
       ALTER TABLE messages ALTER COLUMN receiver_id DROP NOT NULL;
       UPDATE messages SET receiver_id = NULL WHERE receiver_id = 0;
