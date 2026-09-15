@@ -47,7 +47,7 @@ async function create(req, res) {
   if (!TASK_STATUSES.has(status)) return res.status(400).json({ error: 'Estado no válido.' });
   const project = await database.prepare('SELECT id FROM projects WHERE id = ? AND organization_id = ?').get(projectId, req.session.user.organization_id);
   if (!project) return res.status(400).json({ error: 'El proyecto no existe en tu organización.' });
-  const assignee = assigned_to ? await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = true').get(assigned_to, req.session.user.organization_id) : null;
+  const assignee = assigned_to ? await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(assigned_to, req.session.user.organization_id) : null;
   if (assigned_to && !assignee) return res.status(400).json({ error: 'El responsable no pertenece a tu organización.' });
   const result = await database.prepare(`INSERT INTO tasks (project_id, organization_id, creator_id, title, description, assigned_to, priority, start_date, due_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`).run(project.id, req.session.user.organization_id, req.session.user.id, title.trim(), description, assigned_to || null, priority, start_date || null, due_date || null, status);
   await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, project.id, 'task.created', `Tarea creada: ${title.trim()}`);
@@ -64,7 +64,7 @@ async function update(req, res) {
   const values = fields.map(field => req.body[field] === undefined ? task[field] : req.body[field]);
   if (!String(values[0] || '').trim()) return res.status(400).json({ error: 'El título es obligatorio.' });
   if (!TASK_PRIORITIES.has(values[3]) || !TASK_STATUSES.has(values[6])) return res.status(400).json({ error: 'Prioridad o estado no válido.' });
-  if (values[2] && !(await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = true').get(values[2], req.session.user.organization_id))) return res.status(400).json({ error: 'El responsable no pertenece a tu organización.' });
+  if (values[2] && !(await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(values[2], req.session.user.organization_id))) return res.status(400).json({ error: 'El responsable no pertenece a tu organización.' });
   await database.prepare(`UPDATE tasks SET title = ?, description = ?, assigned_to = ?, priority = ?, start_date = ?, due_date = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?`).run(...values, id, req.session.user.organization_id);
   await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, task.project_id, 'task.updated', `Tarea actualizada: ${values[0]}`);
   res.json({ ok: true });
