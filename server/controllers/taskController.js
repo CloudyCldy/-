@@ -65,9 +65,14 @@ async function update(req, res) {
   if (!task) return res.status(404).json({ error: 'La tarea no existe.' });
   if (req.session.user.role === 'member' && task.assigned_to !== req.session.user.id) return res.status(403).json({ error: 'Solo puedes modificar tus tareas.' });
   const fields = ['title', 'description', 'assigned_to', 'priority', 'start_date', 'due_date', 'status'];
-  const values = fields.map(field => req.body[field] === undefined ? task[field] : req.body[field]);
+  const values = fields.map(field => {
+    const value = req.body[field] === undefined ? task[field] : req.body[field];
+    return ['assigned_to', 'start_date', 'due_date'].includes(field) && value === '' ? null : value;
+  });
+  values[0] = String(values[0] || '').trim();
   if (!String(values[0] || '').trim()) return res.status(400).json({ error: 'El título es obligatorio.' });
   if (!TASK_PRIORITIES.has(values[3]) || !TASK_STATUSES.has(values[6])) return res.status(400).json({ error: 'Prioridad o estado no válido.' });
+  if ([values[4], values[5]].some(value => value !== null && !/^\d{4}-\d{2}-\d{2}$/.test(String(value)))) return res.status(400).json({ error: 'La fecha no es válida.' });
   if (values[2] && !(await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(values[2], req.session.user.organization_id))) return res.status(400).json({ error: 'El responsable no pertenece a tu organización.' });
   await database.prepare(`UPDATE tasks SET title = ?, description = ?, assigned_to = ?, priority = ?, start_date = ?, due_date = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?`).run(...values, id, req.session.user.organization_id);
   if (req.file) {
