@@ -219,7 +219,7 @@ label.card .muted{grid-column:2;font-size:12px;line-height:1.5}
 .conversation-user small{color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
 .message-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;display:grid;place-items:center;flex-shrink:0;background:var(--lilac);color:var(--ink);font-weight:700}
 
-.conversation{display:grid;grid-template-rows:auto 1fr auto;min-height:600px;padding:0;overflow:hidden}
+.conversation{display:grid;grid-template-rows:auto auto 1fr auto;min-height:600px;padding:0;overflow:hidden}
 .conversation-header{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap;padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--line)}
 .conversation-who{display:flex;align-items:center;gap:11px;min-width:0}
 .conversation-who h2{margin:0;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -234,6 +234,10 @@ label.card .muted{grid-column:2;font-size:12px;line-height:1.5}
 .btn-with-icon{display:inline-flex;align-items:center;justify-content:center;gap:8px}
 .btn-with-icon .icon-image{width:14px;height:14px}
 .bg-swatches{display:flex;gap:5px;align-items:center;padding:5px;background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r-md)}
+.bg-swatches[hidden]{display:none}
+.bg-swatches-divider{width:1px;align-self:stretch;background:var(--line);margin:0 2px}
+.bg-swatches .btn.mini{padding:6px 12px;font-size:12px;min-height:auto}
+.bg-swatches .btn.mini:disabled{opacity:.45;cursor:not-allowed}
 .bg-swatch{width:20px;height:20px;padding:0;border:2px solid transparent;border-radius:50%;cursor:pointer;line-height:1;flex-shrink:0}
 .bg-swatch.active{border-color:var(--pink)}
 .bg-swatch.bg-gradient{background:linear-gradient(135deg,#13202B,#2A3541)}

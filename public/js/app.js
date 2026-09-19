@@ -179,6 +179,7 @@ async function messagesView(selectedId = null){
 
   const conversationKey = selectedGroupId ? groupKey(selectedGroupId) : (selectedContact ? directKey(selectedContact.id) : 'general');
   const conversationBackground = chatBackground(conversationKey);
+  const conversationBgKind = chatBackgroundKind(conversationKey);
 
   const directConversations = users.filter(user=>user.active && user.id!==state.user.id).map(user=>{
     const active=String(activeId)===String(user.id) ? 'active' : '';
@@ -237,9 +238,20 @@ async function messagesView(selectedId = null){
             </div>
             <div class="conversation-tools">
               <button class="btn secondary mini" id="toggle-contact-info" type="button">Info</button>
+              <button class="icon-btn" id="toggle-chat-bg" type="button" title="Cambiar fondo del chat" aria-label="Cambiar fondo del chat">🎨</button>
               <button class="icon-btn" id="mute-conversation" type="button" title="Silenciar conversación" aria-label="Silenciar conversación">🔔</button>
               <button class="icon-btn danger" id="block-conversation" type="button" title="Bloquear conversación" aria-label="Bloquear conversación">🚫</button>
             </div>
+          </div>
+          <div class="bg-swatches" id="chat-bg-panel" hidden>
+            <button type="button" class="bg-swatch bg-gradient ${conversationBgKind==='gradient'?'active':''}" data-bg="gradient" title="Fondo degradado" aria-label="Fondo degradado"></button>
+            <button type="button" class="bg-swatch bg-solid ${conversationBgKind==='solid'?'active':''}" data-bg="solid" title="Fondo sólido" aria-label="Fondo sólido"></button>
+            <button type="button" class="bg-swatch bg-lavender ${conversationBgKind==='lavender'?'active':''}" data-bg="lavender" title="Fondo lavanda" aria-label="Fondo lavanda"></button>
+            <button type="button" class="bg-swatch bg-warm ${conversationBgKind==='warm'?'active':''}" data-bg="warm" title="Fondo cálido" aria-label="Fondo cálido"></button>
+            <label class="bg-upload-label" title="Subir imagen de fondo" aria-label="Subir imagen de fondo">+<input type="file" accept="image/*" class="chat-bg-upload" data-key="${esc(conversationKey)}" hidden></label>
+            <span class="bg-swatches-divider"></span>
+            <button type="button" class="btn mini" id="chat-bg-confirm" disabled>Confirmar</button>
+            <button type="button" class="btn secondary mini" id="chat-bg-cancel">Cancelar</button>
           </div>
           <div class="message-list" data-bg-key="${esc(conversationKey)}" style="background:${esc(conversationBackground)};">
             ${messageMarkup}
@@ -308,14 +320,27 @@ async function renderMessages(){
   });
 
   // ---- Fondo del chat ----
+  document.querySelector('#toggle-chat-bg')?.addEventListener('click',()=>{
+    const panel=document.querySelector('#chat-bg-panel');
+    if(panel)panel.hidden=!panel.hidden;
+  });
   const swatchGroup=document.querySelector('.bg-swatches');
   const upload=document.querySelector('.chat-bg-upload');
+  const bgConfirmButton=document.querySelector('#chat-bg-confirm');
+  const bgCancelButton=document.querySelector('#chat-bg-cancel');
+  const messageListEl=document.querySelector('.message-list');
+  const originalBackground=chatBackground(conversationKey);
+  let pendingBackground=null;
+  function previewChatBackground(value){
+    pendingBackground=value;
+    if(messageListEl)messageListEl.style.background=value;
+    if(bgConfirmButton)bgConfirmButton.disabled=false;
+  }
   if(swatchGroup){
-    const key=conversationKey;
     document.querySelectorAll('.bg-swatch[data-bg]').forEach(swatch=>swatch.onclick=()=>{
       const backgrounds={gradient:'linear-gradient(135deg,#13202B,#2A3541)',solid:'#2A3541',lavender:'linear-gradient(135deg,#767E99,#C4B5C8)',warm:'linear-gradient(135deg,#201B19,#13202B)'};
-      localStorage.setItem(`haitani-chat-bg-${key}`,backgrounds[swatch.dataset.bg]);
-      renderMessages();
+      document.querySelectorAll('.bg-swatch[data-bg]').forEach(other=>other.classList.toggle('active',other===swatch));
+      previewChatBackground(backgrounds[swatch.dataset.bg]);
     })
   }
   upload?.addEventListener('change',async()=>{
@@ -324,9 +349,22 @@ async function renderMessages(){
       const form=new FormData();
       form.append('background',upload.files[0]);
       const result=await api('/chat-backgrounds',{method:'POST',body:form});
-      localStorage.setItem(`haitani-chat-bg-${upload.dataset.key}`,`url(${result.url}) center/cover no-repeat`);
-      renderMessages();
+      document.querySelectorAll('.bg-swatch[data-bg]').forEach(swatch=>swatch.classList.remove('active'));
+      previewChatBackground(`url(${result.url}) center/cover no-repeat`);
     }catch(error){notify(error.message)}
+  });
+  bgConfirmButton?.addEventListener('click',()=>{
+    if(pendingBackground===null)return;
+    localStorage.setItem(`haitani-chat-bg-${conversationKey}`,pendingBackground);
+    renderMessages();
+  });
+  bgCancelButton?.addEventListener('click',()=>{
+    if(messageListEl)messageListEl.style.background=originalBackground;
+    document.querySelectorAll('.bg-swatch[data-bg]').forEach(swatch=>swatch.classList.toggle('active',swatch.dataset.bg===chatBackgroundKind(conversationKey)));
+    pendingBackground=null;
+    if(bgConfirmButton)bgConfirmButton.disabled=true;
+    const panel=document.querySelector('#chat-bg-panel');
+    if(panel)panel.hidden=true;
   });
 
   // ---- Silenciar / Bloquear conversación ----

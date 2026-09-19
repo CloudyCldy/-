@@ -182,8 +182,6 @@ async function init() {
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivery_status TEXT NOT NULL DEFAULT 'enviado';
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS group_id INTEGER;
-    ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_group_id_fkey;
-    ALTER TABLE messages ADD CONSTRAINT messages_group_id_fkey FOREIGN KEY (group_id) REFERENCES chat_groups(id) ON DELETE CASCADE;
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_id INTEGER REFERENCES files(id) ON DELETE SET NULL;
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_name TEXT;
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_mime TEXT;
@@ -195,6 +193,8 @@ async function init() {
       created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_group_id_fkey;
+    ALTER TABLE messages ADD CONSTRAINT messages_group_id_fkey FOREIGN KEY (group_id) REFERENCES chat_groups(id) ON DELETE CASCADE;
     CREATE TABLE IF NOT EXISTS chat_group_members (
       group_id INTEGER NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
