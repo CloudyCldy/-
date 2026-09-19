@@ -1,5 +1,6 @@
 const state = { user: null, plan: null, tasks: [], users: [], files: [], dashboard: null, notifications: { messages: 0, tasks: 0 }, listPages: { files: 1, tasks: 1, members: 1 }, kanbanTimer: null };
 const app = document.querySelector('#app');
+const desktopNotificationState = { lastMessages: null, lastTasks: null, permissionRequested: false };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
 function iconAsset(name, alt = '', className = '') { return `<img class="icon-image ${className}" src="/static/img/${name}.png" alt="${esc(alt || name)}">`; }
 const SVG_ICONS = {
@@ -68,7 +69,46 @@ function themeToggle(){return `<div class="theme-switch" role="group" aria-label
 function bindTheme(){document.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>{currentTheme=button.dataset.theme;localStorage.setItem('haitani-theme',currentTheme);document.documentElement.dataset.theme=currentTheme;document.querySelectorAll('.theme-option').forEach(option=>option.classList.toggle('active',option.dataset.theme===currentTheme))})}
 async function api(url, options = {}) { const projectId = localStorage.getItem('haitani-github-project'); const githubUrl = url.startsWith('/github/') && projectId && !url.includes('?') ? `${url}?project_id=${encodeURIComponent(projectId)}` : url; const response = await fetch(`/api${githubUrl}`, { ...options, credentials:'include' }); const data = await response.json().catch(() => ({})); if (response.status === 403 && data.blocked) { blockedView(data.reason || 'Tu dirección IP no puede acceder a esta aplicación.'); throw new Error(data.error); } if (response.status === 401) { state.user = null; clearInterval(notificationTimer); } if (!response.ok) throw new Error(data.error || 'No fue posible completar la operación.'); return data; }
 function notificationDot(type){return `<i class="notification-dot" data-type="${type}" ${state.notifications[type]?'':'hidden'} title="${state.notifications[type]||0} notificaciones nuevas"></i>`}
-async function refreshNotifications(){if(!state.user)return;try{state.notifications=await api('/notifications');document.querySelectorAll('.notification-dot').forEach(dot=>{const count=state.notifications[dot.dataset.type]||0;dot.hidden=!count;dot.title=`${count} notificaciones`})}catch{} }
+function requestDesktopNotifications(){
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'default' && !desktopNotificationState.permissionRequested) {
+    desktopNotificationState.permissionRequested = true;
+    Notification.requestPermission().catch(() => {});
+  }
+  return false;
+}
+function showDesktopNotification(title, body){
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const notification = new Notification(title, {
+    body,
+    tag: 'haitani-system',
+    icon: '/static/img/favicon.png'
+  });
+  setTimeout(() => notification.close(), 5000);
+}
+async function refreshNotifications(){
+  if(!state.user)return;
+  try{
+    state.notifications=await api('/notifications');
+    if (desktopNotificationState.lastMessages === null) desktopNotificationState.lastMessages = state.notifications.messages;
+    if (desktopNotificationState.lastTasks === null) desktopNotificationState.lastTasks = state.notifications.tasks;
+    if (state.notifications.messages > desktopNotificationState.lastMessages) {
+      showDesktopNotification('Nuevo mensaje', `Tienes ${state.notifications.messages} mensaje(s) sin leer.`);
+    }
+    if (state.notifications.tasks > desktopNotificationState.lastTasks) {
+      showDesktopNotification('Nueva tarea asignada', `Hay ${state.notifications.tasks} tarea(s) pendientes asignadas a ti.`);
+    }
+    desktopNotificationState.lastMessages = state.notifications.messages;
+    desktopNotificationState.lastTasks = state.notifications.tasks;
+    requestDesktopNotifications();
+    document.querySelectorAll('.notification-dot').forEach(dot=>{
+      const count=state.notifications[dot.dataset.type]||0;
+      dot.hidden=!count;
+      dot.title=`${count} notificaciones`;
+    });
+  }catch{}
+}
 function startNotificationPolling(){clearInterval(notificationTimer);notificationTimer=setInterval(refreshNotifications,30000)}
 function notify(message) { const node = document.createElement('div'); node.className='toast'; node.textContent=message; document.body.append(node); setTimeout(() => node.remove(), 3000); }
 document.addEventListener('submit', async event => {
