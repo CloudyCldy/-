@@ -254,4 +254,12 @@ async function init() {
   `);
   console.log('PostgreSQL inicializado correctamente.');
 }
-init().catch(error => { console.error('No fue posible inicializar PostgreSQL:', error.code || 'ERROR', error.message || error); process.exitCode = 1; }).finally(() => pool.end());
+
+if (require.main === module) {
+  init().catch(error => {
+    console.error('No fue posible inicializar PostgreSQL:', error.code || 'ERROR', error.message || error);
+    process.exitCode = 1;
+  }).finally(() => pool.end());
+}
+
+module.exports = { init };
