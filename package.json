@@ -7,10 +7,14 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "db:init": "node database/init.js",
-    "db:seed": "node database/seed.js"
+    "db:seed": "node database/seed.js",
+    "build": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:studio": "prisma studio"
   },
   "dependencies": {
     "@octokit/rest": "^21.1.1",
+    "@prisma/client": "^6.19.3",
     "bcrypt": "^5.1.1",
     "connect-pg-simple": "^10.0.0",
     "cookie-signature": "^1.2.2",
@@ -21,6 +25,7 @@
     "mercadopago": "^3.6.1",
     "multer": "^1.4.5-lts.1",
     "pg": "^8.13.1",
+    "prisma": "^6.19.3",
     "ws": "^8.21.3"
   },
   "devDependencies": {
