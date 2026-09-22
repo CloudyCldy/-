@@ -4,7 +4,13 @@ const { pool } = require('../server/database');
 
 async function seed() {
   const password = await bcrypt.hash('admin123', 12);
-  const organization = (await pool.query("SELECT id FROM organizations WHERE slug = 'haitani'")).rows[0];
+  const organizations = await pool.query("SELECT id FROM organizations WHERE slug = 'haitani'");
+  if (!organizations.rows[0]) {
+    console.log('No existe la organización haitani; se omite el seed automático.');
+    return;
+  }
+
+  const organization = organizations.rows[0];
   const addUser = `INSERT INTO users (name, username, email, password, role, role_id, organization_id, github_username) VALUES ($1, $2, $3, $4, $5, (SELECT id FROM roles WHERE name = $5), $6, $7) ON CONFLICT (username) DO UPDATE SET name = EXCLUDED.name, organization_id = EXCLUDED.organization_id, role_id = EXCLUDED.role_id RETURNING id`;
   await pool.query(addUser, ['Administrador Haitani', 'admin', 'admin@haitani.local', password, 'admin', organization.id, null]);
   for (const [name, username, email, github] of [['Ana', 'ana', 'ana@haitani.local', 'ana-dev'], ['Carlos', 'carlos', 'carlos@haitani.local', null], ['María', 'maria', 'maria@haitani.local', null], ['Luis', 'luis', 'luis@haitani.local', null]]) await pool.query(addUser, [name, username, email, password, 'member', organization.id, github]);
@@ -19,4 +25,9 @@ async function seed() {
   }
   console.log('Datos de prueba cargados en PostgreSQL.');
 }
-seed().catch(error => { console.error('No fue posible cargar PostgreSQL:', error.message); process.exitCode = 1; }).finally(() => pool.end());
+
+if (require.main === module) {
+  seed().catch(error => { console.error('No fue posible cargar PostgreSQL:', error.message); process.exitCode = 1; }).finally(() => pool.end());
+}
+
+module.exports = { seed };

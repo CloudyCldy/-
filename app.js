@@ -10,6 +10,7 @@ const connectPgSimple = require('connect-pg-simple');
 const cors = require('cors');
 const database = require('./server/database');
 const { init: initDatabase } = require('./database/init');
+const { seed } = require('./database/seed');
 const billingRoutes = require('./server/routes/billingRoutes');
 const { requireAllowedIp } = require('./server/middleware/ipBlockMiddleware');
 const securityAudit = require('./server/middleware/securityAuditMiddleware');
@@ -24,9 +25,16 @@ app.locals.database = database;
 async function ensureRuntimeSchema() {
   try {
     const usersExists = await database.pool.query(`SELECT to_regclass('public.users') AS table_name;`);
+    const usersCount = await database.pool.query(`SELECT COUNT(*)::int AS count FROM users;`);
+
     if (!usersExists.rows[0]?.table_name) {
       console.log('La base de datos está vacía; inicializando esquema de Haitani...');
       await initDatabase();
+    }
+
+    if ((usersCount.rows[0]?.count ?? 0) === 0) {
+      console.log('No hay usuarios activos; cargando seed inicial con admin por defecto...');
+      await seed();
     }
 
     await database.pool.query(`
