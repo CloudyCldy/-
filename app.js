@@ -69,6 +69,16 @@ async function ensureRuntimeSchema() {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS announcements_organization_idx ON announcements (organization_id, created_at DESC);
+
+      ALTER TABLE absences ADD COLUMN IF NOT EXISTS appeal_status TEXT NOT NULL DEFAULT 'ninguna';
+      ALTER TABLE absences DROP CONSTRAINT IF EXISTS absences_appeal_status_check;
+      ALTER TABLE absences ADD CONSTRAINT absences_appeal_status_check CHECK (appeal_status IN ('ninguna', 'pendiente', 'aprobada', 'rechazada'));
+      ALTER TABLE absences ADD COLUMN IF NOT EXISTS appeal_reason TEXT;
+      ALTER TABLE absences ADD COLUMN IF NOT EXISTS appeal_evidence_id INTEGER REFERENCES files(id) ON DELETE SET NULL;
+      ALTER TABLE absences ADD COLUMN IF NOT EXISTS appealed_at TIMESTAMPTZ;
+      ALTER TABLE absences ADD COLUMN IF NOT EXISTS resolution_note TEXT;
+      ALTER TABLE absences ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
+      CREATE INDEX IF NOT EXISTS absences_appeal_status_idx ON absences (organization_id, appeal_status);
     `);
   } catch (error) {
     console.error('No fue posible asegurar el esquema de usuarios:', error);
