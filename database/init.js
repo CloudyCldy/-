@@ -246,6 +246,18 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS announcements (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      author_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      tag TEXT NOT NULL DEFAULT 'General',
+      accent TEXT NOT NULL DEFAULT 'pink' CHECK (accent IN ('pink', 'yellow', 'green')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS announcements_organization_idx ON announcements (organization_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS absences_user_date_idx ON absences (user_id, absence_date DESC);
     CREATE INDEX IF NOT EXISTS users_organization_idx ON users (organization_id);
     CREATE INDEX IF NOT EXISTS projects_organization_idx ON projects (organization_id);

@@ -56,6 +56,19 @@ async function ensureRuntimeSchema() {
       UPDATE messages SET receiver_id = NULL WHERE receiver_id = 0;
       ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_group_id_fkey;
       ALTER TABLE messages ADD CONSTRAINT messages_group_id_fkey FOREIGN KEY (group_id) REFERENCES chat_groups(id) ON DELETE CASCADE;
+
+      CREATE TABLE IF NOT EXISTS announcements (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        author_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        tag TEXT NOT NULL DEFAULT 'General',
+        accent TEXT NOT NULL DEFAULT 'pink' CHECK (accent IN ('pink', 'yellow', 'green')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS announcements_organization_idx ON announcements (organization_id, created_at DESC);
     `);
   } catch (error) {
     console.error('No fue posible asegurar el esquema de usuarios:', error);
@@ -103,6 +116,7 @@ app.use('/api/calls', require('./server/routes/callRoutes'));
 app.use('/api/music', require('./server/routes/musicRoutes'));
 app.use('/api/notifications', require('./server/routes/notificationRoutes'));
 app.use('/api/absences', require('./server/routes/absenceRoutes'));
+app.use('/api/announcements', require('./server/routes/announcementRoutes'));
 app.use('/api/security/ip-blocks', require('./server/routes/ipBlockRoutes'));
 app.use('/api/assistant', require('./server/routes/assistantRoutes'));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
