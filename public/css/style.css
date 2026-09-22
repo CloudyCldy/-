@@ -151,6 +151,17 @@ label{display:block;color:var(--muted);margin:var(--sp-4) 0 var(--sp-2);font-siz
 .badge.green{color:var(--green)}.badge.yellow{color:var(--yellow)}.badge.pink{color:var(--pink)}
 .empty{padding:var(--sp-7) var(--sp-5);text-align:center;color:var(--muted)}
 
+.announcement-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--sp-4);margin-top:var(--sp-4)}
+.announcement-card{display:flex;flex-direction:column;gap:var(--sp-3);min-height:220px;border:1px solid var(--line);background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 90%,transparent),color-mix(in srgb,var(--panel-2) 54%,var(--panel)))}
+.announcement-card.pink{border-color:color-mix(in srgb,var(--pink) 38%,var(--line))}
+.announcement-card.yellow{border-color:color-mix(in srgb,var(--yellow) 38%,var(--line))}
+.announcement-card.green{border-color:color-mix(in srgb,var(--green) 38%,var(--line))}
+.announcement-header,.announcement-footer{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3)}
+.announcement-card h2{margin:0;font-size:20px;line-height:1.2}
+.announcement-card p{margin:0;color:var(--muted);line-height:1.6}
+.announcement-footer{margin-top:auto;padding-top:var(--sp-2)}
+.btn.mini{padding:8px 12px;font-size:12px;border-radius:var(--r-md)}
+
 /* =========================================================
    KANBAN
    ========================================================= */
