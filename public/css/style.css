@@ -736,3 +736,200 @@ label.card .muted{grid-column:2;font-size:12px;line-height:1.5}
   .status-item{width:50px}
   .status-ring{width:46px;height:46px}
 }
+/* =========================================================
+   UI ENHANCEMENTS — ANIMACIONES, TARJETAS Y RESPONSIVE
+   (No se modifica ningún color/token existente; solo se
+   añaden movimiento, profundidad y ajustes de layout)
+   ========================================================= */
+
+@keyframes ui-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes ui-fade-up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ui-fade-up-sm{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ui-scale-in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+@keyframes ui-pop{0%{opacity:0;transform:scale(.9)}70%{opacity:1;transform:scale(1.03)}100%{transform:scale(1)}}
+@keyframes ui-shine{0%{background-position:-150% 0}100%{background-position:250% 0}}
+@keyframes ui-pulse-ring{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--pink) 45%,transparent)}70%{box-shadow:0 0 0 8px color-mix(in srgb,var(--pink) 0%,transparent)}100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--pink) 0%,transparent)}}
+@keyframes ui-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes ui-skeleton{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+/* ---- Entrada de contenido / navegación ---- */
+.content{animation:ui-fade-in .32s var(--ease) both}
+.heading{animation:ui-fade-up .38s var(--ease) both}
+.side{animation:ui-fade-in .3s var(--ease) both}
+.topbar{animation:ui-fade-up-sm .3s var(--ease) both}
+
+/* ---- Tarjetas: profundidad + hover + stagger de entrada ---- */
+.card{
+  animation:ui-fade-up .42s var(--ease) both;
+  transition:transform .28s var(--ease),box-shadow .28s var(--ease),border-color .28s var(--ease);
+  will-change:transform;
+}
+.card:hover{
+  transform:translateY(-4px);
+  box-shadow:var(--shadow-md);
+  border-color:color-mix(in srgb,var(--pink) 42%,var(--line));
+}
+.card:active{transform:translateY(-1px)}
+label.card:hover{transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+
+/* Stagger dentro de cuadrículas: cada hijo entra un poco después */
+.grid > *:nth-child(1),.stats > *:nth-child(1),.team-grid > *:nth-child(1),.announcement-grid > *:nth-child(1){animation-delay:.02s}
+.grid > *:nth-child(2),.stats > *:nth-child(2),.team-grid > *:nth-child(2),.announcement-grid > *:nth-child(2){animation-delay:.06s}
+.grid > *:nth-child(3),.stats > *:nth-child(3),.team-grid > *:nth-child(3),.announcement-grid > *:nth-child(3){animation-delay:.10s}
+.grid > *:nth-child(4),.stats > *:nth-child(4),.team-grid > *:nth-child(4),.announcement-grid > *:nth-child(4){animation-delay:.14s}
+.grid > *:nth-child(5),.stats > *:nth-child(5),.team-grid > *:nth-child(5),.announcement-grid > *:nth-child(5){animation-delay:.18s}
+.grid > *:nth-child(6),.stats > *:nth-child(6),.team-grid > *:nth-child(6),.announcement-grid > *:nth-child(6){animation-delay:.22s}
+.grid > *:nth-child(n+7),.stats > *:nth-child(n+7),.team-grid > *:nth-child(n+7),.announcement-grid > *:nth-child(n+7){animation-delay:.26s}
+
+/* ---- Stat cards: número con leve resalte y línea de acento animada ---- */
+.stat{position:relative;overflow:hidden}
+.stat:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--pink);transform:scaleY(0);transform-origin:bottom;transition:transform .32s var(--ease)}
+.stat:hover:before{transform:scaleY(1)}
+.stat .num{transition:transform .2s var(--ease)}
+.stat:hover .num{transform:translateX(2px)}
+
+/* ---- Botones: brillo sutil al pasar el cursor + feedback de pulsación ---- */
+.btn{position:relative;overflow:hidden;isolation:isolate}
+.btn:before{
+  content:"";position:absolute;inset:0;z-index:-1;
+  background:linear-gradient(120deg,transparent 30%,color-mix(in srgb,var(--white) 25%,transparent) 50%,transparent 70%);
+  background-size:250% 100%;background-position:-150% 0;opacity:0;transition:opacity .2s var(--ease);
+}
+.btn:hover:before{opacity:1;animation:ui-shine .9s var(--ease)}
+.btn:active{transform:translateY(1px) scale(.98)}
+.btn.secondary:before,.btn.danger:before{display:none}
+
+/* ---- Navegación lateral: indicador que se desliza ---- */
+.nav{transition:background-color .18s var(--ease),color .18s var(--ease),transform .18s var(--ease),box-shadow .18s var(--ease)}
+.nav:hover{transform:translateX(2px)}
+.nav.active{animation:ui-fade-up-sm .25s var(--ease) both}
+
+/* ---- Avatares: leve escala interactiva ---- */
+.avatar,.message-avatar,.team-avatar,.profile-photo{transition:transform .2s var(--ease),box-shadow .2s var(--ease)}
+.user-chip:hover .avatar{transform:scale(1.08)}
+.conversation-user:hover .message-avatar,.team-card:hover .team-avatar{transform:scale(1.05)}
+
+/* ---- Tablas: filas con leve elevación y entrada escalonada ---- */
+.table tbody tr{transition:background-color .15s var(--ease),transform .15s var(--ease)}
+.table tbody tr:hover{transform:translateX(2px)}
+.table tbody tr{animation:ui-fade-up-sm .3s var(--ease) both}
+.table tbody tr:nth-child(1){animation-delay:.01s}
+.table tbody tr:nth-child(2){animation-delay:.03s}
+.table tbody tr:nth-child(3){animation-delay:.05s}
+.table tbody tr:nth-child(4){animation-delay:.07s}
+.table tbody tr:nth-child(5){animation-delay:.09s}
+.table tbody tr:nth-child(n+6){animation-delay:.11s}
+
+/* ---- Kanban: tarjetas de tarea con hover más vivo ---- */
+.column{animation:ui-fade-up .4s var(--ease) both}
+.column:nth-child(1){animation-delay:.02s}
+.column:nth-child(2){animation-delay:.08s}
+.column:nth-child(3){animation-delay:.14s}
+.task-card{animation:ui-scale-in .3s var(--ease) both}
+.task-card:hover{transform:translateY(-3px) scale(1.01);box-shadow:var(--shadow-md);border-color:color-mix(in srgb,var(--pink) 45%,var(--line))}
+.task-card:active{cursor:grabbing}
+
+/* ---- Anuncios: badges y tarjetas con pequeño "pop" ---- */
+.announcement-card{transition:transform .25s var(--ease),box-shadow .25s var(--ease)}
+.announcement-card:hover{transform:translateY(-4px) rotate(-.15deg);box-shadow:var(--shadow-md)}
+.badge{animation:ui-pop .3s var(--ease) both;transition:transform .15s var(--ease)}
+.badge:hover{transform:translateY(-1px)}
+
+/* ---- Iconos / botones de icono ---- */
+.icon-btn:active{transform:scale(.92)}
+.bg-swatch:hover{box-shadow:0 0 0 3px color-mix(in srgb,var(--pink) 22%,transparent)}
+
+/* ---- Estados / status ring: pulso sutil cuando hay contenido nuevo ---- */
+.status-ring.has-status{animation:ui-pulse-ring 2.2s ease-out infinite}
+.status-add{animation:ui-pop .4s var(--ease) both .1s}
+
+/* ---- Modales / overlays: entrada suave ---- */
+.status-overlay,.privacy-overlay,.call-modal,.file-viewer{animation:ui-fade-in .2s var(--ease) both}
+.status-viewer,.privacy-notice,.call-panel,.file-viewer-panel,.gantt-popover{animation:ui-scale-in .26s var(--ease) both}
+.login-box{animation:ui-fade-up .45s var(--ease) both}
+
+/* ---- Mensajes / chat: burbujas con entrada ya existente reforzada ---- */
+.conversation{animation:ui-fade-in .3s var(--ease) both}
+.conversation-list{animation:ui-fade-in .3s var(--ease) both}
+.conversation-user{will-change:transform}
+.chat-file-picker:hover{transform:translateY(-1px)}
+
+/* ---- Gantt: barras con leve profundidad extra al interactuar ---- */
+.gantt-cal-bar,.gtc-bar{will-change:transform,box-shadow}
+.gtc-bar:hover{transform:translateY(-1px)}
+
+/* ---- Paginación ---- */
+.page-btn{transition:transform .15s var(--ease),background-color .15s var(--ease),border-color .15s var(--ease)}
+.page-btn:not(:disabled):hover{transform:translateY(-1px)}
+.page-btn.active{animation:ui-pop .25s var(--ease) both}
+
+/* ---- Loader ---- */
+.page-loader{animation:ui-fade-in .18s var(--ease) both}
+.page-loader-card{animation:ui-scale-in .22s var(--ease) both}
+
+/* ---- Accesibilidad: foco visible consistente en toda la app ---- */
+.nav:focus-visible,.icon-btn:focus-visible,.page-btn:focus-visible,.source-pill:focus-visible,
+.theme-option:focus-visible,.conversation-user:focus-visible,.task-card:focus-visible,
+a:focus-visible{outline:2px solid var(--pink);outline-offset:2px;border-radius:var(--r-sm)}
+
+/* =========================================================
+   RESPONSIVE — refuerzo de breakpoints existentes
+   ========================================================= */
+
+/* Tablets grandes / laptops pequeñas */
+@media (max-width:1200px) and (min-width:1101px){
+  .content{padding-left:clamp(16px,2.4vw,32px);padding-right:clamp(16px,2.4vw,32px)}
+  .health-overview{grid-template-columns:1fr}
+}
+
+/* Tablets */
+@media (max-width:900px){
+  .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .team-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .announcement-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .messages-layout{gap:var(--sp-3)}
+}
+
+/* Móviles medianos */
+@media (max-width:700px){
+  .kanban{gap:var(--sp-3)}
+  .task-card{min-height:auto}
+  .conversation{min-height:70vh}
+  .gantt-chart-head{align-items:stretch}
+  .assistant-suggestions{padding:var(--sp-3)}
+  .card{padding:var(--sp-4)}
+  .card h2{font-size:17px}
+}
+
+/* Móviles pequeños */
+@media (max-width:420px){
+  .stats{grid-template-columns:1fr 1fr}
+  .btn{padding:11px 14px;font-size:13px}
+  .heading h1{font-size:22px}
+  .team-avatar,.avatar{width:44px;height:44px}
+  .message{max-width:92%}
+  .status-item{width:44px}
+  .status-ring{width:40px;height:40px}
+}
+
+/* Pantallas muy anchas: evita que las tarjetas se vean perdidas */
+@media (min-width:1700px){
+  .content{max-width:1720px}
+  .stats{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+}
+
+/* Modo horizontal en móvil: evita overlays demasiado altos */
+@media (max-height:520px) and (orientation:landscape){
+  .status-viewer,.privacy-notice,.call-panel,.file-viewer-panel{max-height:88vh;overflow:auto}
+  .login{padding:var(--sp-3)}
+}
+
+/* Respeta accesibilidad: sin animaciones para quien las tenga desactivadas */
+@media (prefers-reduced-motion:reduce){
+  .card,.stat,.task-card,.column,.badge,.status-ring.has-status,.status-add,
+  .content,.heading,.side,.topbar,.table tbody tr,.status-overlay,.privacy-overlay,
+  .call-modal,.file-viewer,.status-viewer,.privacy-notice,.call-panel,.file-viewer-panel,
+  .gantt-popover,.login-box,.conversation,.conversation-list,.page-loader,.page-loader-card,
+  .nav.active,.page-btn.active{animation:none !important}
+  .card:hover,.task-card:hover,.announcement-card:hover{transform:none}
+}
