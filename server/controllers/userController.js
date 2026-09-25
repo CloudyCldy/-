@@ -64,6 +64,7 @@ async function profile(req, res) {
 async function profilePhoto(req, res) {
   const asset = await req.app.locals.database.prepare('SELECT stored_assets.mime_type, stored_assets.content FROM stored_assets JOIN users ON users.profile_asset_id = stored_assets.id WHERE users.id = ? AND users.organization_id = ? AND stored_assets.kind = ?').get(req.params.id, req.session.user.organization_id, 'profile-photo');
   if (!asset) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   res.type(asset.mime_type).send(asset.content);
 }
 async function remove(req, res) {

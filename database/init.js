@@ -271,6 +271,12 @@ async function init() {
     CREATE INDEX IF NOT EXISTS users_organization_idx ON users (organization_id);
     CREATE INDEX IF NOT EXISTS projects_organization_idx ON projects (organization_id);
     CREATE INDEX IF NOT EXISTS tasks_organization_idx ON tasks (organization_id);
+    CREATE INDEX IF NOT EXISTS tasks_org_assigned_status_idx ON tasks (organization_id, assigned_to, status);
+    CREATE INDEX IF NOT EXISTS tasks_org_status_due_idx ON tasks (organization_id, status, due_date);
+    CREATE INDEX IF NOT EXISTS messages_org_receiver_status_idx ON messages (organization_id, receiver_id, delivery_status);
+    CREATE INDEX IF NOT EXISTS messages_org_group_idx ON messages (organization_id, conversation_type, group_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS incidences_org_user_idx ON incidences (organization_id, user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS files_org_created_idx ON files (organization_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS activities_organization_idx ON activities (organization_id, created_at DESC);
   `);
   console.log('PostgreSQL inicializado correctamente.');

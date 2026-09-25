@@ -7,6 +7,7 @@ const express = require('express');
 const WebSocket = require('ws');
 const session = require('express-session');
 const connectPgSimple = require('connect-pg-simple');
+const compression = require('compression');
 const cors = require('cors');
 const database = require('./server/database');
 const { init: initDatabase } = require('./database/init');
@@ -79,6 +80,12 @@ async function ensureRuntimeSchema() {
       ALTER TABLE absences ADD COLUMN IF NOT EXISTS resolution_note TEXT;
       ALTER TABLE absences ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
       CREATE INDEX IF NOT EXISTS absences_appeal_status_idx ON absences (organization_id, appeal_status);
+      CREATE INDEX IF NOT EXISTS tasks_org_assigned_status_idx ON tasks (organization_id, assigned_to, status);
+      CREATE INDEX IF NOT EXISTS tasks_org_status_due_idx ON tasks (organization_id, status, due_date);
+      CREATE INDEX IF NOT EXISTS messages_org_receiver_status_idx ON messages (organization_id, receiver_id, delivery_status);
+      CREATE INDEX IF NOT EXISTS messages_org_group_idx ON messages (organization_id, conversation_type, group_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS incidences_org_user_idx ON incidences (organization_id, user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS files_org_created_idx ON files (organization_id, created_at DESC);
     `);
   } catch (error) {
     console.error('No fue posible asegurar el esquema de usuarios:', error);
@@ -87,6 +94,7 @@ async function ensureRuntimeSchema() {
 }
 
 const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(value => value.trim()) : [];
+app.use(compression());
 app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : false, credentials: true }));
 app.use('/api/billing/webhook', billingRoutes.webhookRouter);
 app.use(express.json());
@@ -103,8 +111,15 @@ app.use(session({
 app.use(securityAudit);
 app.use(requireAllowedIp);
 app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: isProd ? '1d' : '1h',
+  etag: true,
+  lastModified: true,
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.js') || filePath.endsWith('.css')) res.setHeader('Cache-Control', 'no-store');
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    } else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+    }
   }
 }));
 

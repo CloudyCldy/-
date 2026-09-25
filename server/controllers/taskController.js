@@ -100,6 +100,7 @@ async function image(req, res) {
     FROM tasks JOIN stored_assets ON stored_assets.id = tasks.image_asset_id
     WHERE tasks.id = ? AND tasks.organization_id = ? AND stored_assets.organization_id = ? AND stored_assets.kind = 'task-image'`).get(id, req.session.user.organization_id, req.session.user.organization_id);
   if (!asset) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   res.setHeader('Content-Type', asset.mime_type);
   res.setHeader('Content-Disposition', 'inline');
   res.send(asset.content);
