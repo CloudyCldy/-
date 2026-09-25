@@ -8,6 +8,8 @@
     "dev": "nodemon app.js",
     "db:init": "node database/init.js",
     "db:seed": "node database/seed.js",
+    "db:backup": "node backup_db.js",
+    "db:restore": "node restore_db.js",
     "build": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio"
