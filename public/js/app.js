@@ -1,5 +1,5 @@
 const state = { user: null, plan: null, tasks: [], users: [], files: [], announcements: [], dashboard: null, notifications: { messages: 0, tasks: 0 }, listPages: { files: 1, tasks: 1, members: 1, announcements: 1 }, kanbanTimer: null };
-const app = document.querySelector('#app');
+const app = document.querySelector('#app') || document.getElementById('app') || document.body;
 const desktopNotificationState = { lastMessages: null, lastTasks: null, permissionRequested: false };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
 function iconAsset(name, alt = '', className = '') { return `<img class="icon-image ${className}" src="/static/img/${name}.png" alt="${esc(alt || name)}">`; }
@@ -17,6 +17,41 @@ const SVG_ICONS = {
   file: '<path d="M6.2 2.6h5.1L14.8 6v10.5a1 1 0 0 1-1 1H6.2a1 1 0 0 1-1-1V3.6a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M11.3 2.7v3.2a1 1 0 0 0 1 1h3" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
   paperclip: '<path d="M13.2 4.6c1.4 1.4 1.4 3.7 0 5.1L8.4 14.5a3.1 3.1 0 0 1-4.4-4.4l5.6-5.6a1.9 1.9 0 0 1 2.7 2.7l-5.3 5.3a.7.7 0 1 1-1-1l4.9-4.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
   roller: '<rect x="3" y="3" width="10.4" height="3.4" rx="1.2" stroke="currentColor" stroke-width="1.3"/><line x1="8.2" y1="6.6" x2="8.2" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="6.3" y="10" width="3.8" height="5.4" rx="1" stroke="currentColor" stroke-width="1.3"/>',
+  arrowUp: '<path d="M10 15V5m0 0L5.5 9.5M10 5l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  menu: '<line x1="3.5" y1="5.5" x2="16.5" y2="5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="3.5" y1="10" x2="16.5" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="3.5" y1="14.5" x2="16.5" y2="14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  dashboard: '<rect x="3" y="3" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="11.5" y="3" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="11.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/>',
+  announcements: '<path d="M14 5.5l-6 2H4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h4l6 2V5.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M16 8a3 3 0 0 1 0 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M6 12.5v3.2a.8.8 0 0 0 .8.8h.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  calendar: '<rect x="3" y="4" width="14" height="13" rx="1.5" stroke="currentColor" stroke-width="1.3"/><line x1="3" y1="8" x2="17" y2="8" stroke="currentColor" stroke-width="1.3"/><line x1="6.8" y1="2.5" x2="6.8" y2="4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="13.2" y1="2.5" x2="13.2" y2="4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+  sparkles: '<path d="M10 2.8l1.6 4.3 4.4 1.4-4.4 1.4L10 14.2l-1.6-4.3-4.4-1.4 4.4-1.4L10 2.8Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M15.5 13.5l.8 2 2 .7-2 .7-.8 2-.7-2-2-.7 2-.7.7-2Z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>',
+  tasks: '<path d="M3.5 5.5h2m-2 4.5h2m-2 4.5h2m3.5-9h7.5m-7.5 4.5h7.5m-7.5 4.5h7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+  kanban: '<rect x="3" y="3.5" width="3.8" height="13" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="8.1" y="3.5" width="3.8" height="8.5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="13.2" y="3.5" width="3.8" height="11" rx="1" stroke="currentColor" stroke-width="1.3"/>',
+  gantt: '<rect x="3" y="3.5" width="14" height="13" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M6 7.5h4.5M9.5 11h5.5M7 14.5h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  users: '<circle cx="7.5" cy="7" r="2.8" stroke="currentColor" stroke-width="1.3"/><path d="M3.2 15.5a4.3 4.3 0 0 1 8.6 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M12.5 4.8a2.5 2.5 0 0 1 0 4.8M14.5 14.5a3.8 3.8 0 0 0-2.8-3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  folder: '<path d="M3 5.5a1.5 1.5 0 0 1 1.5-1.5h3.2a1.5 1.5 0 0 1 1.1.5l1.1 1.2a1.5 1.5 0 0 0 1.1.5H15.5A1.5 1.5 0 0 1 17 7.7v7.8a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 15.5V5.5Z" stroke="currentColor" stroke-width="1.3"/>',
+  messages: '<path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H7.5l-3.8 2.8a.5.5 0 0 1-.7-.4V6A1.5 1.5 0 0 1 4 4.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  music: '<circle cx="6" cy="14" r="2.5" stroke="currentColor" stroke-width="1.3"/><circle cx="14" cy="12" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M8.5 14V5.5l8-2V12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><line x1="8.5" y1="8" x2="16.5" y2="6" stroke="currentColor" stroke-width="1.2"/>',
+  github: '<path d="M10 2.2C5.7 2.2 2.2 5.7 2.2 10c0 3.4 2.2 6.3 5.3 7.3.4.1.5-.2.5-.4v-1.4c-2.2.5-2.6-.9-2.6-.9-.3-.9-.9-1.1-.9-1.1-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.8.8 2.3.6.1-.5.3-.8.5-1-1.7-.2-3.6-.9-3.6-3.8 0-.8.3-1.5.8-2-.1-.2-.4-1 .1-2 0 0 .6-.2 2.1.8.6-.2 1.3-.3 1.9-.3.6 0 1.3.1 1.9.3 1.5-1 2.1-.8 2.1-.8.5 1 .2 1.8.1 2 .5.5.8 1.2.8 2 0 3-1.9 3.6-3.6 3.8.3.3.6.8.6 1.6v2.4c0 .2.2.5.6.4 3.1-1 5.3-3.9 5.3-7.3 0-4.3-3.5-7.8-7.8-7.8Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>',
+  gitCommit: '<circle cx="10" cy="10" r="3.2" stroke="currentColor" stroke-width="1.3"/><line x1="2.5" y1="10" x2="6.8" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="13.2" y1="10" x2="17.5" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  activity: '<path d="M2.5 10.5h3.3l2.2-6.5 3.8 12 2.4-5.5h3.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  creditCard: '<rect x="2.8" y="4.5" width="14.4" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><line x1="2.8" y1="8.5" x2="17.2" y2="8.5" stroke="currentColor" stroke-width="1.3"/><line x1="5.5" y1="12.5" x2="8.5" y2="12.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  settings: '<circle cx="10" cy="10" r="2.7" stroke="currentColor" stroke-width="1.3"/><path d="M10 2.8v1.6m0 11.2v1.6m7.2-7.2h-1.6M4.4 10H2.8m11.6-4.5l-1.1 1.1M6.7 13.3l-1.1 1.1m9.6 0l-1.1-1.1M6.7 6.7L5.6 5.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  shield: '<path d="M10 3.2s4.8 1.4 6 2.3c0 4.5-2.2 8.5-6 11.3-3.8-2.8-6-6.8-6-11.3 1.2-.9 6-2.3 6-2.3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  user: '<circle cx="10" cy="7" r="3.3" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 16.5a5.5 5.5 0 0 1 11 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  logout: '<path d="M7.5 4.5H4.8A1.3 1.3 0 0 0 3.5 5.8v8.4a1.3 1.3 0 0 0 1.3 1.3h2.7m4.5-8L15.5 10l-3.5 2.5M7 10h8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+  plus: '<line x1="10" y1="4.5" x2="10" y2="15.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="4.5" y1="10" x2="15.5" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  edit: '<path d="M12.8 4.2l3 3L6.5 16.5H3.5v-3L12.8 4.2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><line x1="11.2" y1="5.8" x2="14.2" y2="8.8" stroke="currentColor" stroke-width="1.3"/>',
+  eye: '<path d="M2.5 10s3-5.5 7.5-5.5 7.5 5.5 7.5 5.5-3 5.5-7.5 5.5S2.5 10 2.5 10Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="10" cy="10" r="2.2" stroke="currentColor" stroke-width="1.3"/>',
+  download: '<path d="M10 3.5v9m0 0l-3-3m3 3l3-3M4 16.5h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  upload: '<path d="M10 13.5v-9m0 0l-3 3m3-3l3 3M4 16.5h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  search: '<circle cx="8.8" cy="8.8" r="5" stroke="currentColor" stroke-width="1.3"/><line x1="12.5" y1="12.5" x2="16.5" y2="16.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+  play: '<polygon points="7,5 15,10 7,15" fill="currentColor"/>',
+  mic: '<rect x="7" y="3.5" width="6" height="8" rx="3" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 9a5.5 5.5 0 0 0 11 0m-5.5 5.5v2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  micOff: '<rect x="7" y="3.5" width="6" height="8" rx="3" stroke="currentColor" stroke-width="1.3" opacity=".5"/><path d="M4.5 9a5.5 5.5 0 0 0 11 0m-5.5 5.5v2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".5"/><line x1="3.5" y1="3.5" x2="16.5" y2="16.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+  send: '<path d="M16.5 3.5L3.5 9l5.5 2 2 5.5 5.5-13Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><line x1="9" y1="11" x2="16.5" y2="3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  external: '<path d="M10.5 4.5h5v5m0-5l-7 7M14 11.5v4H4.5v-9.5H9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+  progress: '<circle cx="10" cy="10" r="6.8" stroke="currentColor" stroke-width="1.3" stroke-dasharray="32 12"/><polyline points="10,6.5 10,10 12.5,12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  sun: '<circle cx="10" cy="10" r="3.7" stroke="currentColor" stroke-width="1.3"/><line x1="10" y1="2" x2="10" y2="4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="10" y1="16" x2="10" y2="18" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="2" y1="10" x2="4" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="16" y1="10" x2="18" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="4.34" y1="4.34" x2="5.76" y2="5.76" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="14.24" y1="14.24" x2="15.66" y2="15.66" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="4.34" y1="15.66" x2="5.76" y2="14.24" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="14.24" y1="5.76" x2="15.66" y2="4.34" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  moon: '<path d="M15.4 11.2A6.5 6.5 0 0 1 8.8 4.6a6.6 6.6 0 1 0 7.7 7.7c-.3-.4-.7-.8-1.1-1.1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
 };
 function icon(name, className = '') { return `<span class="icon-svg ${className}" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">${SVG_ICONS[name] || ''}</svg></span>`; }
 function paginateItems(items, pageKey, pageSize = 8) {
@@ -56,7 +91,7 @@ function bindPaginationControls() {
   });
 }
 function blockedView(reason='Tu dirección IP no puede acceder a esta aplicación.') { app.innerHTML=`<main class="login"><section class="login-box blocked-access"><img src="/static/blocked.jpg" alt="Acceso bloqueado"><h1>Acceso bloqueado</h1><p class="muted">${esc(reason)}</p></section></main>`; }
-let currentTheme = localStorage.getItem('haitani-theme') || 'ran';
+let currentTheme = localStorage.getItem('haitani-theme') || 'steep';
 let notificationTimer;
 document.documentElement.dataset.theme = currentTheme;
 let ganttStatusFilter = '';
@@ -68,7 +103,7 @@ const GANTT_WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 function startOfWeekMonday(date) { const d = new Date(date); const offset = (d.getDay() + 6) % 7; d.setDate(d.getDate() - offset); d.setHours(0, 0, 0, 0); return d }
 function toISODate(date) { return date.toISOString().slice(0, 10) }
 function addDays(dateStr, delta) { const base = dateStr || new Date().toISOString().slice(0, 10); const date = new Date(`${base}T00:00:00`); date.setDate(date.getDate() + delta); return date.toISOString().slice(0, 10) }
-function themeToggle(){return `<div class="theme-switch" role="group" aria-label="Tema visual"><button class="theme-option ${currentTheme==='ran'?'active':''}" data-theme="ran">蘭</button><button class="theme-option ${currentTheme==='ryutan'?'active':''}" data-theme="ryutan">竜 胆</button></div>`}
+function themeToggle(){return `<div class="theme-switch" role="group" aria-label="Tema visual"><button class="theme-option ${currentTheme==='steep'?'active':''}" data-theme="steep" type="button" title="Modo claro" aria-label="Modo claro">${icon('sun')}</button><button class="theme-option ${currentTheme==='ran'?'active':''}" data-theme="ran" type="button" title="Modo oscuro" aria-label="Modo oscuro">${icon('moon')}</button></div>`}
 function bindTheme(){document.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>{currentTheme=button.dataset.theme;localStorage.setItem('haitani-theme',currentTheme);document.documentElement.dataset.theme=currentTheme;document.querySelectorAll('.theme-option').forEach(option=>option.classList.toggle('active',option.dataset.theme===currentTheme))})}
 async function api(url, options = {}) { const projectId = localStorage.getItem('haitani-github-project'); const githubUrl = url.startsWith('/github/') && projectId && !url.includes('?') ? `${url}?project_id=${encodeURIComponent(projectId)}` : url; const response = await fetch(`/api${githubUrl}`, { ...options, credentials:'include' }); const data = await response.json().catch(() => ({})); if (response.status === 403 && data.blocked) { blockedView(data.reason || 'Tu dirección IP no puede acceder a esta aplicación.'); throw new Error(data.error); } if (response.status === 401) { state.user = null; clearInterval(notificationTimer); } if (!response.ok) throw new Error(data.error || 'No fue posible completar la operación.'); return data; }
 function notificationDot(type){return `<i class="notification-dot" data-type="${type}" ${state.notifications[type]?'':'hidden'} title="${state.notifications[type]||0} notificaciones nuevas"></i>`}
@@ -145,54 +180,433 @@ function showSlowLoader(){ if (document.querySelector('#page-slow-loader')) retu
 function hideSlowLoader(){ const loader=document.querySelector('#page-slow-loader'); if(loader) loader.remove(); if(slowLoaderTimer){ clearTimeout(slowLoaderTimer); slowLoaderTimer=null; } }
 const PRIVACY_NOTICE_KEY='haitani-privacy-accepted-v1';
 function privacyNotice(){return `<div class="privacy-overlay" id="privacy-notice" role="dialog" aria-modal="true" aria-labelledby="privacy-title"><section class="privacy-notice"><div class="eyebrow">Aviso importante</div><h2 id="privacy-title">Privacidad y acuerdos de uso</h2><div class="privacy-content"><p>Haitani es una plataforma para gestionar organizaciones, proyectos, tareas, archivos, mensajes, llamadas, actividad de GitHub y registros administrativos de inasistencias.</p><p>Usamos estos datos para gestionar el trabajo, mantener la seguridad y cumplir las obligaciones aplicables. El acceso está limitado según el rol de cada usuario y las contraseñas se almacenan de forma protegida. No vendemos datos personales.</p><p>Debes mantener tus credenciales en secreto, usar la aplicación únicamente para fines autorizados y no subir contenido ilegal, dañino o confidencial sin permiso. Puedes solicitar acceso, corrección o eliminación de tus datos escribiendo a <strong>adminpruebassakura@gmail.com</strong>.</p><p class="muted">Lee el documento completo en <strong>POLITICA_PRIVACIDAD_Y_ACUERDOS</strong> antes de continuar.</p></div><button class="btn" id="accept-privacy">He leído y acepto</button></section></div>`}
-function loginView(error='') { app.innerHTML=`<main class="login"><form class="login-box" id="login-form"><div class="brand">HAI<span>TANI</span></div><div class="eyebrow">Centro de control</div><h1>Haitani</h1><p class="muted">Organiza el trabajo de tu organización con una vista clara del proyecto.</p>${error?`<div class="alert">${esc(error)}</div>`:''}<label>Usuario o correo<input class="input" name="username" required autofocus></label><label>Contraseña<input class="input" name="password" type="password" required></label><button class="btn btn-block">Iniciar sesión</button></form>${localStorage.getItem(PRIVACY_NOTICE_KEY)?'':privacyNotice()}</main>`;document.querySelector('#accept-privacy')?.addEventListener('click',()=>{localStorage.setItem(PRIVACY_NOTICE_KEY,'1');document.querySelector('#privacy-notice')?.remove();document.querySelector('#login-form input')?.focus()}); document.querySelector('#login-form').onsubmit=async event=>{event.preventDefault();try{const data=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});state.user=data.user;state.plan=data.plan;location.hash=data.redirect;render()}catch(error){loginView(error.message)}}}
-function sidebar(){const admin=state.user.role==='admin';const links=admin?[['/admin/dashboard','Dashboard'],['/admin/announcements','Anuncios'],['/admin/absences','Inasistencias'],['/admin/assistant','Asistente IA'],['/admin/tasks','Tareas','tasks'],['/admin/kanban','Kanban'],['/admin/gantt','Gantt'],['/admin/members','Integrantes'],['/admin/files','Archivos'],['/admin/messages','Mensajes','messages'],['/admin/relax','Relax 梵天'],['/admin/github','GitHub'],['/admin/github/commits','Commits'],['/admin/team-activity','Actividad del equipo'],['/admin/billing','Facturación'],['/admin/settings/github','Configuración'],['/admin/settings/security','Seguridad'],['/admin/profile','Perfil']]:[['/member/dashboard','Dashboard'],['/member/announcements','Anuncios'],['/member/absences','Inasistencias'],['/member/tasks','Mis tareas','tasks'],['/member/kanban','Kanban'],['/member/gantt','Gantt'],['/member/files','Archivos'],['/member/members','Equipo'],['/member/messages','Mensajes','messages'],['/member/relax','Relax 梵天'],['/member/github','GitHub'],['/member/profile','Perfil']];return `<aside class="side" id="side"><div class="brand">HAI<span>TANI</span></div><div class="project">${esc(state.user.organization_name||'Organización')}</div><div class="nav-title">Workspace</div>${links.map(([href,label,type])=>`<button class="nav ${location.hash===href?'active':''}" data-route="${href}">${label}${type?notificationDot(type):''}</button>`).join('')}<div class="nav-title">Cuenta</div><button class="nav" id="logout">Cerrar sesión</button></aside>`}
+function loginView(error='') {
+  app.innerHTML = `
+    <main class="login">
+      <div class="auth-theme-bar">
+        ${themeToggle()}
+      </div>
+      <div class="auth-stage">
+        <section class="auth-story">
+          <div class="brand">HAI<span>TANI</span></div>
+          <h2 class="auth-story-headline">
+            Control integral para <em>organizaciones de alto nivel</em>
+          </h2>
+          <p class="auth-story-subhead">
+            Planificación ágil de proyectos, analíticas en tiempo real y colaboración técnica unificada en un solo lugar.
+          </p>
+        </section>
+
+        <form class="login-box" id="login-form">
+          <div class="login-box-header">
+            <div class="brand auth-box-brand">HAI<span>TANI</span></div>
+            <div class="eyebrow">Acceso seguro</div>
+            <h1>Iniciar sesión</h1>
+            <p class="muted">Ingresa tus credenciales para acceder al espacio de trabajo.</p>
+          </div>
+          ${error ? `<div class="alert">${esc(error)}</div>` : ''}
+          <label>Usuario o correo
+            <input class="input" name="username" placeholder="tu.usuario o correo@empresa.com" required autofocus>
+          </label>
+          <label>Contraseña
+            <input class="input" name="password" type="password" placeholder="Tu contraseña" required>
+          </label>
+          <div class="auth-actions">
+            <button class="btn btn-block" type="submit">Entrar al workspace →</button>
+            <button type="button" class="btn secondary btn-block" id="show-register">Crear organización</button>
+          </div>
+          <div class="auth-footer-links">
+            <a href="#/" class="auth-link">← Volver al inicio</a>
+            <span class="muted">Suscripción gestionada</span>
+          </div>
+        </form>
+      </div>
+      ${localStorage.getItem(PRIVACY_NOTICE_KEY) ? '' : privacyNotice()}
+    </main>
+  `;
+
+  bindTheme();
+  document.querySelector('#show-register')?.addEventListener('click', () => registerView());
+  document.querySelector('#accept-privacy')?.addEventListener('click', () => {
+    localStorage.setItem(PRIVACY_NOTICE_KEY, '1');
+    document.querySelector('#privacy-notice')?.remove();
+    document.querySelector('#login-form input')?.focus();
+  });
+  document.querySelector('#login-form').onsubmit = async event => {
+    event.preventDefault();
+    try {
+      const data = await api('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.fromEntries(new FormData(event.target)))
+      });
+      state.user = data.user;
+      state.plan = data.plan;
+      location.hash = data.redirect;
+      render();
+    } catch (err) {
+      loginView(err.message);
+    }
+  };
+}
+function sidebar(){
+  const admin=state.user.role==='admin';
+  const links=admin?[
+    ['/admin/dashboard','Dashboard','dashboard'],
+    ['/admin/announcements','Anuncios','announcements'],
+    ['/admin/absences','Inasistencias','calendar'],
+    ['/admin/assistant','Asistente IA','sparkles'],
+    ['/admin/tasks','Tareas','tasks','tasks'],
+    ['/admin/kanban','Kanban','kanban'],
+    ['/admin/gantt','Gantt','gantt'],
+    ['/admin/members','Integrantes','users'],
+    ['/admin/files','Archivos','folder'],
+    ['/admin/messages','Mensajes','messages','messages'],
+    ['/admin/relax','Relax 梵天','music'],
+    ['/admin/github','GitHub','github'],
+    ['/admin/github/commits','Commits','gitCommit'],
+    ['/admin/team-activity','Actividad del equipo','activity'],
+    ['/admin/billing','Facturación','creditCard'],
+    ['/admin/settings/github','Configuración','settings'],
+    ['/admin/settings/security','Seguridad','shield'],
+    ['/admin/profile','Perfil','user']
+  ]:[
+    ['/member/dashboard','Dashboard','dashboard'],
+    ['/member/announcements','Anuncios','announcements'],
+    ['/member/absences','Inasistencias','calendar'],
+    ['/member/tasks','Mis tareas','tasks','tasks'],
+    ['/member/kanban','Kanban','kanban'],
+    ['/member/gantt','Gantt','gantt'],
+    ['/member/files','Archivos','folder'],
+    ['/member/members','Equipo','users'],
+    ['/member/messages','Mensajes','messages','messages'],
+    ['/member/relax','Relax 梵天','music'],
+    ['/member/github','GitHub','github'],
+    ['/member/profile','Perfil','user']
+  ];
+  return `<aside class="side" id="side"><div class="brand">HAI<span>TANI</span></div><div class="project">${esc(state.user.organization_name||'Organización')}</div><div class="nav-title">Workspace</div>${links.map(([href,label,iconName,type])=>`<button class="nav ${location.hash===href?'active':''}" data-route="${href}">${icon(iconName)}<span class="nav-label">${label}</span>${type?notificationDot(type):''}</button>`).join('')}<div class="nav-title">Cuenta</div><button class="nav" id="logout">${icon('logout')}<span class="nav-label">Cerrar sesión</span></button></aside>`;
+}
 function avatarMarkup(user,size='avatar'){return user.profile_photo?`<img class="${size}" src="${esc(user.profile_photo)}" alt="Foto de ${esc(user.name)}">`:`<span class="${size}">${esc(user.name?.[0]||'?')}</span>`}
-function layout(content){app.innerHTML=`<div class="shell">${sidebar()}<section class="main"><header class="topbar"><button class="mobile-toggle" id="menu" aria-label="Abrir menú de navegación">☰</button><span class="muted">${state.user.role==='admin'?'Panel administrativo':'Espacio personal'}</span><div class="topbar-actions">${themeToggle()}<div class="user-chip"><span>${esc(state.user.name)}</span>${avatarMarkup(state.user)}</div></div></header><main class="content">${content}</main></section></div>`;document.querySelectorAll('[data-route]').forEach(node=>node.onclick=()=>{location.hash=node.dataset.route});document.querySelector('#logout').onclick=async()=>{await api('/auth/logout',{method:'POST'});state.user=null;location.hash='';loginView()};document.querySelector('#menu').onclick=()=>document.querySelector('#side').classList.toggle('open');bindTheme()}
+function layout(content){
+  app.innerHTML=`<div class="shell"><div class="sidebar-backdrop" id="side-backdrop"></div>${sidebar()}<section class="main"><header class="topbar"><button class="mobile-toggle" id="menu" aria-label="Abrir menú de navegación">${icon('menu')}</button><span class="muted">${state.user.role==='admin'?'Panel administrativo':'Espacio personal'}</span><div class="topbar-actions">${themeToggle()}<div class="user-chip"><span>${esc(state.user.name)}</span>${avatarMarkup(state.user)}</div></div></header><main class="content">${content}</main></section></div>`;
+  const side = document.querySelector('#side');
+  const backdrop = document.querySelector('#side-backdrop');
+  const closeSide = () => { side?.classList.remove('open'); backdrop?.classList.remove('active'); };
+  document.querySelectorAll('[data-route]').forEach(node=>node.onclick=()=>{ location.hash=node.dataset.route; closeSide(); });
+  document.querySelector('#logout').onclick=async()=>{ closeSide(); await api('/auth/logout',{method:'POST'}); state.user=null; location.hash=''; loginView(); };
+  document.querySelector('#menu').onclick=()=>{ side?.classList.toggle('open'); backdrop?.classList.toggle('active'); };
+  backdrop.onclick=closeSide;
+  bindTheme();
+}
 function heading(title, subtitle, action=''){return `<div class="heading"><div><div class="eyebrow">Haitani / ${esc(state.user.organization_name||'Organización')}</div><h1>${title}</h1><p>${subtitle}</p></div>${action}</div>`}
-function projectEditor(project){if(state.user.role!=='admin')return '';const methods=[['AGILE','Agile'],['SCRUM','Scrum'],['KANBAN','Kanban'],['XP','XP'],['LEAN','Lean'],['WATERFALL','Waterfall'],['HYBRID','Híbrida']];return `<form id="project-form" class="form-grid mt-4"><input type="hidden" name="id" value="${project?.id||''}"><label>Nombre<input class="input" name="name" value="${esc(project?.name||'')}" required></label><label>Descripción<input class="input" name="description" value="${esc(project?.description||'')}"></label><label>Metodología<select class="select" name="methodology_id" required>${methods.map(([value,label])=>`<option value="${value}" ${project?.methodology_id===value||(!project&&value==='AGILE')?'selected':''}>${label}</option>`).join('')}</select></label><label class="full">Requerimientos<textarea class="textarea" name="requirements" rows="4" placeholder="Alcance, stack, restricciones y criterios de aceptación">${esc(project?.requirements||'')}</textarea></label><div class="actions full"><button class="btn">${project?'Guardar proyecto':'Crear proyecto'}</button></div></form>`}
-function methodologyWidgets(project){const method=project?.methodology_id;const links=[];if(['SCRUM','KANBAN','XP','AGILE'].includes(method))links.push('<a class="btn secondary" href="#/admin/kanban">Abrir tablero</a>');if(method==='WATERFALL'||method==='LEAN'||method==='HYBRID')links.push('<a class="btn secondary" href="#/admin/gantt">Abrir hitos y Gantt</a>');return `<div class="actions mt-3"><span class="muted">${method?`Flujo recomendado: ${esc(method)}`:'Define una metodología'}</span>${links.join('')}</div>`}
+function projectEditor(project){if(state.user.role!=='admin')return '';const methods=[['AGILE','Agile'],['SCRUM','Scrum'],['KANBAN','Kanban'],['XP','XP'],['LEAN','Lean'],['WATERFALL','Waterfall'],['HYBRID','Híbrida']];return `<form id="project-form" class="form-grid mt-4"><input type="hidden" name="id" value="${project?.id||''}"><label>Nombre<input class="input" name="name" value="${esc(project?.name||'')}" required></label><label>Descripción<input class="input" name="description" value="${esc(project?.description||'')}"></label><label>Metodología<select class="select" name="methodology_id" required>${methods.map(([value,label])=>`<option value="${value}" ${project?.methodology_id===value||(!project&&value==='AGILE')?'selected':''}>${label}</option>`).join('')}</select></label><label class="full">Requerimientos<textarea class="textarea" name="requirements" rows="4" placeholder="Alcance, stack, restricciones y criterios de aceptación">${esc(project?.requirements||'')}</textarea></label><div class="actions full"><button class="btn">${icon('check')}${project?'Guardar proyecto':'Crear proyecto'}</button></div></form>`}
+function methodologyWidgets(project){const method=project?.methodology_id;const links=[];if(['SCRUM','KANBAN','XP','AGILE'].includes(method))links.push(`<a class="btn secondary" href="#/admin/kanban">${icon('kanban')}Abrir tablero</a>`);if(method==='WATERFALL'||method==='LEAN'||method==='HYBRID')links.push(`<a class="btn secondary" href="#/admin/gantt">${icon('gantt')}Abrir hitos y Gantt</a>`);return `<div class="actions mt-3"><span class="muted">${method?`Flujo recomendado: ${esc(method)}`:'Define una metodología'}</span>${links.join('')}</div>`}
 function projectHealth(health){if(!health)return '';const statusLabel={saludable:'Saludable',atencion:'Requiere atención',riesgo:'En riesgo'}[health.status]||'Sin datos';const workload=health.workload||[];const activity=health.recentActivity||[];return `<section class="card project-health mt-4"><div class="project-health-head"><div><div class="eyebrow">Control operativo</div><h2>Salud del proyecto</h2><p class="muted">Lectura combinada de avance, planificación, riesgos y capacidad del equipo.</p></div><div class="health-score health-${esc(health.status)}"><strong>${health.score}</strong><span>/ 100</span><small>${statusLabel}</small></div></div><div class="health-overview"><div class="health-meter"><div class="health-meter-track"><i style="width:${health.score}%"></i></div><div class="health-meter-labels"><span>Riesgo</span><span>Atención</span><span>Saludable</span></div></div><div class="health-metrics"><div><strong>${health.overdue}</strong><span>Vencidas</span></div><div><strong>${health.dueSoon}</strong><span>Próximas 7 días</span></div><div><strong>${health.critical}</strong><span>Alta prioridad</span></div><div><strong>${health.unassigned}</strong><span>Sin responsable</span></div></div></div><div class="health-detail-grid"><div><h3>Calidad de planificación</h3><div class="health-progress-row"><span>Fechas definidas</span><strong>${health.dateCoverage}%</strong><i><b style="width:${health.dateCoverage}%"></b></i></div><div class="health-progress-row"><span>Responsables asignados</span><strong>${health.assignmentCoverage}%</strong><i><b style="width:${health.assignmentCoverage}%"></b></i></div><h3 class="health-subtitle">Recomendaciones</h3><ul class="health-list">${health.recommendations.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div><div><h3>Carga del equipo</h3>${workload.length?`<div class="health-workload">${workload.map(item=>{const percentage=item.total?Math.round(item.completed/item.total*100):0;return `<div class="health-workload-row"><span>${esc(item.name)}</span><strong>${item.total} <small>${percentage}% completado</small></strong><i><b style="width:${percentage}%"></b></i></div>`}).join('')}</div>`:'<div class="empty">No hay integrantes activos.</div>'}<h3 class="health-subtitle">Actividad reciente</h3>${activity.length?`<div class="health-activity">${activity.map(item=>`<div><strong>${esc(item.action)}</strong><small>${esc(item.description||'Actualización registrada')}</small></div>`).join('')}</div>`:'<div class="empty">No hay actividad reciente.</div>'}</div></div></section>`}
-async function dashboard(){state.dashboard=await api('/dashboard');const s=state.dashboard.stats;const project=state.dashboard.project;let githubStatus='<div class="alert">Comprobando conexión con GitHub...</div>';try{const github=await api('/github/repository');if(!github.configured){githubStatus='<div class="alert">GitHub aún no está configurado.</div>'}else if(github.error){githubStatus=`<div class="alert">${esc(github.error)}</div>`}else{githubStatus=`<div class="alert"><strong>GitHub conectado</strong><br>${esc(github.data.full_name||'Repositorio configurado')} · Rama principal: ${esc(github.data.default_branch||'No disponible')}</div>`}}catch(error){githubStatus='<div class="alert">No fue posible consultar GitHub en este momento.</div>'}return `${heading(`Hola, ${esc(state.user.name)}`,'Vista general de tu actividad y del proyecto.')}<div class="grid stats"><div class="card stat"><div class="label">${state.user.role==='admin'?'Integrantes':'Mis tareas'}</div><div class="num pink">${state.user.role==='admin'?s.members:s.totalTasks}</div></div><div class="card stat"><div class="label">Pendientes</div><div class="num yellow">${s.byStatus.find(x=>x.status==='pendiente')?.count||0}</div></div><div class="card stat"><div class="label">En proceso</div><div class="num lilac">${s.byStatus.find(x=>x.status==='en_proceso')?.count||0}</div></div><div class="card stat"><div class="label">Completadas</div><div class="num green">${s.completed}</div></div><div class="card stat"><div class="label">Progreso</div><div class="num">${s.progress}%</div><div class="bar"><i style="width:${s.progress}%"></i></div></div></div><div class="grid two mt-4"><section class="card"><h2>Próximas tareas</h2><div id="dashboard-tasks" class="empty">Cargando tareas...</div></section><section class="card"><h2>Proyecto</h2>${project?`<p class="muted">${esc(project.description)}</p><div class="badge">${esc(project.methodology_id||'Sin metodología')}</div>${methodologyWidgets(project)}${projectEditor(project)}`:`<p class="muted">No hay un proyecto configurado.</p>${projectEditor(null)}`}${githubStatus}</section></div>`}
-async function renderDashboard(){const content=await dashboard();layout(content);if(state.user.role==='admin'&&state.dashboard?.health)document.querySelector('.content')?.insertAdjacentHTML('beforeend',projectHealth(state.dashboard.health));const tasks=await api('/tasks');document.querySelector('#dashboard-tasks').innerHTML=tasks.slice(0,5).map(taskRow).join('')||'<div class="empty">No hay tareas asignadas.</div>';document.querySelector('#project-form')?.addEventListener('submit',async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.target));const id=values.id;delete values.id;try{await api(id?`/projects/${id}`:'/projects',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});notify(id?'Proyecto actualizado':'Proyecto creado');renderDashboard()}catch(error){notify(error.message)}})}
-function taskRow(task){return `<div class="task-list-row">${task.image_asset_id?`<img class="task-thumb" src="/api/tasks/${task.id}/image" alt="Imagen de referencia de ${esc(task.title)}">`:''}<span>${esc(task.title)}<small class="muted sub">${esc(task.assignee_name||'Sin asignar')}</small></span><span class="badge ${task.status==='completada'?'green':task.status==='en_proceso'?'pink':'yellow'}">${task.status.replace('_',' ')}</span></div>`}
+async function dashboard(){
+  state.dashboard=await api('/dashboard');
+  const s=state.dashboard.stats;
+  const project=state.dashboard.project;
+  const isAdmin=state.user.role==='admin';
+
+  let githubStatus='<div class="dash-gh-pill disconnected"><span>No conectado</span> · <a href="#/admin/settings/github">Configurar</a></div>';
+  try {
+    const github=await api('/github/repository');
+    if(github.configured && !github.error && github.data){
+      githubStatus=`<div class="dash-gh-pill connected">${icon('github')}<span>${esc(github.data.full_name||'Repositorio')}</span> · Rama: <code>${esc(github.data.default_branch||'main')}</code></div>`;
+    } else if(github.error){
+      githubStatus=`<div class="dash-gh-pill error">${icon('github')}<span>${esc(github.error)}</span></div>`;
+    }
+  }catch(e){
+    githubStatus='<div class="dash-gh-pill error">GitHub no disponible</div>';
+  }
+
+  const pendingCount=s.byStatus?.find(x=>x.status==='pendiente')?.count||0;
+  const inProgressCount=s.byStatus?.find(x=>x.status==='en_proceso')?.count||0;
+  const completedCount=s.completed||0;
+  const totalCount=isAdmin ? (s.totalTasks || (pendingCount+inProgressCount+completedCount)) : s.totalTasks;
+
+  return `
+    <div class="dashboard-hero">
+      <div class="dash-hero-content">
+        <div class="dash-hero-eyebrow">
+          <span>${esc(state.user.organization_name||'Organización')}</span>
+          <span class="dash-hero-sep">/</span>
+          <span>${isAdmin?'Consola Operativa':'Mi Espacio de Trabajo'}</span>
+        </div>
+        <h1 class="dash-hero-title">Hola, ${esc(state.user.name)}</h1>
+        <p class="dash-hero-sub">Control en tiempo real del progreso, tareas activas y estado general del proyecto.</p>
+        <div class="dash-hero-meta">
+          ${githubStatus}
+          <div class="dash-hero-badge">${icon('activity')} ${s.progress}% avance global</div>
+        </div>
+      </div>
+      <div class="dash-quick-actions">
+        <a class="btn" href="${isAdmin?'#/admin/tasks':'#/member/tasks'}">${icon('plus')}Nueva tarea</a>
+        <a class="btn secondary" href="${isAdmin?'#/admin/kanban':'#/member/kanban'}">${icon('kanban')}Tablero</a>
+        ${isAdmin ? `<a class="btn secondary" href="#/admin/announcements">${icon('announcements')}Anuncios</a>` : `<a class="btn secondary" href="#/member/messages">${icon('messages')}Chat</a>`}
+      </div>
+    </div>
+
+    <div class="grid stats dashboard-stats">
+      <div class="card stat stat-primary">
+        <div class="stat-header">
+          <div class="label">${isAdmin?'Integrantes':'Tareas Asignadas'}</div>
+          ${icon(isAdmin?'users':'tasks')}
+        </div>
+        <div class="num">${isAdmin?s.members:s.totalTasks}</div>
+        <div class="stat-footer-sub">${isAdmin?'Equipo colaborando':'Bajo tu responsabilidad'}</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header">
+          <div class="label">Pendientes</div>
+          ${icon('clock')}
+        </div>
+        <div class="num yellow">${pendingCount}</div>
+        <div class="stat-footer-sub">Por iniciar</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header">
+          <div class="label">En Proceso</div>
+          ${icon('progress')}
+        </div>
+        <div class="num lilac">${inProgressCount}</div>
+        <div class="stat-footer-sub">En desarrollo activo</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header">
+          <div class="label">Completadas</div>
+          ${icon('check')}
+        </div>
+        <div class="num green">${completedCount}</div>
+        <div class="stat-footer-sub">Objetivos logrados</div>
+      </div>
+      <div class="card stat stat-progress">
+        <div class="stat-header">
+          <div class="label">Eficiencia y Avance</div>
+          ${icon('activity')}
+        </div>
+        <div class="num">${s.progress}%</div>
+        <div class="bar"><i style="width:${s.progress}%"></i></div>
+        <div class="stat-footer-sub">${completedCount} de ${totalCount} tareas finalizadas</div>
+      </div>
+    </div>
+
+    <div class="dashboard-main-grid mt-4">
+      <section class="card dash-card dash-tasks-card">
+        <div class="dash-card-header">
+          <div>
+            <div class="eyebrow">Flujo Inmediato</div>
+            <h2>Próximas Tareas</h2>
+          </div>
+          <a class="dash-view-all" href="${isAdmin?'#/admin/tasks':'#/member/tasks'}">Ver todas ${icon('external')}</a>
+        </div>
+        <div id="dashboard-tasks" class="dash-task-list">
+          <div class="empty">Cargando tareas prioritarias...</div>
+        </div>
+      </section>
+
+      <section class="card dash-card dash-project-card">
+        <div class="dash-card-header">
+          <div>
+            <div class="eyebrow">Marco de Trabajo</div>
+            <h2>Proyecto Actual</h2>
+          </div>
+          ${project?`<span class="badge ${project.methodology_id==='AGILE'||project.methodology_id==='SCRUM'?'green':'pink'}">${esc(project.methodology_id||'Ágil')}</span>`:''}
+        </div>
+        <div class="dash-project-body">
+          ${project ? `
+            <div class="dash-project-info">
+              <strong class="dash-project-name">${esc(project.name)}</strong>
+              <p class="dash-project-desc">${esc(project.description||'Sin descripción definida aún.')}</p>
+            </div>
+            ${methodologyWidgets(project)}
+            ${projectEditor(project)}
+          ` : `
+            <div class="dash-empty-project">
+              <p class="muted">No se ha establecido un proyecto principal para esta organización.</p>
+              ${projectEditor(null)}
+            </div>
+          `}
+        </div>
+      </section>
+    </div>
+  `;
+}
+async function renderDashboard(){
+  const content=await dashboard();
+  layout(content);
+  if(state.user.role==='admin'&&state.dashboard?.health){
+    document.querySelector('.content')?.insertAdjacentHTML('beforeend',projectHealth(state.dashboard.health));
+  }
+  const tasks=await api('/tasks');
+  const taskContainer=document.querySelector('#dashboard-tasks');
+  if(taskContainer){
+    taskContainer.innerHTML=tasks.length ? tasks.slice(0,5).map(taskRow).join('') : '<div class="empty">No tienes tareas pendientes por ahora. Buen trabajo.</div>';
+  }
+  document.querySelector('#project-form')?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const values=Object.fromEntries(new FormData(event.target));
+    const id=values.id;
+    delete values.id;
+    try{
+      await api(id?`/projects/${id}`:'/projects',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});
+      notify(id?'Proyecto actualizado correctamente':'Proyecto creado con éxito');
+      renderDashboard();
+    }catch(error){
+      notify(error.message);
+    }
+  });
+}
+function taskRow(task){
+  const statusColor=task.status==='completada'?'green':task.status==='en_proceso'?'pink':'yellow';
+  const statusText=task.status==='en_proceso'?'En proceso':task.status==='completada'?'Completada':'Pendiente';
+  return `
+    <div class="task-list-row">
+      <div class="task-list-meta">
+        ${task.image_asset_id?`<img class="task-thumb" src="/api/tasks/${task.id}/image" alt="Referencia de ${esc(task.title)}">`:''}
+        <div class="task-list-text">
+          <strong class="task-list-title">${esc(task.title)}</strong>
+          <span class="muted sub">${esc(task.assignee_name||'Sin asignar')} ${task.priority?`· Prioridad ${esc(task.priority)}`:''}</span>
+        </div>
+      </div>
+      <div class="task-list-badges">
+        <span class="badge ${statusColor}">${statusText}</span>
+      </div>
+    </div>
+  `;
+}
 function announcementBadgeClass(accent){return accent==='green'?'green':accent==='yellow'?'yellow':'pink'}
 function announcementDate(value,withTime){if(!value)return'';const date=new Date(value);return withTime?date.toLocaleString('es'):date.toLocaleDateString('es',{day:'numeric',month:'short',year:'numeric'})}
-function announcementCardMarkup(item,isAdmin){const preview=item.body.length>160?`${item.body.slice(0,160)}…`:item.body;return `<article class="card announcement-card ${item.accent}"><div class="announcement-header"><span class="badge ${announcementBadgeClass(item.accent)}">${esc(item.tag)}</span><time class="muted">${esc(announcementDate(item.created_at))}</time></div><h2>${esc(item.title)}</h2><p>${esc(preview)}</p><div class="announcement-footer"><span class="muted">${esc(item.author_name||'Administración')}</span><div class="actions"><button type="button" class="btn secondary mini view-announcement" data-id="${item.id}">Ver</button>${isAdmin?`<button type="button" class="btn secondary mini edit-announcement" data-id="${item.id}">Editar</button><button type="button" class="btn danger mini delete-announcement" data-id="${item.id}">Eliminar</button>`:''}</div></div></article>`}
-function announcementFormMarkup(){return `<section class="card mt-4" id="announcement-form" style="display:none"><h2 id="announcement-form-title">Nuevo anuncio</h2><form class="form-grid"><input type="hidden" name="id"><label class="full">Título<input class="input" name="title" required></label><label>Etiqueta<input class="input" name="tag" placeholder="General" value="General"></label><label>Color<select class="select" name="accent"><option value="pink">Rosa</option><option value="yellow">Amarillo</option><option value="green">Verde</option></select></label><label class="full">Contenido<textarea class="textarea" name="body" rows="4" required></textarea></label><div class="actions full"><button class="btn">Guardar</button><button class="btn secondary" type="button" id="cancel-announcement">Cancelar</button></div></form></section>`}
-function announcementsListMarkup(announcements,isAdmin){const {items,totalPages,currentPage,totalItems}=paginateItems(announcements,'announcements',6);const grid=items.map(item=>announcementCardMarkup(item,isAdmin)).join('')||'<div class="empty">No hay anuncios publicados.</div>';return `${heading('Anuncios','Comunicados, avisos y novedades del equipo.',isAdmin?'<button class="btn" id="new-announcement">Nuevo anuncio</button>':'')}<section class="announcement-grid">${grid}</section>${paginationMarkup('announcements','renderAnnouncements',totalPages,currentPage,totalItems,6)}${isAdmin?announcementFormMarkup():''}`}
-function announcementViewerMarkup(item){return `<div class="status-overlay" id="announcement-viewer" role="dialog" aria-modal="true"><div class="status-viewer"><div class="status-viewer-head"><strong>${esc(item.title)}</strong><button class="icon-btn" id="close-announcement-viewer" aria-label="Cerrar">${icon('close')}</button></div><div class="status-viewer-body"><span class="badge ${announcementBadgeClass(item.accent)}">${esc(item.tag)}</span><p style="white-space:pre-wrap">${esc(item.body)}</p></div><small class="muted status-viewer-time">${esc(item.author_name||'Administración')} · ${esc(announcementDate(item.created_at,true))}</small></div></div>`}
+function announcementCardMarkup(item,isAdmin){
+  const preview=item.body.length>160?`${item.body.slice(0,160)}…`:item.body;
+  return `
+    <article class="card announcement-card ${item.accent}">
+      <div class="announcement-header">
+        <span class="badge ${announcementBadgeClass(item.accent)}">${esc(item.tag)}</span>
+        <time class="muted">${esc(announcementDate(item.created_at))}</time>
+      </div>
+      <h2 class="announcement-title">${esc(item.title)}</h2>
+      <p class="announcement-body">${esc(preview)}</p>
+      <div class="announcement-footer">
+        <div class="announcement-author">
+          <span class="avatar mini">${esc(item.author_name?.[0]||'A')}</span>
+          <span class="muted">${esc(item.author_name||'Administración')}</span>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn secondary mini view-announcement" data-id="${item.id}">${icon('eye')}Ver</button>
+          ${isAdmin?`
+            <button type="button" class="btn secondary mini edit-announcement" data-id="${item.id}">${icon('edit')}Editar</button>
+            <button type="button" class="btn danger mini delete-announcement" data-id="${item.id}">${icon('trash')}Eliminar</button>
+          `:''}
+        </div>
+      </div>
+    </article>
+  `;
+}
+function announcementFormMarkup(){
+  return `
+    <div class="status-overlay" id="announcement-modal" style="display:none" role="dialog" aria-modal="true">
+      <div class="status-viewer admin-modal-panel">
+        <div class="status-viewer-head">
+          <strong id="announcement-form-title">Nuevo anuncio</strong>
+          <button type="button" class="icon-btn" id="cancel-announcement" aria-label="Cerrar">${icon('close')}</button>
+        </div>
+        <form class="admin-modal-form" id="announcement-form-element">
+          <input type="hidden" name="id">
+          <label>Título del anuncio
+            <input class="input" name="title" placeholder="Ej. Actualización del sprint o aviso importante" required>
+          </label>
+          <div class="form-grid">
+            <label>Etiqueta
+              <input class="input" name="tag" placeholder="General, Sprint, Release..." value="General">
+            </label>
+            <label>Color de resalte
+              <select class="select" name="accent">
+                <option value="pink">Rosa / Destacado</option>
+                <option value="yellow">Amarillo / Alerta</option>
+                <option value="green">Verde / Positivo</option>
+              </select>
+            </label>
+          </div>
+          <label class="full">Mensaje
+            <textarea class="textarea" name="body" rows="5" placeholder="Escribe el comunicado aquí..." required></textarea>
+          </label>
+          <div class="actions mt-3">
+            <button class="btn">${icon('check')}Publicar anuncio</button>
+            <button class="btn secondary" type="button" id="cancel-announcement-btn">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+function announcementsListMarkup(announcements,isAdmin){
+  const {items,totalPages,currentPage,totalItems}=paginateItems(announcements,'announcements',6);
+  const grid=items.map(item=>announcementCardMarkup(item,isAdmin)).join('')||'<div class="empty">No hay anuncios publicados actualmente.</div>';
+  return `
+    ${heading('Anuncios','Comunicados oficiales, avisos y novedades del equipo.',isAdmin?`<button class="btn" id="new-announcement">${icon('plus')}Nuevo anuncio</button>`:'')}
+    <section class="announcement-grid">${grid}</section>
+    ${paginationMarkup('announcements','renderAnnouncements',totalPages,currentPage,totalItems,6)}
+    ${isAdmin?announcementFormMarkup():''}
+  `;
+}
+function announcementViewerMarkup(item){
+  return `
+    <div class="status-overlay" id="announcement-viewer" role="dialog" aria-modal="true">
+      <div class="status-viewer announcement-reader">
+        <div class="status-viewer-head">
+          <div class="announcement-reader-tag">
+            <span class="badge ${announcementBadgeClass(item.accent)}">${esc(item.tag)}</span>
+          </div>
+          <button class="icon-btn" id="close-announcement-viewer" aria-label="Cerrar">${icon('close')}</button>
+        </div>
+        <div class="status-viewer-body">
+          <h1 class="announcement-reader-title">${esc(item.title)}</h1>
+          <p class="announcement-reader-text">${esc(item.body)}</p>
+        </div>
+        <div class="announcement-reader-footer">
+          <span class="muted">${esc(item.author_name||'Administración')}</span>
+          <time class="muted">${esc(announcementDate(item.created_at,true))}</time>
+        </div>
+      </div>
+    </div>
+  `;
+}
 async function renderAnnouncements(){
   const isAdmin=state.user.role==='admin';
   const announcements=await api('/announcements');
   state.announcements=announcements;
   layout(announcementsListMarkup(announcements,isAdmin));
   bindPaginationControls();
-  document.querySelectorAll('.view-announcement').forEach(button=>button.onclick=()=>{
-    const item=state.announcements.find(a=>String(a.id)===String(button.dataset.id));
-    if(!item)return;
-    document.body.insertAdjacentHTML('beforeend',announcementViewerMarkup(item));
-    const overlay=document.querySelector('#announcement-viewer');
-    const close=()=>overlay.remove();
-    overlay.querySelector('#close-announcement-viewer').onclick=close;
-    overlay.onclick=event=>{if(event.target===overlay)close()};
+  document.querySelectorAll('.view-announcement').forEach(button=>{
+    button.onclick=()=>{
+      const item=state.announcements.find(a=>String(a.id)===String(button.dataset.id));
+      if(!item)return;
+      document.body.insertAdjacentHTML('beforeend',announcementViewerMarkup(item));
+      const overlay=document.querySelector('#announcement-viewer');
+      const close=()=>overlay.remove();
+      overlay.querySelector('#close-announcement-viewer').onclick=close;
+      overlay.onclick=event=>{if(event.target===overlay)close()};
+    };
   });
   if(!isAdmin)return;
-  const formSection=document.querySelector('#announcement-form');
-  const form=document.querySelector('#announcement-form form');
+  const modal=document.querySelector('#announcement-modal');
+  const form=document.querySelector('#announcement-form-element');
   const openForm=(item=null)=>{
     form.reset();
-    formSection.style.display='block';
+    modal.style.display='grid';
     document.querySelector('#announcement-form-title').textContent=item?'Editar anuncio':'Nuevo anuncio';
     form.elements.id.value=item?.id||'';
     form.elements.title.value=item?.title||'';
     form.elements.tag.value=item?.tag||'General';
     form.elements.accent.value=item?.accent||'pink';
     form.elements.body.value=item?.body||'';
-    formSection.scrollIntoView({behavior:'smooth',block:'start'});
   };
+  const closeModal=()=>modal.style.display='none';
   document.querySelector('#new-announcement').onclick=()=>openForm();
-  document.querySelector('#cancel-announcement').onclick=()=>formSection.style.display='none';
+  document.querySelector('#cancel-announcement').onclick=closeModal;
+  document.querySelector('#cancel-announcement-btn')?.addEventListener('click',closeModal);
+  modal.onclick=e=>{if(e.target===modal)closeModal()};
   form.onsubmit=async event=>{
     event.preventDefault();
     const values=Object.fromEntries(new FormData(form));
@@ -200,7 +614,8 @@ async function renderAnnouncements(){
     delete values.id;
     try{
       await api(id?`/announcements/${id}`:'/announcements',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});
-      notify(id?'Anuncio actualizado':'Anuncio publicado');
+      notify(id?'Anuncio actualizado':'Anuncio publicado con éxito');
+      closeModal();
       renderAnnouncements();
     }catch(error){notify(error.message)}
   };
@@ -209,7 +624,7 @@ async function renderAnnouncements(){
     if(item)openForm(item);
   });
   document.querySelectorAll('.delete-announcement').forEach(button=>button.onclick=async()=>{
-    if(!confirm('¿Eliminar este anuncio?'))return;
+    if(!confirm('¿Eliminar este anuncio permanentemente?'))return;
     try{
       await api(`/announcements/${button.dataset.id}`,{method:'DELETE'});
       notify('Anuncio eliminado');
@@ -217,32 +632,610 @@ async function renderAnnouncements(){
     }catch(error){notify(error.message)}
   });
 }
-async function tasksView(){const tasks=await api('/tasks');const users=['admin','project_manager'].includes(state.user.role)?await api('/users'):[];const projects=await api('/projects');const {items,totalPages,currentPage,totalItems}=paginateItems(tasks,'tasks');const canManage=['admin','project_manager','member'].includes(state.user.role);return `${heading(state.user.role==='admin'?'Tareas':'Mis tareas','Trabajo almacenado en PostgreSQL.',canManage?'<button class="btn" id="new-task">Nueva tarea</button>':'')}<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Tarea</th><th>Responsable</th><th>Prioridad</th><th>Estado</th><th>Fecha límite</th><th></th></tr></thead><tbody>${items.map(t=>`<tr><td>${esc(t.title)}<small class="muted sub">${esc(t.description)}</small></td><td>${esc(t.assignee_name||'Sin asignar')}</td><td><span class="badge ${t.priority==='alta'?'pink':''}">${t.priority}</span></td><td><select class="select status-select" data-id="${t.id}"><option value="pendiente" ${t.status==='pendiente'?'selected':''}>Pendiente</option><option value="en_proceso" ${t.status==='en_proceso'?'selected':''}>En proceso</option><option value="completada" ${t.status==='completada'?'selected':''}>Completada</option></select></td><td>${esc(t.due_date||'No definida')}</td><td><button class="btn secondary view-task-details" data-id="${t.id}">Detalles</button>${canManage?` <button class="btn secondary edit-task" data-id="${t.id}">Editar</button>`:''}${['admin','project_manager'].includes(state.user.role)?` <button class="btn danger delete-task" data-id="${t.id}">Eliminar</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No hay tareas.</td></tr>'}</tbody></table>${paginationMarkup('tasks','renderTasks',totalPages,currentPage,totalItems)}</div></section>${canManage?taskForm(users,projects):''}`}
-function taskForm(users,projects){return `<section class="card mt-4" id="task-form" style="display:none"><h2 id="task-form-title">Nueva tarea</h2><form class="form-grid"><input type="hidden" name="id"><label>Proyecto<select class="select" name="project_id" required><option value="">Selecciona un proyecto</option>${projects.map(project=>`<option value="${project.id}">${esc(project.name)}</option>`).join('')}</select></label><label>Título<input class="input" name="title" required></label><label>Responsable<select class="select" name="assigned_to"><option value="">Sin asignar</option>${users.filter(u=>u.role==='member').map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select></label><label>Prioridad<select class="select" name="priority"><option>baja</option><option selected>media</option><option>alta</option><option>critica</option></select></label><label>Estado<select class="select" name="status"><option>pendiente</option><option>en_proceso</option><option>completada</option></select></label><label>Fecha inicial<input class="input" name="start_date" type="date"></label><label>Fecha límite<input class="input" name="due_date" type="date"></label><label class="full">Imagen de referencia<input class="input" name="image" type="file" accept="image/png,image/jpeg,image/webp"></label><label class="full">Descripción<textarea class="textarea" name="description"></textarea></label><div class="actions full"><button class="btn">Guardar tarea</button><button type="button" class="btn secondary" id="cancel-task">Cancelar</button></div></form></section>`}
-async function renderTasks(){layout(await tasksView());bindPaginationControls();const formSection=document.querySelector('#task-form');const form=document.querySelector('#task-form form');const openForm=task=>{form.reset();formSection.style.display='block';document.querySelector('#task-form-title').textContent=task?'Editar tarea':'Nueva tarea';form.elements.id.value=task?.id||'';form.elements.title.value=task?.title||'';form.elements.description.value=task?.description||'';form.elements.assigned_to.value=task?.assigned_to||'';form.elements.priority.value=task?.priority||'media';form.elements.status.value=task?.status||'pendiente';form.elements.start_date.value=task?.start_date||'';form.elements.due_date.value=task?.due_date||''};document.querySelector('#new-task')?.addEventListener('click',()=>openForm());document.querySelector('#cancel-task')?.addEventListener('click',()=>formSection.style.display='none');document.querySelector('#task-form form')?.addEventListener('submit',async e=>{e.preventDefault();const values=Object.fromEntries(new FormData(e.target));const id=values.id;delete values.id;try{await api(id?`/tasks/${id}`:'/tasks',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});notify(id?'Tarea actualizada':'Tarea creada');renderTasks()}catch(error){notify(error.message)}});document.querySelectorAll('.view-task-details').forEach(button=>button.onclick=async()=>{try{const task=await api(`/tasks/${button.dataset.id}`);const popover=document.createElement('div');popover.className='gantt-popover task-detail-popover';popover.innerHTML=`<div class="task-detail-header"><strong>${esc(task.title)}</strong><button type="button" class="icon-btn task-detail-close" aria-label="Cerrar">${icon('close')}</button></div><div class="task-detail-grid"><div><span>Estado</span><strong>${esc(task.status.replace('_',' '))}</strong></div><div><span>Prioridad</span><strong>${esc(task.priority)}</strong></div><div><span>Responsable</span><strong>${esc(task.assignee_name || 'Sin asignar')}</strong></div><div><span>Fecha inicial</span><strong>${esc(task.start_date || 'No definida')}</strong></div><div><span>Fecha límite</span><strong>${esc(task.due_date || 'No definida')}</strong></div><div><span>Creada</span><strong>${esc(task.created_at || 'No disponible')}</strong></div></div><div class="task-detail-description"><span>Descripción</span><p>${esc(task.description || 'Sin descripción')}</p></div>`;document.body.append(popover);const close=()=>popover.remove();popover.querySelector('.task-detail-close').onclick=close;document.addEventListener('pointerdown',function onOutside(event){if(!popover.contains(event.target)){close();document.removeEventListener('pointerdown',onOutside)}})}catch(error){notify(error.message)}});document.querySelectorAll('.edit-task').forEach(button=>button.onclick=async()=>{try{openForm(await api(`/tasks/${button.dataset.id}`))}catch(error){notify(error.message)}});document.querySelectorAll('.status-select').forEach(select=>select.onchange=async()=>{try{await api(`/tasks/${select.dataset.id}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:select.value})});notify('Estado actualizado')}catch(error){notify(error.message)}});document.querySelectorAll('.delete-task').forEach(button=>button.onclick=async()=>{if(confirm('¿Eliminar tarea?')){await api(`/tasks/${button.dataset.id}`,{method:'DELETE'});renderTasks()}})}
-async function kanban(){const tasks=await api('/tasks');return `${heading('Kanban','Arrastra las tareas para actualizar su estado.') }<div class="kanban">${[['pendiente','Pendiente'],['en_proceso','En proceso'],['completada','Completada']].map(([status,label])=>`<section class="column" data-status="${status}"><h3>${label.toUpperCase()}</h3>${tasks.filter(t=>t.status===status).map(t=>`<article class="task-card" draggable="true" data-id="${t.id}"><h3>${esc(t.title)}</h3><p>${esc(t.description)}</p><div class="meta"><span>${esc(t.assignee_name||'Sin asignar')}</span><span>${esc(t.due_date||'')}</span></div></article>`).join('')}</section>`).join('')}</div>`}
-async function renderKanban(){if(state.kanbanTimer)clearInterval(state.kanbanTimer);layout(await kanban());let draggedCard=null;document.querySelectorAll('.task-card').forEach(card=>{card.ondragstart=e=>{draggedCard=card;card.classList.add('is-dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('id',card.dataset.id)};card.ondragend=()=>card.classList.remove('is-dragging')});document.querySelectorAll('.column').forEach(column=>{column.ondragover=e=>{e.preventDefault();column.classList.add('is-drag-over')};column.ondragleave=()=>column.classList.remove('is-drag-over');column.ondrop=async e=>{e.preventDefault();column.classList.remove('is-drag-over');const card=draggedCard||document.querySelector(`.task-card[data-id="${e.dataTransfer.getData('id')}"]`);if(!card)return;const originalColumn=card.parentElement;const originalStatus=originalColumn.dataset.status;const nextStatus=column.dataset.status;if(originalStatus===nextStatus)return;column.append(card);try{await api(`/tasks/${card.dataset.id}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:nextStatus})});notify('Estado actualizado')}catch(error){originalColumn.append(card);notify(error.message||'No fue posible mover la tarea.')}}});  state.kanbanTimer=setInterval(()=>{
+async function githubView(section='repository'){const data=await api(`/github/${section==='pulls'?'pull-requests':section}`);let body='';if(!data.configured)body='<div class="empty">GitHub aún no está configurado.</div>';else if(data.error)body=`<div class="alert">${esc(data.error)}</div>`;else if(section==='repository'){const r=data.data;body=`<div class="grid stats"><div class="card stat"><div class="label">Nombre</div><div class="num">${esc(r.name)}</div></div><div class="card stat"><div class="label">Lenguaje</div><div class="num lilac">${esc(r.language||'No disponible')}</div></div><div class="card stat"><div class="label">Estrellas</div><div class="num yellow">${r.stargazers_count}</div></div><div class="card stat"><div class="label">Última actualización</div><div class="num num-sm">${new Date(r.updated_at).toLocaleDateString('es')}</div></div></div><section class="card mt-4"><h2>${esc(r.full_name)}</h2><p class="muted">${esc(r.description||'No disponible')}</p><a class="btn" href="${esc(r.html_url)}" target="_blank">Abrir en GitHub</a></section>`}else if(section==='commits'){body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Commit</th><th>Autor</th><th>Usuario GitHub</th><th>SHA</th><th>Fecha</th><th></th></tr></thead><tbody>${data.data.map(commit=>`<tr><td>${esc(commit.message)}</td><td>${esc(commit.author)}</td><td>${esc(commit.github_username||'No disponible')}</td><td><code>${esc(commit.sha)}</code></td><td>${esc(commit.date||'No disponible')}</td><td><a class="btn secondary" href="${esc(commit.url)}" target="_blank">Ver commit</a></td></tr>`).join('')||'<tr><td colspan="6" class="empty">No hay commits disponibles.</td></tr>'}</tbody></table></div></section>`}else{const rows=data.data;body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Actividad</th><th>Usuario</th><th>Fecha</th><th></th></tr></thead><tbody>${rows.map(item=>`<tr><td>${esc(item.message||item.title||item.action||item.name)}</td><td>${esc(item.github_username||item.author||item.user||'No disponible')}</td><td>${esc(item.date||item.updated||'No disponible')}</td><td>${item.url?`<a class="btn secondary" href="${esc(item.url)}" target="_blank">Ver en GitHub</a>`:''}</td></tr>`).join('')}</tbody></table></div></section>`}return `${heading(section==='commits'?'Commits':'GitHub','Información real del repositorio privado de Sakura Coffee.')}<div class="actions" style="margin-bottom:16px"><button class="btn secondary" data-gh="repository">Overview</button><button class="btn secondary" data-gh="commits">Commits</button><button class="btn secondary" data-gh="pulls">Pull Requests</button><button class="btn secondary" data-gh="branches">Branches</button><button class="btn secondary" data-gh="activity">Activity</button></div>${body}`}
+async function renderGithub(section='repository'){try{layout(await githubView(section));document.querySelectorAll('[data-gh]').forEach(b=>b.onclick=()=>renderGithub(b.dataset.gh))}catch(error){layout(`${heading('GitHub','La integración de GitHub requiere un plan compatible.')}<section class="card"><div class="alert">${esc(error.message)}</div>${state.user.role==='admin'?'<a class="btn" href="#/admin/billing">Ver planes</a>':''}</section>`)}}
+async function tasksView(){
+  const tasks=await api('/tasks');
+  const users=['admin','project_manager'].includes(state.user.role)?await api('/users'):[];
+  const projects=await api('/projects');
+  const {items,totalPages,currentPage,totalItems}=paginateItems(tasks,'tasks');
+  const canManage=['admin','project_manager','member'].includes(state.user.role);
+  const isAdmin=state.user.role==='admin';
+
+  return `
+    ${heading(isAdmin?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',canManage?`<button class="btn" id="new-task">${icon('plus')}Nueva tarea</button>`:'')}
+    <section class="card admin-table-card">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Tarea / Detalle</th>
+              <th>Responsable</th>
+              <th>Prioridad</th>
+              <th>Estado</th>
+              <th>Entrega</th>
+              <th style="text-align:right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(t=>{
+              const prioClass=t.priority==='critica'?'pink':t.priority==='alta'?'yellow':'';
+              return `
+                <tr>
+                  <td>
+                    <strong class="task-title-cell">${esc(t.title)}</strong>
+                    ${t.description?`<small class="muted sub">${esc(t.description)}</small>`:''}
+                  </td>
+                  <td>
+                    <span class="user-chip-mini">${avatarMarkup({name:t.assignee_name||'S'},'avatar mini')}${esc(t.assignee_name||'Sin asignar')}</span>
+                  </td>
+                  <td><span class="badge ${prioClass}">${esc(t.priority)}</span></td>
+                  <td>
+                    <select class="select status-select-styled" data-id="${t.id}">
+                      <option value="pendiente" ${t.status==='pendiente'?'selected':''}>Pendiente</option>
+                      <option value="en_proceso" ${t.status==='en_proceso'?'selected':''}>En proceso</option>
+                      <option value="completada" ${t.status==='completada'?'selected':''}>Completada</option>
+                    </select>
+                  </td>
+                  <td><span class="due-date-cell">${esc(t.due_date||'Sin fecha')}</span></td>
+                  <td style="text-align:right">
+                    <div class="actions" style="justify-content:flex-end">
+                      <button class="btn secondary mini view-task-details" data-id="${t.id}">${icon('eye')}Detalles</button>
+                      ${canManage?`<button class="btn secondary mini edit-task" data-id="${t.id}">${icon('edit')}Editar</button>`:''}
+                      ${isAdmin?`<button class="btn danger mini delete-task" data-id="${t.id}">${icon('trash')}Eliminar</button>`:''}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')||'<tr><td colspan="6" class="empty">No hay tareas registradas todavía.</td></tr>'}
+          </tbody>
+        </table>
+        ${paginationMarkup('tasks','renderTasks',totalPages,currentPage,totalItems)}
+      </div>
+    </section>
+    ${canManage?taskForm(users,projects):''}
+  `;
+}
+function taskForm(users,projects){
+  return `
+    <div class="status-overlay" id="task-modal" style="display:none" role="dialog" aria-modal="true">
+      <div class="status-viewer admin-modal-panel">
+        <div class="status-viewer-head">
+          <strong id="task-form-title">Nueva tarea</strong>
+          <button type="button" class="icon-btn" id="cancel-task" aria-label="Cerrar">${icon('close')}</button>
+        </div>
+        <form class="admin-modal-form" id="task-form-element">
+          <input type="hidden" name="id">
+          <div class="form-grid">
+            <label>Proyecto
+              <select class="select" name="project_id" required>
+                <option value="">Selecciona un proyecto</option>
+                ${projects.map(project=>`<option value="${project.id}">${esc(project.name)}</option>`).join('')}
+              </select>
+            </label>
+            <label>Responsable
+              <select class="select" name="assigned_to">
+                <option value="">Sin asignar</option>
+                ${users.filter(u=>u.role==='member').map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="full">Título de la tarea
+              <input class="input" name="title" placeholder="Ej. Implementar endpoints de autenticación" required>
+            </label>
+            <label>Prioridad
+              <select class="select" name="priority">
+                <option value="baja">Baja</option>
+                <option value="media" selected>Media</option>
+                <option value="alta">Alta</option>
+                <option value="critica">Crítica</option>
+              </select>
+            </label>
+            <label>Estado
+              <select class="select" name="status">
+                <option value="pendiente">Pendiente</option>
+                <option value="en_proceso">En proceso</option>
+                <option value="completada">Completada</option>
+              </select>
+            </label>
+            <label>Fecha inicial
+              <input class="input" name="start_date" type="date">
+            </label>
+            <label>Fecha de entrega
+              <input class="input" name="due_date" type="date">
+            </label>
+            <label class="full">Imagen o maqueta de referencia
+              <input class="input" name="image" type="file" accept="image/png,image/jpeg,image/webp">
+            </label>
+            <label class="full">Descripción y criterios de aceptación
+              <textarea class="textarea" name="description" rows="4" placeholder="Detalles de la tarea..."></textarea>
+            </label>
+          </div>
+          <div class="actions mt-4">
+            <button class="btn">${icon('check')}Guardar tarea</button>
+            <button type="button" class="btn secondary" id="cancel-task-btn">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+async function renderTasks(){
+  layout(await tasksView());
+  bindPaginationControls();
+  const modal=document.querySelector('#task-modal');
+  const form=document.querySelector('#task-form-element');
+  const openForm=task=>{
+    form.reset();
+    modal.style.display='grid';
+    document.querySelector('#task-form-title').textContent=task?'Editar tarea':'Nueva tarea';
+    form.elements.id.value=task?.id||'';
+    form.elements.title.value=task?.title||'';
+    form.elements.description.value=task?.description||'';
+    form.elements.assigned_to.value=task?.assigned_to||'';
+    form.elements.priority.value=task?.priority||'media';
+    form.elements.status.value=task?.status||'pendiente';
+    form.elements.start_date.value=task?.start_date||'';
+    form.elements.due_date.value=task?.due_date||'';
+  };
+  const closeModal=()=>modal.style.display='none';
+  document.querySelector('#new-task')?.addEventListener('click',()=>openForm());
+  document.querySelector('#cancel-task')?.addEventListener('click',closeModal);
+  document.querySelector('#cancel-task-btn')?.addEventListener('click',closeModal);
+  modal.onclick=e=>{if(e.target===modal)closeModal()};
+
+  form?.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const values=Object.fromEntries(new FormData(e.target));
+    const id=values.id;
+    delete values.id;
+    try{
+      await api(id?`/tasks/${id}`:'/tasks',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});
+      notify(id?'Tarea actualizada con éxito':'Tarea creada correctamente');
+      closeModal();
+      renderTasks();
+    }catch(error){notify(error.message)}
+  });
+  document.querySelectorAll('.view-task-details').forEach(button=>button.onclick=async()=>{
+    try{
+      const task=await api(`/tasks/${button.dataset.id}`);
+      const popover=document.createElement('div');
+      popover.className='gantt-popover task-detail-popover';
+      popover.innerHTML=`
+        <div class="task-detail-header">
+          <strong>${esc(task.title)}</strong>
+          <button type="button" class="icon-btn task-detail-close" aria-label="Cerrar">${icon('close')}</button>
+        </div>
+        <div class="task-detail-grid">
+          <div><span>Estado</span><strong>${esc(task.status.replace('_',' '))}</strong></div>
+          <div><span>Prioridad</span><strong>${esc(task.priority)}</strong></div>
+          <div><span>Responsable</span><strong>${esc(task.assignee_name || 'Sin asignar')}</strong></div>
+          <div><span>Fecha inicial</span><strong>${esc(task.start_date || 'No definida')}</strong></div>
+          <div><span>Fecha límite</span><strong>${esc(task.due_date || 'No definida')}</strong></div>
+          <div><span>Creada</span><strong>${esc(task.created_at || 'No disponible')}</strong></div>
+        </div>
+        <div class="task-detail-description">
+          <span>Descripción</span>
+          <p>${esc(task.description || 'Sin descripción adicional.')}</p>
+        </div>
+      `;
+      document.body.append(popover);
+      const close=()=>popover.remove();
+      popover.querySelector('.task-detail-close').onclick=close;
+      document.addEventListener('pointerdown',function onOutside(event){
+        if(!popover.contains(event.target)){close();document.removeEventListener('pointerdown',onOutside)}
+      });
+    }catch(error){notify(error.message)}
+  });
+  document.querySelectorAll('.edit-task').forEach(button=>button.onclick=async()=>{
+    try{openForm(await api(`/tasks/${button.dataset.id}`))}catch(error){notify(error.message)}
+  });
+  document.querySelectorAll('.status-select-styled').forEach(select=>select.onchange=async()=>{
+    try{
+      await api(`/tasks/${select.dataset.id}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:select.value})});
+      notify('Estado de la tarea actualizado');
+    }catch(error){notify(error.message)}
+  });
+  document.querySelectorAll('.delete-task').forEach(button=>button.onclick=async()=>{
+    if(confirm('¿Deseas eliminar esta tarea permanentemente?')){
+      await api(`/tasks/${button.dataset.id}`,{method:'DELETE'});
+      notify('Tarea eliminada');
+      renderTasks();
+    }
+  });
+}
+async function kanban(){
+  const tasks=await api('/tasks');
+  return `
+    ${heading('Kanban','Organización visual del flujo de trabajo por columnas de estado.')}
+    <div class="kanban">
+      ${[['pendiente','Pendiente'],['en_proceso','En proceso'],['completada','Completada']].map(([status,label])=>`
+        <section class="column" data-status="${status}">
+          <div class="column-header">
+            <h3>${label}</h3>
+            <span class="badge ${status==='completada'?'green':status==='en_proceso'?'pink':'yellow'}">${tasks.filter(t=>t.status===status).length}</span>
+          </div>
+          <div class="column-cards">
+            ${tasks.filter(t=>t.status===status).map(t=>`
+              <article class="task-card" draggable="true" data-id="${t.id}">
+                ${t.image_asset_id?`<img class="task-thumb" src="/api/tasks/${t.id}/image" alt="${esc(t.title)}">`:''}
+                <h3>${esc(t.title)}</h3>
+                ${t.description?`<p>${esc(t.description)}</p>`:''}
+                <div class="meta">
+                  <span class="muted">${esc(t.assignee_name||'Sin asignar')}</span>
+                  ${t.due_date?`<span class="badge yellow">${esc(String(t.due_date).slice(0,10))}</span>`:''}
+                </div>
+              </article>
+            `).join('')||'<div class="empty">Sin tareas</div>'}
+          </div>
+        </section>
+      `).join('')}
+    </div>
+  `;
+}
+async function renderKanban(){
+  if(state.kanbanTimer)clearInterval(state.kanbanTimer);
+  layout(await kanban());
+  let draggedCard=null;
+  document.querySelectorAll('.task-card').forEach(card=>{
+    card.ondragstart=e=>{
+      draggedCard=card;
+      card.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('id',card.dataset.id);
+    };
+    card.ondragend=()=>card.classList.remove('is-dragging');
+  });
+  document.querySelectorAll('.column').forEach(column=>{
+    column.ondragover=e=>{
+      e.preventDefault();
+      column.classList.add('is-drag-over');
+    };
+    column.ondragleave=()=>column.classList.remove('is-drag-over');
+    column.ondrop=async e=>{
+      e.preventDefault();
+      column.classList.remove('is-drag-over');
+      const card=draggedCard||document.querySelector(`.task-card[data-id="${e.dataTransfer.getData('id')}"]`);
+      if(!card)return;
+      const originalColumn=card.closest('.column');
+      const originalStatus=originalColumn.dataset.status;
+      const nextStatus=column.dataset.status;
+      if(originalStatus===nextStatus)return;
+      const cardsContainer=column.querySelector('.column-cards')||column;
+      cardsContainer.append(card);
+      try{
+        await api(`/tasks/${card.dataset.id}/status`,{
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({status:nextStatus})
+        });
+        notify('Estado actualizado');
+        renderKanban();
+      }catch(error){
+        const origContainer=originalColumn.querySelector('.column-cards')||originalColumn;
+        origContainer.append(card);
+        notify(error.message||'No fue posible mover la tarea.');
+      }
+    };
+  });
+  state.kanbanTimer=setInterval(()=>{
     if(document.visibilityState==='visible'&&location.hash==='#/kanban'){
       renderKanban().catch(error=>notify(error.message));
     }
   },30000);
 }
-async function filesView(){const files=await api('/files');const {items,totalPages,currentPage,totalItems}=paginateItems(files,'files');return `${heading('Archivos','Documentos compartidos y evidencias del equipo.','<form id="upload-form" class="actions"><input class="input" type="file" name="file" required><button class="btn">Subir evidencia</button></form>')}<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Archivo</th><th>Tipo</th><th>Tamaño</th><th>Subido por</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>${items.map(f=>`<tr><td>${esc(f.original_name)}</td><td>${esc(f.mime_type)}</td><td>${Math.ceil(f.size/1024)} KB</td><td>${esc(f.uploader_name)}</td><td>${esc(f.created_at)}</td><td><button class="btn secondary view-file" data-id="${f.id}" data-name="${esc(f.original_name)}" data-type="${esc(f.mime_type)}">Visualizar</button> <a class="btn secondary" href="/api/files/${f.id}/download">Descargar</a>${state.user.role==='admin'?` <button class="btn danger delete-file" data-id="${f.id}">Eliminar</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Aún no hay archivos compartidos.</td></tr>'}</tbody></table>${paginationMarkup('files','renderFiles',totalPages,currentPage,totalItems)}</div></section><div id="file-viewer" class="file-viewer" hidden><div class="file-viewer-panel"><div class="file-viewer-head"><strong id="file-viewer-title"></strong><button class="btn secondary" id="close-file-viewer">Cerrar</button></div><div id="file-viewer-content" class="file-viewer-content"></div></div></div>`}
-async function renderFiles(){layout(await filesView());bindPaginationControls();document.querySelector('#upload-form')?.addEventListener('submit',async e=>{e.preventDefault();await api('/files',{method:'POST',body:new FormData(e.target)});notify('Archivo subido');renderFiles()});document.querySelectorAll('.view-file').forEach(button=>button.onclick=()=>{const viewer=document.querySelector('#file-viewer');const type=button.dataset.type;const url=`/api/files/${button.dataset.id}/view`;document.querySelector('#file-viewer-title').textContent=button.dataset.name;document.querySelector('#file-viewer-content').innerHTML=type.startsWith('image/')?`<img class="file-preview-image" src="${url}" alt="${esc(button.dataset.name)}">`:`<iframe class="file-preview-frame" src="${url}" title="${esc(button.dataset.name)}"></iframe>`;viewer.hidden=false});document.querySelector('#close-file-viewer')?.addEventListener('click',()=>{document.querySelector('#file-viewer').hidden=true;document.querySelector('#file-viewer-content').innerHTML=''});document.querySelectorAll('.delete-file').forEach(b=>b.onclick=async()=>{await api(`/files/${b.dataset.id}`,{method:'DELETE'});renderFiles()})}
-async function githubView(section='repository'){const data=await api(`/github/${section==='pulls'?'pull-requests':section}`);let body='';if(!data.configured)body='<div class="empty">GitHub aún no está configurado.</div>';else if(data.error)body=`<div class="alert">${esc(data.error)}</div>`;else if(section==='repository'){const r=data.data;body=`<div class="grid stats"><div class="card stat"><div class="label">Nombre</div><div class="num">${esc(r.name)}</div></div><div class="card stat"><div class="label">Lenguaje</div><div class="num lilac">${esc(r.language||'No disponible')}</div></div><div class="card stat"><div class="label">Estrellas</div><div class="num yellow">${r.stargazers_count}</div></div><div class="card stat"><div class="label">Última actualización</div><div class="num num-sm">${new Date(r.updated_at).toLocaleDateString('es')}</div></div></div><section class="card mt-4"><h2>${esc(r.full_name)}</h2><p class="muted">${esc(r.description||'No disponible')}</p><a class="btn" href="${esc(r.html_url)}" target="_blank">Abrir en GitHub</a></section>`}else if(section==='commits'){body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Commit</th><th>Autor</th><th>Usuario GitHub</th><th>SHA</th><th>Fecha</th><th></th></tr></thead><tbody>${data.data.map(commit=>`<tr><td>${esc(commit.message)}</td><td>${esc(commit.author)}</td><td>${esc(commit.github_username||'No disponible')}</td><td><code>${esc(commit.sha)}</code></td><td>${esc(commit.date||'No disponible')}</td><td><a class="btn secondary" href="${esc(commit.url)}" target="_blank">Ver commit</a></td></tr>`).join('')||'<tr><td colspan="6" class="empty">No hay commits disponibles.</td></tr>'}</tbody></table></div></section>`}else{const rows=data.data;body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Actividad</th><th>Usuario</th><th>Fecha</th><th></th></tr></thead><tbody>${rows.map(item=>`<tr><td>${esc(item.message||item.title||item.action||item.name)}</td><td>${esc(item.github_username||item.author||item.user||'No disponible')}</td><td>${esc(item.date||item.updated||'No disponible')}</td><td>${item.url?`<a class="btn secondary" href="${esc(item.url)}" target="_blank">Ver en GitHub</a>`:''}</td></tr>`).join('')}</tbody></table></div></section>`}return `${heading(section==='commits'?'Commits':'GitHub','Información real del repositorio privado de Sakura Coffee.')}<div class="actions" style="margin-bottom:16px"><button class="btn secondary" data-gh="repository">Overview</button><button class="btn secondary" data-gh="commits">Commits</button><button class="btn secondary" data-gh="pulls">Pull Requests</button><button class="btn secondary" data-gh="branches">Branches</button><button class="btn secondary" data-gh="activity">Activity</button></div>${body}`}
-async function renderGithub(section='repository'){try{layout(await githubView(section));document.querySelectorAll('[data-gh]').forEach(b=>b.onclick=()=>renderGithub(b.dataset.gh))}catch(error){layout(`${heading('GitHub','La integración de GitHub requiere un plan compatible.')}<section class="card"><div class="alert">${esc(error.message)}</div>${state.user.role==='admin'?'<a class="btn" href="#/admin/billing">Ver planes</a>':''}</section>`)}}
-function profile(){const photo=state.user.profile_photo?`<img class="profile-photo" src="${esc(state.user.profile_photo)}" alt="Foto de perfil">`:`<div class="profile-photo profile-placeholder">${esc(state.user.name[0])}</div>`;return `${heading('Mi perfil','Información de tu cuenta en Haitani.')}<section class="card profile-card"><div class="profile-summary">${photo}<div><h2>${esc(state.user.name)}</h2><p class="muted">${esc(state.user.email)}</p></div></div><div class="grid stats"><div><div class="muted">Usuario</div><h2>${esc(state.user.username)}</h2></div><div><div class="muted">GitHub</div><h2>${esc(state.user.github_username||'GitHub no configurado')}</h2></div></div></section><section class="card"><h2>Actualizar perfil</h2><p class="muted">Edita tus datos personales, foto y contraseña.</p><form id="profile-form" class="form-grid" enctype="multipart/form-data"><label>Nombre<input class="input" name="name" value="${esc(state.user.name)}" required></label><label>Usuario<input class="input" name="username" value="${esc(state.user.username)}" required></label><label>Correo<input class="input" name="email" type="email" value="${esc(state.user.email)}" required></label><label>Foto de perfil<input class="input" name="photo" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"></label><label>Contraseña actual<input class="input" name="current_password" type="password" autocomplete="current-password"></label><label>Nueva contraseña<input class="input" name="new_password" type="password" minlength="8" autocomplete="new-password"></label><div class="actions full"><button class="btn">Guardar cambios</button></div></form></section>`}
-async function renderProfile(){layout(profile());document.querySelector('#profile-form').onsubmit=async event=>{event.preventDefault();try{const data=await api('/users/me/profile',{method:'PUT',body:new FormData(event.target)});state.user={...state.user,...data};notify('Perfil actualizado');renderProfile()}catch(error){notify(error.message)}}}
-async function members(){const users=await api('/users');const membersList=users.filter(u=>u.role==='member');const {items,totalPages,currentPage,totalItems}=paginateItems(membersList,'members');return `${heading('Integrantes','Personas activas en el equipo.','<button class="btn" id="new-member">Nuevo integrante</button>')}<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Foto</th><th>Nombre</th><th>Usuario</th><th>Correo</th><th>GitHub</th><th>Estado</th><th></th></tr></thead><tbody>${items.map(u=>`<tr><td>${u.profile_photo?`<img class="avatar" src="${esc(u.profile_photo)}" alt="Foto de ${esc(u.name)}">`:`<span class="avatar">${esc(u.name[0])}</span>`}</td><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${esc(u.email)}</td><td>${esc(u.github_username||'No configurado')}</td><td>${u.active?'Activo':'Inactivo'}</td><td><button class="btn secondary edit-user" data-user="${encodeURIComponent(JSON.stringify(u))}">Editar</button> <button class="btn secondary toggle-user" data-id="${u.id}" data-active="${u.active}">${u.active?'Desactivar':'Activar'}</button> <button class="btn danger delete-user" data-id="${u.id}">Eliminar</button></td></tr>`).join('')}</tbody></table>${paginationMarkup('members','renderMembers',totalPages,currentPage,totalItems)}</div></section><section class="card mt-4" id="member-form" style="display:none"><h2 id="member-form-title">Nuevo integrante</h2><form class="form-grid"><input type="hidden" name="id"><label>Nombre<input class="input" name="name" required></label><label>Usuario<input class="input" name="username" required></label><label>Correo<input class="input" name="email" type="email" required></label><label>Contraseña<input class="input" name="password" placeholder="Déjala vacía para conservarla"></label><label>GitHub username<input class="input" name="github_username"></label><label>Estado<select class="select" name="active"><option value="1">Activo</option><option value="0">Inactivo</option></select></label><div class="actions full"><button class="btn">Guardar</button><button class="btn secondary" type="button" id="cancel-member">Cancelar</button></div></form></section>`}
-async function renderMembers(){layout(await members());bindPaginationControls();const formSection=document.querySelector('#member-form');const form=document.querySelector('#member-form form');const openForm=(user=null)=>{form.reset();formSection.style.display='block';document.querySelector('#member-form-title').textContent=user?'Editar integrante':'Nuevo integrante';form.elements.id.value=user?.id||'';form.elements.name.value=user?.name||'';form.elements.username.value=user?.username||'';form.elements.email.value=user?.email||'';form.elements.github_username.value=user?.github_username||'';form.elements.active.value=user?.active?'1':'0';form.elements.password.value='';form.elements.password.required=!user};document.querySelector('#new-member').onclick=()=>openForm();document.querySelector('#cancel-member').onclick=()=>formSection.style.display='none';form.onsubmit=async e=>{e.preventDefault();const values=Object.fromEntries(new FormData(form));const id=values.id;delete values.id;if(!values.password)delete values.password;try{await api(id?`/users/${id}`:'/users',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});notify(id?'Integrante actualizado':'Integrante creado');renderMembers()}catch(error){notify(error.message)}};document.querySelectorAll('.edit-user').forEach(button=>button.onclick=()=>openForm(JSON.parse(decodeURIComponent(button.dataset.user))));document.querySelectorAll('.toggle-user').forEach(b=>b.onclick=async()=>{try{await api(`/users/${b.dataset.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:b.dataset.active==='0'})});renderMembers()}catch(error){notify(error.message)}});document.querySelectorAll('.delete-user').forEach(b=>b.onclick=async()=>{if(confirm('¿Eliminar integrante?')){await api(`/users/${b.dataset.id}`,{method:'DELETE'});renderMembers()}})}
-async function team(){const users=(await api('/users')).filter(user=>user.active);return `${heading('Equipo','Conoce a las personas del equipo y sus fotos de perfil.')}<section class="team-grid">${users.map(user=>`<article class="card team-card">${avatarMarkup(user,'team-avatar')}<div><h2>${esc(user.name)}</h2><p class="muted">@${esc(user.username)}</p><p>${esc(user.email)}</p></div><button class="btn secondary message-user" data-id="${user.id}">Enviar mensaje</button></article>`).join('')}</section>`}
+async function filesView(){
+  const files=await api('/files');
+  const {items,totalPages,currentPage,totalItems}=paginateItems(files,'files');
+  return `
+    ${heading('Archivos y Documentos','Documentos compartidos, entregables y evidencias del equipo.',`
+      <form id="upload-form" class="actions">
+        <label class="btn secondary" style="cursor:pointer">
+          ${icon('upload')}Seleccionar archivo
+          <input class="input" type="file" name="file" style="display:none" required onchange="this.form.querySelector('#upload-filename').textContent=this.files[0]?.name||''">
+        </label>
+        <span id="upload-filename" class="muted" style="font-size:13px"></span>
+        <button class="btn">${icon('check')}Subir evidencia</button>
+      </form>
+    `)}
+    <section class="card admin-table-card">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Archivo</th>
+              <th>Tipo</th>
+              <th>Tamaño</th>
+              <th>Subido por</th>
+              <th>Fecha</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(f=>`
+              <tr>
+                <td><strong>${esc(f.original_name)}</strong></td>
+                <td><span class="badge ${f.mime_type.includes('pdf')?'pink':f.mime_type.includes('image')?'yellow':''}">${esc(f.mime_type)}</span></td>
+                <td class="muted">${Math.ceil(f.size/1024)} KB</td>
+                <td>${esc(f.uploader_name || 'Desconocido')}</td>
+                <td class="muted">${esc(f.created_at)}</td>
+                <td>
+                  <div class="actions">
+                    <button class="btn secondary mini view-file" data-id="${f.id}" data-name="${esc(f.original_name)}" data-type="${esc(f.mime_type)}">${icon('eye')}Ver</button>
+                    <a class="btn secondary mini" href="/api/files/${f.id}/download" download>${icon('download')}Descargar</a>
+                    ${state.user.role==='admin'?`<button class="btn danger mini delete-file" data-id="${f.id}">${icon('trash')}Eliminar</button>`:''}
+                  </div>
+                </td>
+              </tr>
+            `).join('')||'<tr><td colspan="6" class="empty">Aún no hay archivos compartidos.</td></tr>'}
+          </tbody>
+        </table>
+        ${paginationMarkup('files','renderFiles',totalPages,currentPage,totalItems)}
+      </div>
+    </section>
+    <div id="file-viewer" class="file-viewer status-overlay" style="display:none" role="dialog" aria-modal="true">
+      <div class="file-viewer-panel status-viewer admin-modal-panel">
+        <div class="file-viewer-head status-viewer-head">
+          <strong id="file-viewer-title">Visualizador de archivo</strong>
+          <button class="icon-btn" id="close-file-viewer" aria-label="Cerrar">${icon('close')}</button>
+        </div>
+        <div id="file-viewer-content" class="file-viewer-content" style="padding:16px;text-align:center;max-height:75vh;overflow:auto"></div>
+      </div>
+    </div>
+  `;
+}
+async function renderFiles(){
+  layout(await filesView());
+  bindPaginationControls();
+  document.querySelector('#upload-form')?.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const fileInput=e.target.querySelector('input[type="file"]');
+    if(!fileInput?.files?.length){notify('Selecciona un archivo para subir.');return;}
+    try{
+      await api('/files',{method:'POST',body:new FormData(e.target)});
+      notify('Archivo subido exitosamente');
+      renderFiles();
+    }catch(err){notify(err.message)}
+  });
+  document.querySelectorAll('.view-file').forEach(button=>button.onclick=()=>{
+    const viewer=document.querySelector('#file-viewer');
+    const type=button.dataset.type;
+    const url=`/api/files/${button.dataset.id}/view`;
+    document.querySelector('#file-viewer-title').textContent=button.dataset.name;
+    document.querySelector('#file-viewer-content').innerHTML=type.startsWith('image/')
+      ?`<img class="file-preview-image" src="${url}" alt="${esc(button.dataset.name)}" style="max-width:100%;max-height:70vh;border-radius:12px;box-shadow:var(--shadow-subtle)">`
+      :`<iframe class="file-preview-frame" src="${url}" title="${esc(button.dataset.name)}" style="width:100%;height:65vh;border:none;border-radius:12px"></iframe>`;
+    viewer.style.display='grid';
+  });
+  const closeViewer=()=>{
+    const viewer=document.querySelector('#file-viewer');
+    if(viewer){
+      viewer.style.display='none';
+      document.querySelector('#file-viewer-content').innerHTML='';
+    }
+  };
+  document.querySelector('#close-file-viewer')?.addEventListener('click',closeViewer);
+  document.querySelector('#file-viewer')?.addEventListener('click',e=>{if(e.target.id==='file-viewer')closeViewer();});
+  document.querySelectorAll('.delete-file').forEach(b=>b.onclick=async()=>{
+    if(confirm('¿Eliminar archivo permanentemente?')){
+      try{
+        await api(`/files/${b.dataset.id}`,{method:'DELETE'});
+        notify('Archivo eliminado');
+        renderFiles();
+      }catch(err){notify(err.message)}
+    }
+  });
+}
+function profile(){
+  const photo=state.user.profile_photo
+    ?`<img class="profile-photo" src="${esc(state.user.profile_photo)}" alt="Foto de perfil">`
+    :`<div class="profile-photo profile-placeholder">${esc(state.user.name[0])}</div>`;
+  return `
+    ${heading('Mi Perfil','Información de tu cuenta y preferencias en Haitani.')}
+    <section class="card profile-card">
+      <div class="profile-summary">
+        ${photo}
+        <div>
+          <h2>${esc(state.user.name)}</h2>
+          <p class="muted">${esc(state.user.email)}</p>
+        </div>
+      </div>
+      <div class="grid stats mt-4">
+        <div><div class="muted">Usuario</div><h2>${esc(state.user.username)}</h2></div>
+        <div><div class="muted">Rol</div><h2>${esc(state.user.role)}</h2></div>
+        <div><div class="muted">GitHub</div><h2>${esc(state.user.github_username||'No configurado')}</h2></div>
+      </div>
+    </section>
+    <section class="card mt-4">
+      <h2>Actualizar perfil</h2>
+      <p class="muted">Edita tus datos personales, foto de perfil y contraseña.</p>
+      <form id="profile-form" class="form-grid" enctype="multipart/form-data">
+        <label>Nombre
+          <input class="input" name="name" value="${esc(state.user.name)}" required>
+        </label>
+        <label>Usuario
+          <input class="input" name="username" value="${esc(state.user.username)}" required>
+        </label>
+        <label>Correo electrónico
+          <input class="input" name="email" type="email" value="${esc(state.user.email)}" required>
+        </label>
+        <label>Foto de perfil
+          <input class="input" name="photo" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
+        </label>
+        <label>Contraseña actual
+          <input class="input" name="current_password" type="password" autocomplete="current-password">
+        </label>
+        <label>Nueva contraseña
+          <input class="input" name="new_password" type="password" minlength="8" autocomplete="new-password">
+        </label>
+        <div class="actions full">
+          <button class="btn">${icon('check')}Guardar cambios</button>
+        </div>
+      </form>
+    </section>
+  `;
+}
+async function renderProfile(){
+  layout(profile());
+  document.querySelector('#profile-form').onsubmit=async event=>{
+    event.preventDefault();
+    try{
+      const data=await api('/users/me/profile',{method:'PUT',body:new FormData(event.target)});
+      state.user={...state.user,...data};
+      notify('Perfil actualizado con éxito');
+      renderProfile();
+    }catch(error){
+      notify(error.message);
+    }
+  };
+}
+async function members(){
+  const users=await api('/users');
+  const membersList=users.filter(u=>u.role==='member');
+  const {items,totalPages,currentPage,totalItems}=paginateItems(membersList,'members');
+  return `
+    ${heading('Integrantes del Equipo','Gestiona el acceso, roles y estados de los colaboradores.',`<button class="btn" id="new-member">${icon('plus')}Nuevo integrante</button>`)}
+    <section class="card admin-table-card">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Colaborador</th>
+              <th>Usuario</th>
+              <th>Correo Electrónico</th>
+              <th>GitHub</th>
+              <th>Estado</th>
+              <th style="text-align:right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(u=>`
+              <tr>
+                <td>
+                  <div class="member-cell">
+                    ${u.profile_photo?`<img class="avatar" src="${esc(u.profile_photo)}" alt="Foto de ${esc(u.name)}">`:`<span class="avatar">${esc(u.name[0])}</span>`}
+                    <strong>${esc(u.name)}</strong>
+                  </div>
+                </td>
+                <td><code class="member-username">@${esc(u.username)}</code></td>
+                <td><span class="muted">${esc(u.email)}</span></td>
+                <td>${u.github_username?`<span class="badge">${icon('github')} ${esc(u.github_username)}</span>`:'<span class="muted">—</span>'}</td>
+                <td>
+                  <span class="badge ${u.active?'green':'pink'}">${u.active?'Activo':'Inactivo'}</span>
+                </td>
+                <td style="text-align:right">
+                  <div class="actions" style="justify-content:flex-end">
+                    <button class="btn secondary mini edit-user" data-user="${encodeURIComponent(JSON.stringify(u))}">${icon('edit')}Editar</button>
+                    <button class="btn secondary mini toggle-user" data-id="${u.id}" data-active="${u.active}">${icon(u.active?'block':'check')}${u.active?'Desactivar':'Activar'}</button>
+                    <button class="btn danger mini delete-user" data-id="${u.id}">${icon('trash')}Eliminar</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')||'<tr><td colspan="6" class="empty">No hay integrantes registrados en el equipo.</td></tr>'}
+          </tbody>
+        </table>
+        ${paginationMarkup('members','renderMembers',totalPages,currentPage,totalItems)}
+      </div>
+    </section>
+    <div class="status-overlay" id="member-modal" style="display:none" role="dialog" aria-modal="true">
+      <div class="status-viewer admin-modal-panel">
+        <div class="status-viewer-head">
+          <strong id="member-form-title">Nuevo integrante</strong>
+          <button type="button" class="icon-btn" id="cancel-member" aria-label="Cerrar">${icon('close')}</button>
+        </div>
+        <form class="admin-modal-form" id="member-form-element">
+          <input type="hidden" name="id">
+          <div class="form-grid">
+            <label>Nombre completo
+              <input class="input" name="name" placeholder="Ej. Alex Vance" required>
+            </label>
+            <label>Nombre de usuario
+              <input class="input" name="username" placeholder="alexvance" required>
+            </label>
+            <label>Correo electrónico
+              <input class="input" name="email" type="email" placeholder="alex@empresa.com" required>
+            </label>
+            <label>Usuario de GitHub
+              <input class="input" name="github_username" placeholder="alexvance">
+            </label>
+            <label>Contraseña de acceso
+              <input class="input" name="password" placeholder="Mínimo 8 caracteres">
+            </label>
+            <label>Estado de cuenta
+              <select class="select" name="active">
+                <option value="1">Activo</option>
+                <option value="0">Inactivo</option>
+              </select>
+            </label>
+          </div>
+          <div class="actions mt-4">
+            <button class="btn">${icon('check')}Guardar integrante</button>
+            <button class="btn secondary" type="button" id="cancel-member-btn">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+async function renderMembers(){
+  layout(await members());
+  bindPaginationControls();
+  const modal=document.querySelector('#member-modal');
+  const form=document.querySelector('#member-form-element');
+  const openForm=(user=null)=>{
+    form.reset();
+    modal.style.display='grid';
+    document.querySelector('#member-form-title').textContent=user?'Editar integrante':'Nuevo integrante';
+    form.elements.id.value=user?.id||'';
+    form.elements.name.value=user?.name||'';
+    form.elements.username.value=user?.username||'';
+    form.elements.email.value=user?.email||'';
+    form.elements.github_username.value=user?.github_username||'';
+    form.elements.active.value=user?.active?'1':'0';
+    form.elements.password.value='';
+    form.elements.password.required=!user;
+  };
+  const closeModal=()=>modal.style.display='none';
+  document.querySelector('#new-member').onclick=()=>openForm();
+  document.querySelector('#cancel-member').onclick=closeModal;
+  document.querySelector('#cancel-member-btn')?.addEventListener('click',closeModal);
+  modal.onclick=e=>{if(e.target===modal)closeModal()};
+
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    const values=Object.fromEntries(new FormData(form));
+    const id=values.id;
+    delete values.id;
+    if(!values.password)delete values.password;
+    try{
+      await api(id?`/users/${id}`:'/users',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});
+      notify(id?'Integrante actualizado':'Integrante registrado exitosamente');
+      closeModal();
+      renderMembers();
+    }catch(error){notify(error.message)}
+  };
+  document.querySelectorAll('.edit-user').forEach(button=>button.onclick=()=>openForm(JSON.parse(decodeURIComponent(button.dataset.user))));
+  document.querySelectorAll('.toggle-user').forEach(b=>b.onclick=async()=>{
+    try{
+      await api(`/users/${b.dataset.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:b.dataset.active==='0'})});
+      notify('Estado del integrante modificado');
+      renderMembers();
+    }catch(error){notify(error.message)}
+  });
+  document.querySelectorAll('.delete-user').forEach(b=>b.onclick=async()=>{
+    if(confirm('¿Eliminar integrante del equipo?')){
+      await api(`/users/${b.dataset.id}`,{method:'DELETE'});
+      notify('Integrante eliminado');
+      renderMembers();
+    }
+  });
+}
 async function renderTeam(){layout(await team());document.querySelectorAll('.message-user').forEach(button=>button.onclick=()=>{location.hash=`#/${state.user.role}/messages?user=${button.dataset.id}`;renderMessages()})}
 const callState={socket:null,peer:null,stream:null,remoteStream:null,peerId:null,callId:null,muted:false};
 function signalSocket(){if(callState.socket?.readyState===WebSocket.OPEN)return callState.socket;const protocol=location.protocol==='https:'?'wss':'ws';callState.socket=new WebSocket(`${protocol}://${location.host}`);callState.socket.onopen=()=>callState.socket.send(JSON.stringify({type:'register',userId:state.user.id}));callState.socket.onmessage=event=>handleCallSignal(JSON.parse(event.data));return callState.socket}
 function sendSignal(message){const socket=signalSocket();const send=()=>socket.send(JSON.stringify(message));if(socket.readyState===WebSocket.OPEN)send();else socket.addEventListener('open',send,{once:true})}
 async function startCall(peerId,video){try{callState.peerId=Number(peerId);const call=await api('/calls',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({receiver_id:callState.peerId,call_type:video?'video':'audio'})});callState.callId=call.id;callState.stream=await navigator.mediaDevices.getUserMedia({audio:true,video});callState.peer=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});callState.remoteStream=new MediaStream();document.querySelector('#call-remote').srcObject=callState.remoteStream;document.querySelector('#call-local').srcObject=callState.stream;callState.stream.getTracks().forEach(track=>callState.peer.addTrack(track,callState.stream));callState.peer.ontrack=event=>event.streams[0].getTracks().forEach(track=>callState.remoteStream.addTrack(track));callState.peer.onicecandidate=event=>event.candidate&&sendSignal({type:'ice',to:callState.peerId,candidate:event.candidate});document.querySelector('#call-modal').hidden=false;const offer=await callState.peer.createOffer();await callState.peer.setLocalDescription(offer);sendSignal({type:'offer',to:callState.peerId,offer,video,callId:callState.callId})}catch(error){notify('No fue posible iniciar la llamada. Revisa los permisos de cámara y micrófono.');endCall()}}
 async function handleCallSignal(message){if(message.type==='offer'){if(callState.peer)endCall();callState.peerId=message.from;callState.callId=message.callId;callState.stream=await navigator.mediaDevices.getUserMedia({audio:true,video:message.video});callState.peer=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});callState.remoteStream=new MediaStream();document.querySelector('#call-remote').srcObject=callState.remoteStream;document.querySelector('#call-local').srcObject=callState.stream;callState.stream.getTracks().forEach(track=>callState.peer.addTrack(track,callState.stream));callState.peer.ontrack=event=>event.streams[0].getTracks().forEach(track=>callState.remoteStream.addTrack(track));callState.peer.onicecandidate=event=>event.candidate&&sendSignal({type:'ice',to:callState.peerId,candidate:event.candidate});await callState.peer.setRemoteDescription(message.offer);const answer=await callState.peer.createAnswer();await callState.peer.setLocalDescription(answer);document.querySelector('#call-modal').hidden=false;await api(`/calls/${callState.callId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'answered'})});sendSignal({type:'answer',to:callState.peerId,answer})}else if(message.type==='answer'&&callState.peer){await callState.peer.setRemoteDescription(message.answer);if(callState.callId)await api(`/calls/${callState.callId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'answered'})})}else if(message.type==='ice'&&callState.peer)await callState.peer.addIceCandidate(message.candidate)}
-function toggleMute(){callState.muted=!callState.muted;callState.stream?.getAudioTracks().forEach(track=>{track.enabled=!callState.muted});const button=document.querySelector('#mute-call');if(button){const label=callState.muted?'Activar micrófono':'Silenciar micrófono';button.innerHTML=`${iconAsset('mute','Micrófono')}<span>${label}</span>`;}}
+function toggleMute(){callState.muted=!callState.muted;callState.stream?.getAudioTracks().forEach(track=>{track.enabled=!callState.muted});const button=document.querySelector('#mute-call');if(button){const label=callState.muted?'Activar micrófono':'Silenciar micrófono';button.innerHTML=`${icon(callState.muted?'micOff':'mic')}<span>${label}</span>`;}}
 function endCall(){callState.peer?.close();callState.stream?.getTracks().forEach(track=>track.stop());callState.peer=null;callState.stream=null;callState.remoteStream=null;callState.peerId=null;callState.callId=null;callState.muted=false;const modal=document.querySelector('#call-modal');if(modal)modal.hidden=true}
 function chatBackground(key){return localStorage.getItem(`haitani-chat-bg-${key}`)||'linear-gradient(135deg,#13202B,#2A3541)'}
 function chatBackgroundKind(key){const value=chatBackground(key);if(value.startsWith('url('))return 'custom';if(value.includes('C4B5'))return 'lavender';if(value.includes('201B19'))return 'warm';if(value.includes('#13202B,#2A3541'))return 'gradient';return 'solid'}
@@ -354,7 +1347,7 @@ async function messagesView(selectedId = null){
         <aside class="conversation-list">
           <div class="conversation-list-header">
             <h2>Mensajes</h2>
-            <button class="btn secondary mini" id="new-group" type="button">+ Grupo</button>
+            <button class="btn secondary mini" id="new-group" type="button">${icon('plus')}Grupo</button>
           </div>
           <div class="conversation-section">
             <div class="conversation-label">Contactos</div>
@@ -406,7 +1399,7 @@ async function messagesView(selectedId = null){
                 <input type="file" name="file" class="file-input" hidden>
               </label>
               <textarea class="textarea" name="content" rows="1" placeholder="Escribe un mensaje..."></textarea>
-              <button class="btn" type="submit">Enviar</button>
+              <button class="send-btn" type="submit" aria-label="Enviar">${icon('arrowUp')}</button>
             </div>
           </form>
         </div>
@@ -913,32 +1906,641 @@ async function openGanttQuickEdit(id){
   }
 }
 const renderMessagesLegacy=renderMessages;
-renderMessages=async function(){await renderMessagesLegacy();const callHead=document.querySelector('.call-head');if(callHead&&!document.querySelector('#mute-call'))callHead.insertAdjacentHTML('beforeend','<button class="btn secondary btn-with-icon" id="mute-call">'+iconAsset('mute','Silenciar micrófono')+'<span>Silenciar micrófono</span></button>');document.querySelector('#mute-call')?.addEventListener('click',toggleMute);const calls=await api('/calls').catch(()=>[]);if(calls.length&&!document.querySelector('.missed-calls')){const node=document.createElement('section');node.className='missed-calls';node.innerHTML=`<h2>Llamadas perdidas</h2>${calls.map(call=>`<div class="missed-call">${avatarMarkup({name:call.caller_name,profile_photo:call.caller_photo},'message-avatar')}<span><strong>${esc(call.caller_name)}</strong><small>${call.call_type==='video'?'Videollamada':'Llamada'} · ${new Date(call.created_at).toLocaleString('es')}</small></span></div>`).join('')}`;document.querySelector('.conversation-list')?.prepend(node)}}
+renderMessages=async function(){await renderMessagesLegacy();const callHead=document.querySelector('.call-head');if(callHead&&!document.querySelector('#mute-call'))callHead.insertAdjacentHTML('beforeend','<button class="btn secondary btn-with-icon" id="mute-call">'+icon('mic')+'<span>Silenciar micrófono</span></button>');document.querySelector('#mute-call')?.addEventListener('click',toggleMute);const calls=await api('/calls').catch(()=>[]);if(calls.length&&!document.querySelector('.missed-calls')){const node=document.createElement('section');node.className='missed-calls';node.innerHTML=`<h2>Llamadas perdidas</h2>${calls.map(call=>`<div class="missed-call">${avatarMarkup({name:call.caller_name,profile_photo:call.caller_photo},'message-avatar')}<span><strong>${esc(call.caller_name)}</strong><small>${call.call_type==='video'?'Videollamada':'Llamada'} · ${new Date(call.created_at).toLocaleString('es')}</small></span></div>`).join('')}`;document.querySelector('.conversation-list')?.prepend(node)}}
 const RELAX_SOURCES=[['spotify','Spotify'],['youtube','YouTube'],['soundcloud','SoundCloud']];
 let relaxSource='spotify';
 function sourceLabel(key){return RELAX_SOURCES.find(([value])=>value===key)?.[1]||key}
 function trackImage(track){return track.artwork_url||track.artworkUrl||track.image||track.thumbnail||track.cover||track.cover_url||track.coverUrl||track.album?.images?.[0]?.url||track.album_art||track.thumbnails?.high?.url||track.thumbnails?.default?.url||''}
-async function relax(){return `${`<section class="relax-hero"><div class="relax-hero-text"><div class="eyebrow">Haitani </div><h1>Relax 梵天</h1><p class="muted">Encuentra tu playlist de enfoque y reprodúcela sin salir del panel.</p></div></section>`}<section class="card relax-search"><form id="music-search" class="relax-search-form"><div class="relax-search-input"><span class="relax-search-icon">♪</span><input class="input" name="q" placeholder="Busca una canción, artista o álbum" required></div><div class="source-pills" role="radiogroup" aria-label="Fuente de música">${RELAX_SOURCES.map(([value,label])=>`<button type="button" class="source-pill ${relaxSource===value?'active':''}" data-source="${value}">${label}</button>`).join('')}</div><input type="hidden" name="source" value="${relaxSource}"><button class="btn relax-search-btn">Buscar</button></form></section><section id="music-results" class="music-results empty"><div class="relax-empty"><div class="relax-empty-icon">♫</div><p>Busca una canción para comenzar a relajarte.</p></div></section><section class="card music-player" id="music-player" hidden><div class="music-player-art" id="music-art">♪</div><div class="music-player-info"><span class="music-player-eq"><i></i><i></i><i></i><i></i></span><div><strong id="music-title">Selecciona una pista</strong><small id="music-artist" class="muted"></small></div></div><audio id="music-audio" controls preload="none"></audio><a id="music-link" class="btn secondary" target="_blank" rel="noopener">Abrir servicio</a></section>`}
+async function relax(){return `${`<section class="relax-hero"><div class="relax-hero-text"><div class="eyebrow">Haitani </div><h1>Relax 梵天</h1><p class="muted">Encuentra tu playlist de enfoque y reprodúcela sin salir del panel.</p></div></section>`}<section class="card relax-search"><form id="music-search" class="relax-search-form"><div class="relax-search-input"><span class="relax-search-icon">${icon('search')}</span><input class="input" name="q" placeholder="Busca una canción, artista o álbum" required></div><div class="source-pills" role="radiogroup" aria-label="Fuente de música">${RELAX_SOURCES.map(([value,label])=>`<button type="button" class="source-pill ${relaxSource===value?'active':''}" data-source="${value}">${label}</button>`).join('')}</div><input type="hidden" name="source" value="${relaxSource}"><button class="btn relax-search-btn">${icon('search')}Buscar</button></form></section><section id="music-results" class="music-results empty"><div class="relax-empty"><div class="relax-empty-icon">${icon('music')}</div><p>Busca una canción para comenzar a relajarte.</p></div></section><section class="card music-player" id="music-player" hidden><div class="music-player-art" id="music-art">${icon('music')}</div><div class="music-player-info"><span class="music-player-eq"><i></i><i></i><i></i><i></i></span><div><strong id="music-title">Selecciona una pista</strong><small id="music-artist" class="muted"></small></div></div><audio id="music-audio" controls preload="none"></audio><a id="music-link" class="btn secondary" target="_blank" rel="noopener">${icon('external')}Abrir servicio</a></section>`}
 function musicUrl(track){return track.preview_url||track.previewUrl||track.audio||track.stream_url||track.streamUrl||track.permalink_url||track.permalinkUrl||track.embed_url||track.embedUrl||track.link||track.uri||track.url||track.external_url||track.externalUrl}
 function musicEmbed(url){const value=String(url||'');const youtube=value.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^?&/]+)/);if(youtube)return `https://www.youtube.com/embed/${youtube[1]}?autoplay=1`;const spotify=value.match(/open\.spotify\.com\/(track|album|playlist)\/([^?&/]+)/);if(spotify)return `https://open.spotify.com/embed/${spotify[1]}/${spotify[2]}?utm_source=generator`;if(value.includes('soundcloud.com/'))return `https://w.soundcloud.com/player/?url=${encodeURIComponent(value)}&color=%237D9B9F&auto_play=true&hide_related=true&show_comments=false&show_user=true&show_reposts=false&visual=false&show_artwork=true`;return ''}
 function loadSoundCloudWidget(){return new Promise(resolve=>{if(window.SC?.Widget){resolve();return}const script=document.createElement('script');script.src='https://w.soundcloud.com/player/api.js';script.onload=resolve;script.onerror=resolve;document.head.append(script)})}
 async function playSoundCloud(frame,fallbackUrl){await loadSoundCloudWidget();if(!window.SC?.Widget)return;const widget=window.SC.Widget(frame);widget.bind(window.SC.Widget.Events.READY,()=>widget.play());widget.bind(window.SC.Widget.Events.ERROR,()=>notify('SoundCloud no puede reproducir esta pista (restringida o no disponible). Prueba otra, o ábrela directo en SoundCloud.'))}
-async function renderRelax(){layout(await relax());const form=document.querySelector('#music-search');document.querySelectorAll('.source-pill').forEach(pill=>pill.onclick=()=>{relaxSource=pill.dataset.source;form.elements.source.value=relaxSource;document.querySelectorAll('.source-pill').forEach(p=>p.classList.toggle('active',p===pill))});form.onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.target));const results=document.querySelector('#music-results');results.className='music-results empty';results.innerHTML='<div class="relax-empty"><div class="relax-empty-icon">♪</div><p>Buscando...</p></div>';try{const data=await api(`/music/search?q=${encodeURIComponent(values.q)}&source=${encodeURIComponent(values.source)}`);if(!data.configured){results.innerHTML='<div class="relax-empty"><div class="relax-empty-icon">⚠</div><p>MusicAPI no está configurada en el servidor.</p></div>';return}if(!data.tracks.length){results.innerHTML='<div class="relax-empty"><div class="relax-empty-icon">🔍</div><p>No encontramos pistas.</p></div>';return}results.className='music-results';results.innerHTML=data.tracks.map((track,index)=>{const title=track.title||track.name||'Pista sin título';const artist=track.artist?.name||track.artist||track.artistNames?.join(', ')||track.artists?.[0]?.name||'Artista desconocido';const url=musicUrl(track);const img=trackImage(track);return `<article class="music-track" data-index="${index}"><div class="music-track-cover" style="${img?`background-image:url('${esc(img)}')`:''}">${img?'':'♪'}</div><div class="music-track-info"><strong>${esc(title)}</strong><small class="muted">${esc(artist)}</small><span class="badge music-track-source">${esc(sourceLabel(values.source))}</span></div><button class="btn play-track" data-index="${index}" ${url?'':'disabled'}>${url?'Reproducir':'Sin preview'}</button></article>`}).join('');results.querySelectorAll('.play-track').forEach(button=>button.onclick=async()=>{document.querySelectorAll('.music-track').forEach(node=>node.classList.toggle('is-playing',node.dataset.index===button.dataset.index));const track=data.tracks[Number(button.dataset.index)];const url=musicUrl(track);const embed=musicEmbed(url);const player=document.querySelector('#music-player');const audio=document.querySelector('#music-audio');const title=track.title||track.name||'Pista';const artist=track.artist?.name||track.artist||track.artistNames?.join(', ')||'';const img=trackImage(track);document.querySelector('#music-title').textContent=title;document.querySelector('#music-artist').textContent=artist;document.querySelector('#music-link').href=url||'#';const art=document.querySelector('#music-art');if(img){art.style.backgroundImage=`url('${img}')`;art.textContent=''}else{art.style.backgroundImage='';art.textContent='♪'}player.classList.add('is-playing');if(embed){audio.hidden=true;let frame=document.querySelector('#music-embed');if(!frame){frame=document.createElement('iframe');frame.id='music-embed';frame.className='music-embed';frame.allow='autoplay; encrypted-media; clipboard-write';frame.referrerPolicy='strict-origin-when-cross-origin';audio.after(frame)}frame.src=embed;frame.hidden=false;if(embed.includes('soundcloud.com/player'))playSoundCloud(frame,url)}else if(track.previewUrl||track.preview_url||track.audio){document.querySelector('#music-embed')?.remove();audio.hidden=false;audio.src=track.previewUrl||track.preview_url||track.audio;audio.play().catch(()=>notify('Pulsa reproducir para iniciar el audio.'))}else{audio.hidden=true;document.querySelector('#music-embed')?.remove();player.classList.remove('is-playing');notify('Este servicio no entrega preview de audio. Usa el reproductor embebido o abre el servicio.')}player.hidden=false})}catch(error){results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">⚠</div><p>${esc(error.message)}</p></div>`}}}
-async function assistant(){return `${heading('Asistente IA','Controla el proyecto con preguntas sobre tareas, responsables y fechas.')}<section class="assistant-shell"><div class="assistant-intro"><div><span class="assistant-kicker">Sanzu / Sakura Coffee</span><h2>Tu copiloto de operaciones</h2><p>Consulta el estado del proyecto y recibe respuestas basadas en la información actual del panel.</p></div><span class="assistant-status"><i></i>Conectado al panel</span></div><div class="assistant-suggestions"><button class="btn secondary assistant-suggestion">¿Qué tareas están vencidas?</button><button class="btn secondary assistant-suggestion">¿Cuál es el progreso del proyecto?</button><button class="btn secondary assistant-suggestion">Dame un resumen para la reunión</button></div><div class="assistant-messages" id="assistant-messages"><article class="assistant-message assistant-bot"><span class="assistant-avatar">S</span><div><strong>Sanzu</strong><p>Hola, ${esc(state.user.name)}. Puedo ayudarte a detectar riesgos y preparar el siguiente paso del proyecto.</p><small>Listo para consultar Sakura Coffee</small></div></article></div><form class="assistant-form" id="assistant-form"><textarea class="textarea" name="message" rows="2" placeholder="Pregunta por el progreso, tareas vencidas o próximos pasos..." required></textarea><button class="btn assistant-send" aria-label="Enviar pregunta">Enviar <span>↗</span></button></form></section>`}
+async function renderRelax(){layout(await relax());const form=document.querySelector('#music-search');document.querySelectorAll('.source-pill').forEach(pill=>pill.onclick=()=>{relaxSource=pill.dataset.source;form.elements.source.value=relaxSource;document.querySelectorAll('.source-pill').forEach(p=>p.classList.toggle('active',p===pill))});form.onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.target));const results=document.querySelector('#music-results');results.className='music-results empty';results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('music')}</div><p>Buscando...</p></div>`;try{const data=await api(`/music/search?q=${encodeURIComponent(values.q)}&source=${encodeURIComponent(values.source)}`);if(!data.configured){results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('block')}</div><p>MusicAPI no está configurada en el servidor.</p></div>`;return}if(!data.tracks.length){results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('search')}</div><p>No encontramos pistas.</p></div>`;return}results.className='music-results';results.innerHTML=data.tracks.map((track,index)=>{const title=track.title||track.name||'Pista sin título';const artist=track.artist?.name||track.artist||track.artistNames?.join(', ')||track.artists?.[0]?.name||'Artista desconocido';const url=musicUrl(track);const img=trackImage(track);return `<article class="music-track" data-index="${index}"><div class="music-track-cover" style="${img?`background-image:url('${esc(img)}')`:''}">${img?'':icon('music')}</div><div class="music-track-info"><strong>${esc(title)}</strong><small class="muted">${esc(artist)}</small><span class="badge music-track-source">${esc(sourceLabel(values.source))}</span></div><button class="btn play-track" data-index="${index}" ${url?'':'disabled'}>${icon('play')}${url?'Reproducir':'Sin preview'}</button></article>`}).join('');results.querySelectorAll('.play-track').forEach(button=>button.onclick=async()=>{document.querySelectorAll('.music-track').forEach(node=>node.classList.toggle('is-playing',node.dataset.index===button.dataset.index));const track=data.tracks[Number(button.dataset.index)];const url=musicUrl(track);const embed=musicEmbed(url);const player=document.querySelector('#music-player');const audio=document.querySelector('#music-audio');const title=track.title||track.name||'Pista';const artist=track.artist?.name||track.artist||track.artistNames?.join(', ')||'';const img=trackImage(track);document.querySelector('#music-title').textContent=title;document.querySelector('#music-artist').textContent=artist;document.querySelector('#music-link').href=url||'#';const art=document.querySelector('#music-art');if(img){art.style.backgroundImage=`url('${img}')`;art.textContent=''}else{art.style.backgroundImage='';art.innerHTML=icon('music')}player.classList.add('is-playing');if(embed){audio.hidden=true;let frame=document.querySelector('#music-embed');if(!frame){frame=document.createElement('iframe');frame.id='music-embed';frame.className='music-embed';frame.allow='autoplay; encrypted-media; clipboard-write';frame.referrerPolicy='strict-origin-when-cross-origin';audio.after(frame)}frame.src=embed;frame.hidden=false;if(embed.includes('soundcloud.com/player'))playSoundCloud(frame,url)}else if(track.previewUrl||track.preview_url||track.audio){document.querySelector('#music-embed')?.remove();audio.hidden=false;audio.src=track.previewUrl||track.preview_url||track.audio;audio.play().catch(()=>notify('Pulsa reproducir para iniciar el audio.'))}else{audio.hidden=true;document.querySelector('#music-embed')?.remove();player.classList.remove('is-playing');notify('Este servicio no entrega preview de audio. Usa el reproductor embebido o abre el servicio.')}player.hidden=false})}catch(error){results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('block')}</div><p>${esc(error.message)}</p></div>`}}}
+async function assistant(){return `${heading('Asistente IA','Controla el proyecto con preguntas sobre tareas, responsables y fechas.')}<section class="assistant-shell"><div class="assistant-intro"><div><span class="assistant-kicker">Sanzu / Sakura Coffee</span><h2>Tu copiloto de operaciones</h2><p>Consulta el estado del proyecto y recibe respuestas basadas en la información actual del panel.</p></div><span class="assistant-status"><i></i>Conectado al panel</span></div><div class="assistant-suggestions"><button class="btn secondary assistant-suggestion">¿Qué tareas están vencidas?</button><button class="btn secondary assistant-suggestion">¿Cuál es el progreso del proyecto?</button><button class="btn secondary assistant-suggestion">Dame un resumen para la reunión</button></div><div class="assistant-messages" id="assistant-messages"><article class="assistant-message assistant-bot"><span class="assistant-avatar">S</span><div><strong>Sanzu</strong><p>Hola, ${esc(state.user.name)}. Puedo ayudarte a detectar riesgos y preparar el siguiente paso del proyecto.</p><small>Listo para consultar Sakura Coffee</small></div></article></div><form class="assistant-form" id="assistant-form"><textarea class="textarea" name="message" rows="2" placeholder="Pregunta por el progreso, tareas vencidas o próximos pasos..." required></textarea><button class="btn assistant-send" aria-label="Enviar pregunta">${icon('send')} Enviar</button></form></section>`}
 async function renderAssistant(){layout(await assistant());const messages=document.querySelector('#assistant-messages');const form=document.querySelector('#assistant-form');const ask=async message=>{if(!message.trim())return;messages.insertAdjacentHTML('beforeend',`<article class="assistant-message assistant-user"><span class="assistant-avatar">${esc(state.user.name[0])}</span><div><strong>Tú</strong><p>${esc(message)}</p></div></article>`);form.reset();messages.insertAdjacentHTML('beforeend','<div class="assistant-loading" id="assistant-loading">Sanzu está analizando el proyecto...</div>');messages.scrollTop=messages.scrollHeight;try{const result=await api('/assistant/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message})});document.querySelector('#assistant-loading')?.remove();messages.insertAdjacentHTML('beforeend',`<article class="assistant-message assistant-bot"><span class="assistant-avatar">S</span><div><strong>Sanzu <small class="assistant-source">${result.source==='sanzu'?'IA remota':'Modo local'}</small></strong><p>${esc(result.answer)}</p><small>${result.warning?esc(result.warning):'Contexto actualizado desde el proyecto'}</small></div></article>`);messages.scrollTop=messages.scrollHeight}catch(error){document.querySelector('#assistant-loading')?.remove();notify(error.message)}};form.onsubmit=event=>{event.preventDefault();ask(new FormData(form).get('message'))};document.querySelectorAll('.assistant-suggestion').forEach(button=>button.onclick=()=>ask(button.textContent))}
-async function settings(){return `${heading('Configuración','El token solo vive en memoria del servidor y nunca se devuelve al navegador.')}<section class="card"><form id="github-settings" class="form-grid"><label>URL del repositorio<input class="input" name="url" placeholder="https://github.com/owner/repository" required></label><label>Owner<input class="input" name="owner" required></label><label>Repository<input class="input" name="repo" placeholder="CoffeeKorea" required></label><label>Token de GitHub<input class="input" name="token" type="password" required></label><div class="actions full"><button class="btn">Guardar y probar conexión</button></div></form></section>`}
+async function settings(){return `${heading('Configuración','El token solo vive en memoria del servidor y nunca se devuelve al navegador.')}<section class="card"><form id="github-settings" class="form-grid"><label>URL del repositorio<input class="input" name="url" placeholder="https://github.com/owner/repository" required></label><label>Owner<input class="input" name="owner" required></label><label>Repository<input class="input" name="repo" placeholder="CoffeeKorea" required></label><label>Token de GitHub<input class="input" name="token" type="password" required></label><div class="actions full"><button class="btn">${icon('check')}Guardar y probar conexión</button></div></form></section>`}
 async function renderSettings(){layout(await settings());const projects=await api('/projects');const form=document.querySelector('#github-settings');form.insertAdjacentHTML('afterbegin',`<label>Proyecto<select class="select" name="project_id" required>${projects.map(project=>`<option value="${project.id}" ${String(project.id)===localStorage.getItem('haitani-github-project')?'selected':''}>${esc(project.name)}</option>`).join('')}</select></label>`);form.onsubmit=async e=>{e.preventDefault();try{const values=Object.fromEntries(new FormData(e.target));localStorage.setItem('haitani-github-project',values.project_id);await api('/github/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});await api('/github/test');notify('Conexión con GitHub establecida correctamente.')}catch(error){notify(error.message)}}}
 async function billing(){const [status,plans]=await Promise.all([api('/billing/status'),api('/plans')]);const money=plan=>plan.price_cents?`${(plan.price_cents/100).toLocaleString('es-MX',{style:'currency',currency:plan.currency})} / mes`:'Gratis';return `${heading('Facturación','Administra el plan y el estado de la suscripción.')}<section class="card"><div class="grid stats"><div><div class="muted">Plan actual</div><h2>${esc(status.plan_name)}</h2></div><div><div class="muted">Estado</div><h2>${esc(status.subscription_status)}</h2></div><div><div class="muted">Próximo periodo</div><h2>${status.current_period_end?new Date(status.current_period_end).toLocaleDateString('es-MX'):'No definido'}</h2></div></div></section><section class="grid two mt-4">${plans.map(plan=>`<article class="card plan-card${plan.key===status.plan_key?' current':''}"><div class="eyebrow">${esc(plan.key)}</div><h2>${esc(plan.name)}</h2><p class="num">${money(plan)}</p><p class="muted">${plan.max_users??'Ilimitados'} usuarios · ${plan.max_projects??'Ilimitados'} proyectos · ${plan.max_storage_mb} MB</p><button class="btn billing-plan" data-plan="${esc(plan.key)}">${plan.key===status.plan_key?'Plan actual':'Elegir plan'}</button></article>`).join('')}</section>`}
 async function renderBilling(){layout(await billing());document.querySelectorAll('.billing-plan').forEach(button=>button.onclick=async()=>{const planKey=String(button.dataset.plan||'').trim().toLowerCase();if(!planKey)return notify('El plan seleccionado no es válido.');button.disabled=true;try{const result=await api('/billing/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_key:planKey})});if(result.redirect)window.location.href=result.redirect;else{notify('Plan actualizado');renderBilling()}}catch(error){button.disabled=false;notify(error.message)}})}
 async function enhanceConversation(){const conversation=document.querySelector('.conversation');if(!conversation||conversation.dataset.enhanced)return;conversation.dataset.enhanced='true';const selectedId=new URLSearchParams(location.hash.split('?')[1]||'').get('user');if(!selectedId)return;const key=`${Math.min(state.user.id,Number(selectedId))}-${Math.max(state.user.id,Number(selectedId))}`;const tools=conversation.querySelector('.conversation-tools');tools?.insertAdjacentHTML('beforeend',`<div class="icon-group conversation-actions"><button class="icon-btn" id="archive-conversation" title="Archivar" aria-label="Archivar">${icon('archive')}</button><button class="icon-btn" id="schedule-call" title="Programar llamada" aria-label="Programar llamada">${icon('clock')}</button><button class="icon-btn danger" id="delete-conversation" title="Borrar conversación" aria-label="Borrar conversación">${icon('trash')}</button></div>`);const messages=await api(`/messages?user_id=${selectedId}`).catch(()=>[]);document.querySelectorAll('.message.mine small').forEach((node,index)=>{const message=messages.filter(item=>item.sender_id===state.user.id)[index];if(message)node.textContent=`${node.textContent} · ${message.delivery_status==='leido'?'✓✓ leído':message.delivery_status==='entregado'?'✓✓ entregado':'✓ enviado'}`});document.querySelector('#archive-conversation').onclick=()=>{localStorage.setItem(`haitani-archived-${key}`,'1');notify('Conversación archivada')};document.querySelector('#delete-conversation').onclick=async()=>{if(confirm('¿Borrar toda esta conversación?')){await api(`/messages/conversation/${selectedId}`,{method:'DELETE'});renderMessages()}};document.querySelector('#schedule-call').onclick=async()=>{const date=prompt('Fecha y hora de la llamada (YYYY-MM-DDTHH:mm):');if(!date)return;try{await api('/calls',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({receiver_id:selectedId,call_type:'audio',scheduled_at:date})});notify('Llamada programada');}catch(error){notify(error.message)}}}
 const conversationObserver=new MutationObserver(()=>enhanceConversation());conversationObserver.observe(app,{childList:true,subtree:true});
-async function render(){if(!state.user){try{state.user=(await api('/auth/me')).user}catch{}if(!state.user)return loginView()}await refreshNotifications();startNotificationPolling();const route=location.hash||`#/${state.user.role}/dashboard`;try{if(route.includes('announcements'))return renderAnnouncements();if(route.includes('absences'))return renderAbsences();if(route.includes('assistant'))return state.user.role==='admin'?renderAssistant():renderDashboard();if(route.includes('kanban'))return renderKanban();if(route.includes('gantt'))return renderGantt();if(route.includes('messages'))return renderMessages();if(route.includes('members'))return state.user.role==='admin'?renderMembers():renderTeam();if(route.includes('files'))return renderFiles();if(route.includes('billing'))return state.user.role==='admin'?renderBilling():renderDashboard();if(route.includes('settings'))return renderSettings();if(route.includes('profile'))return renderProfile();if(route.includes('team-activity'))return renderGithub('activity');if(route.includes('github'))return renderGithub(route.includes('commits')?'commits':route.includes('branches')?'branches':route.includes('pull-requests')?'pulls':route.includes('activity')?'activity':'repository');if(route.includes('tasks'))return renderTasks();return renderDashboard()}catch(error){layout(`<div class="alert">${esc(error.message)}</div>`)}}
+async function landingView() {
+  let plans = [];
+  try { plans = await api('/plans'); } catch {}
+  if (!plans.length) {
+    plans = [
+      { key: 'free', name: 'Starter', price_cents: 0, currency: 'MXN', max_users: 5, max_projects: 3, max_storage_mb: 500 },
+      { key: 'pro', name: 'Professional', price_cents: 29900, currency: 'MXN', max_users: 25, max_projects: 50, max_storage_mb: 10000 },
+      { key: 'enterprise', name: 'Enterprise', price_cents: 89900, currency: 'MXN', max_users: null, max_projects: null, max_storage_mb: 50000 }
+    ];
+  }
+
+  const money = plan => plan.price_cents ? `${(plan.price_cents / 100).toLocaleString('es-MX', { style: 'currency', currency: plan.currency || 'MXN' })} <small>/ mes</small>` : 'Gratis <small>/ para siempre</small>';
+
+  app.innerHTML = `
+    <div class="landing-page">
+      <div class="landing-bg-glow"></div>
+      <div class="landing-bg-glow-bottom"></div>
+
+      <!-- Navigation -->
+      <header class="landing-nav">
+        <div class="landing-container landing-nav-inner">
+          <a href="#/" class="landing-brand">HAI<span>TANI</span></a>
+          <ul class="landing-links">
+            <li><a class="landing-link" href="#features">Características</a></li>
+            <li><a class="landing-link" href="#methodologies">Metodologías</a></li>
+            <li><a class="landing-link" href="#sanzu">Copiloto IA</a></li>
+            <li><a class="landing-link" href="#pricing">Planes</a></li>
+            <li><a class="landing-link" href="#faq">Preguntas</a></li>
+          </ul>
+          <div class="landing-nav-actions">
+            ${themeToggle()}
+            <a href="#/login" class="btn secondary landing-auth-desktop">Iniciar sesión</a>
+            <a href="#/register" class="btn landing-auth-desktop">Empezar gratis</a>
+            <button type="button" class="landing-menu-toggle" id="landing-menu-btn" aria-label="Abrir menú" aria-expanded="false">
+              ${icon('menu')}
+            </button>
+          </div>
+        </div>
+        <div class="landing-mobile-drawer" id="landing-drawer">
+          <div class="landing-mobile-drawer-inner">
+            <nav class="landing-mobile-nav">
+              <a class="landing-mobile-link" href="#features">Características</a>
+              <a class="landing-mobile-link" href="#methodologies">Metodologías</a>
+              <a class="landing-mobile-link" href="#sanzu">Copiloto IA</a>
+              <a class="landing-mobile-link" href="#pricing">Planes y tarifas</a>
+              <a class="landing-mobile-link" href="#faq">Preguntas frecuentes</a>
+            </nav>
+            <div class="landing-mobile-actions">
+              <a href="#/login" class="btn secondary btn-block">Iniciar sesión</a>
+              <a href="#/register" class="btn btn-block">Empezar gratis →</a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Hero Section -->
+      <section class="landing-hero">
+        <div class="landing-container">
+          <div class="landing-hero-badge">
+            <i></i> Plataforma de gestión y operaciones de software
+          </div>
+          <h1 class="landing-hero-title">
+            Potencia y orden para <em>equipos de alto rendimiento</em>
+          </h1>
+          <p class="landing-hero-subtitle">
+            Haitani unifica la planificación ágil de proyectos, trazabilidad de repositorios Git, analítica operativa, mensajería cifrada y asistencia con IA en una plataforma rápida, moderna y sin fricción.
+          </p>
+          <div class="landing-hero-actions">
+            <a href="#/register" class="btn">Crear espacio de trabajo →</a>
+            <a href="#/login" class="btn secondary">Ingresar al sistema</a>
+          </div>
+          <div class="landing-hero-note">
+            <span>${icon('check')} Sin tarjeta de crédito</span>
+            <span>${icon('shield')} Cifrado integral y control IP</span>
+            <span>${icon('github')} Integración directa con GitHub</span>
+          </div>
+
+          <!-- Live Interactive Mockup Frame -->
+          <div class="landing-mockup-frame">
+            <div class="landing-mockup-browser-bar">
+              <div class="landing-mockup-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="landing-mockup-address">
+                ${icon('shield')} app.haitani.io/workspace/sakura-systems
+              </div>
+              <div class="muted" style="font-size:11px;">v2.4 LTS</div>
+            </div>
+            <div class="landing-mockup-body">
+              <aside class="landing-mockup-sidebar">
+                <div class="brand" style="font-size:18px;">HAI<span>TANI</span></div>
+                <div class="landing-mockup-sideitem active">${icon('dashboard')} Dashboard</div>
+                <div class="landing-mockup-sideitem">${icon('kanban')} Tablero Kanban</div>
+                <div class="landing-mockup-sideitem">${icon('gantt')} Diagrama de Gantt</div>
+                <div class="landing-mockup-sideitem">${icon('sparkles')} Copiloto Sanzu</div>
+                <div class="landing-mockup-sideitem">${icon('github')} Commits y PRs</div>
+                <div class="landing-mockup-sideitem">${icon('messages')} Mensajes en vivo</div>
+                <div class="landing-mockup-sideitem">${icon('calendar')} Inasistencias</div>
+              </aside>
+              <main class="landing-mockup-content">
+                <div class="landing-mockup-stats">
+                  <div class="landing-mockup-stat-card">
+                    <div class="label">Salud del Sprint</div>
+                    <div class="value">94 / 100</div>
+                  </div>
+                  <div class="landing-mockup-stat-card">
+                    <div class="label">Tareas Activas</div>
+                    <div class="value">18</div>
+                  </div>
+                  <div class="landing-mockup-stat-card">
+                    <div class="label">Commits GitHub</div>
+                    <div class="value">142 hoy</div>
+                  </div>
+                  <div class="landing-mockup-stat-card">
+                    <div class="label">Tiempo de Entrega</div>
+                    <div class="value">-3.2 días</div>
+                  </div>
+                </div>
+
+                <div class="landing-mockup-board">
+                  <div class="landing-mockup-col">
+                    <div class="landing-mockup-col-header">
+                      <span>Por hacer</span>
+                      <small>3</small>
+                    </div>
+                    <div class="landing-mockup-card">
+                      <strong>Refactor del módulo de autenticación MFA</strong>
+                      <p>Implementar verificación con tokens TOTP y firmas de sesión seguras.</p>
+                      <div class="landing-mockup-card-meta">
+                        <span>Alta prioridad</span>
+                        <span>DevOps</span>
+                      </div>
+                    </div>
+                    <div class="landing-mockup-card">
+                      <strong>Ajuste de estilos responsive en Gantt</strong>
+                      <p>Adaptar la visualización del calendario en pantallas menores a 768px.</p>
+                      <div class="landing-mockup-card-meta">
+                        <span>Frontend</span>
+                        <span>Estimado: 4h</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="landing-mockup-col">
+                    <div class="landing-mockup-col-header">
+                      <span>En progreso</span>
+                      <small>2</small>
+                    </div>
+                    <div class="landing-mockup-card">
+                      <strong>Sincronización de webhooks GitHub</strong>
+                      <p>Recepción en tiempo real de eventos push, tags y merges automáticos.</p>
+                      <div class="landing-mockup-card-meta">
+                        <span>Backend</span>
+                        <span>PR #84 abierto</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="landing-mockup-col">
+                    <div class="landing-mockup-col-header">
+                      <span>Completadas</span>
+                      <small>8</small>
+                    </div>
+                    <div class="landing-mockup-card">
+                      <strong>Despliegue de Sanzu AI Assistant</strong>
+                      <p>Asistente contextual conectado a la base de datos de tareas y código.</p>
+                      <div class="landing-mockup-card-meta">
+                        <span>Producción</span>
+                        <span>Cerrado</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </main>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Trust Strip -->
+      <section class="landing-trust-strip">
+        <div class="landing-container">
+          <div class="landing-trust-kicker">Diseñado para soportar estándares de ingeniería exigentes</div>
+          <div class="landing-trust-items">
+            <span class="landing-trust-item">Sakura Labs</span>
+            <span class="landing-trust-item">Bonten Engineering</span>
+            <span class="landing-trust-item">Kurokawa Cloud</span>
+            <span class="landing-trust-item">Shinjuku Studio</span>
+            <span class="landing-trust-item">Tokyo Techworks</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pillars Section -->
+      <section class="landing-section" id="features">
+        <div class="landing-container">
+          <div class="landing-section-header">
+            <div class="landing-section-eyebrow">Capacidades del Sistema</div>
+            <h2 class="landing-section-title">Todo lo que una organización técnica necesita, <em>sin el desorden</em></h2>
+            <p class="landing-section-desc">Haitani reúne herramientas que usualmente requieren múltiples suscripciones dispersas en una experiencia fluida y consistente.</p>
+          </div>
+
+          <div class="landing-pillars-grid">
+            <article class="landing-pillar-card">
+              <div class="landing-pillar-icon">${icon('kanban')}</div>
+              <h3>Tableros Kanban Dinámicos</h3>
+              <p>Arrastra tareas con fluidez milimétrica, filtra por prioridad o etiquetas y visualiza el avance del equipo en tiempo real sin recargar la página.</p>
+              <div class="landing-pillar-tag">Flujo Visual</div>
+            </article>
+
+            <article class="landing-pillar-card">
+              <div class="landing-pillar-icon">${icon('gantt')}</div>
+              <h3>Diagramas de Gantt y Cronogramas</h3>
+              <p>Proyecta fechas de entrega, gestiona dependencias críticas y calendariza hitos con una línea de tiempo intuitiva diseñada al pixel.</p>
+              <div class="landing-pillar-tag">Planificación Temporal</div>
+            </article>
+
+            <article class="landing-pillar-card">
+              <div class="landing-pillar-icon">${icon('sparkles')}</div>
+              <h3>Sanzu AI Copilot</h3>
+              <p>Asistente inteligente integrado que analiza la salud del sprint, detecta cuellos de botella y responde preguntas complejas sobre el repositorio.</p>
+              <div class="landing-pillar-tag">Inteligencia Asistida</div>
+            </article>
+
+            <article class="landing-pillar-card">
+              <div class="landing-pillar-icon">${icon('github')}</div>
+              <h3>Integración Nativa con GitHub</h3>
+              <p>Vincula tus repositorios para inspeccionar commits, ramas activas, colaboradores y pull requests directamente en el contexto de tus tareas.</p>
+              <div class="landing-pillar-tag">DevOps Unificado</div>
+            </article>
+
+            <article class="landing-pillar-card">
+              <div class="landing-pillar-icon">${icon('messages')}</div>
+              <h3>Mensajería y Llamadas</h3>
+              <p>Chat corporativo con confirmaciones de lectura, estados de actividad al estilo moderno y programación de llamadas de audio uno a uno.</p>
+              <div class="landing-pillar-tag">Colaboración Viva</div>
+            </article>
+
+            <article class="landing-pillar-card">
+              <div class="landing-pillar-icon">${icon('shield')}</div>
+              <h3>Gobernanza y Control de IP</h3>
+              <p>Módulo de seguridad con bloqueo perimetral de direcciones IP, auditoría de inasistencias con evidencia adjunta y trazabilidad de accesos.</p>
+              <div class="landing-pillar-tag">Seguridad y Cumplimiento</div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Detailed Showcase Split: GitHub Integration -->
+      <section class="landing-section landing-section-alt">
+        <div class="landing-container">
+          <div class="landing-split">
+            <div class="landing-split-copy">
+              <div class="landing-section-eyebrow">Desarrollo continuo</div>
+              <h3>Trazabilidad de código y entregas en un <em>mismo flujo de trabajo</em></h3>
+              <p>Olvídate de alternar entre pestañas para saber qué código respalda una entrega. Haitani lee la API de GitHub de manera segura protegiendo tus credenciales en el servidor.</p>
+              <ul class="landing-split-bullets">
+                <li class="landing-split-bullet">
+                  <span class="landing-split-bullet-icon">${icon('check')}</span>
+                  <span>Historial completo de commits con identificador hash SHA y autoría verificada.</span>
+                </li>
+                <li class="landing-split-bullet">
+                  <span class="landing-split-bullet-icon">${icon('check')}</span>
+                  <span>Supervisión de ramas principales y secundarias en tiempo real.</span>
+                </li>
+                <li class="landing-split-bullet">
+                  <span class="landing-split-bullet-icon">${icon('check')}</span>
+                  <span>Detección automática de colaboradores y actividad de despliegue.</span>
+                </li>
+              </ul>
+            </div>
+            <div class="landing-split-card">
+              <div class="landing-gh-header">
+                <div class="landing-gh-title">
+                  ${icon('github')}
+                  <strong>Sakura-Coffee / Core-API</strong>
+                </div>
+                <span class="badge green">Conectado</span>
+              </div>
+              <div class="landing-gh-list">
+                <div class="landing-gh-item">
+                  <div>
+                    <strong>feat: add automated webhook dispatcher</strong>
+                    <small class="muted">carlosdc · commit 8f192b1</small>
+                  </div>
+                  <span class="muted time">Hace 12 min</span>
+                </div>
+                <div class="landing-gh-item">
+                  <div>
+                    <strong>fix: handle ip blocking edge cases</strong>
+                    <small class="muted">carlosdc · commit c34d90a</small>
+                  </div>
+                  <span class="muted time">Hace 45 min</span>
+                </div>
+                <div class="landing-gh-item">
+                  <div>
+                    <strong>perf: cache dashboard stats calculation</strong>
+                    <small class="muted">carlosdc · commit 7a88e21</small>
+                  </div>
+                  <span class="muted time">Hace 2 horas</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Methodologies Ribbon -->
+      <section class="landing-methodologies" id="methodologies">
+        <div class="landing-container">
+          <div class="landing-section-header" style="margin-bottom:32px;">
+            <div class="landing-section-eyebrow">Flexibilidad Metodológica</div>
+            <h2 class="landing-section-title">Elige cómo trabaja tu organización</h2>
+            <p class="landing-section-desc">Haitani adapta sus vistas, métricas y controles según la metodología de trabajo seleccionada para cada proyecto.</p>
+          </div>
+
+          <div class="landing-method-grid">
+            <div class="landing-method-card">
+              <strong>Scrum</strong>
+              <span>Sprints regulares, estimaciones y retrospectivas estructuradas.</span>
+            </div>
+            <div class="landing-method-card">
+              <strong>Kanban</strong>
+              <span>Flujo continuo, límites de trabajo en curso (WIP) y agilidad visual.</span>
+            </div>
+            <div class="landing-method-card">
+              <strong>Agile</strong>
+              <span>Iteraciones adaptativas orientadas a la entrega rápida de valor.</span>
+            </div>
+            <div class="landing-method-card">
+              <strong>Extreme Programming</strong>
+              <span>Énfasis en calidad de código, refactorización y despliegues seguros.</span>
+            </div>
+            <div class="landing-method-card">
+              <strong>Lean</strong>
+              <span>Eliminación de desperdicio y optimización integral de la entrega.</span>
+            </div>
+            <div class="landing-method-card">
+              <strong>Waterfall / Híbrida</strong>
+              <span>Hitos lineales y diagramas de Gantt con dependencias temporales estrictas.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sanzu AI Feature Callout (Modern AI Cockpit) -->
+      <section class="landing-section" id="sanzu">
+        <div class="landing-container">
+          <div class="landing-sanzu-banner">
+            <div class="landing-sanzu-copy">
+              <div class="landing-sanzu-pill">
+                ${icon('sparkles')}
+                <span>Copiloto de ingeniería</span>
+              </div>
+              <h3 class="landing-sanzu-headline">Conoce a Sanzu: el copiloto que <em>lee tus datos en tiempo real</em></h3>
+              <p class="landing-sanzu-lead">
+                A diferencia de los chats desconectados de contexto, Sanzu se conecta nativamente a tus tareas vivas, historial de Git, inasistencias y métricas del equipo para ofrecer diagnósticos certeros y accionables al instante.
+              </p>
+              <div class="landing-sanzu-capabilities">
+                <div class="landing-sanzu-cap">
+                  ${icon('tasks')}
+                  <span>Análisis de riesgos y cuellos de botella</span>
+                </div>
+                <div class="landing-sanzu-cap">
+                  ${icon('github')}
+                  <span>Sincronización contextual con Git</span>
+                </div>
+                <div class="landing-sanzu-cap">
+                  ${icon('shield')}
+                  <span>Auditoría de seguridad y gobernanza</span>
+                </div>
+              </div>
+              <div class="landing-sanzu-action-row">
+                <a href="#/register" class="btn sanzu-cta">Probar Sanzu en tu equipo →</a>
+                <span class="landing-sanzu-subtext">Disponible en planes Pro y Enterprise</span>
+              </div>
+            </div>
+
+            <div class="landing-sanzu-window">
+              <div class="sanzu-win-bar">
+                <div class="sanzu-win-dots">
+                  <span></span><span></span><span></span>
+                </div>
+                <div class="sanzu-win-title">
+                  ${icon('sparkles')}
+                  <span>Sanzu Intelligence v2.4</span>
+                </div>
+                <span class="sanzu-win-status">Activo</span>
+              </div>
+
+              <div class="sanzu-win-body">
+                <div class="sanzu-msg user">
+                  <div class="sanzu-avatar user-av">Tú</div>
+                  <div class="sanzu-msg-bubble">
+                    ¿Cuál es el estado del sprint actual y qué tareas tienen riesgo de vencerse?
+                  </div>
+                </div>
+
+                <div class="sanzu-msg bot">
+                  <div class="sanzu-avatar bot-av">${icon('sparkles')}</div>
+                  <div class="sanzu-msg-bubble">
+                    <div class="sanzu-diag-header">
+                      <strong>Salud del Sprint: 94/100</strong>
+                      <span class="badge green">Estable</span>
+                    </div>
+                    <p>He analizado las 14 tareas activas contra los últimos 8 commits en GitHub:</p>
+                    <ul class="sanzu-diag-list">
+                      <li><strong>Autenticación TOTP</strong>: Sin actividad de commits en 48h. Se sugiere reasignar o dividir.</li>
+                      <li><strong>Migración Postgres</strong>: En curso por <em>carlosdc</em>, 85% completado.</li>
+                    </ul>
+                    <div class="sanzu-quick-actions">
+                      <span class="sanzu-tag">Reasignar tarea</span>
+                      <span class="sanzu-tag">Ver reporte completo</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pricing Section -->
+      <section class="landing-section" id="pricing">
+        <div class="landing-container">
+          <div class="landing-section-header">
+            <div class="landing-section-eyebrow">Tarifas Transparentes</div>
+            <h2 class="landing-section-title">Planes diseñados para cada <em>etapa de crecimiento</em></h2>
+            <p class="landing-section-desc">Comienza sin costo y escala a medida que tu equipo y almacenamiento aumenten. Cancela o cambia de plan en cualquier momento.</p>
+          </div>
+
+          <div class="landing-pricing-grid">
+            ${plans.map((plan, idx) => {
+              const isFeatured = plan.key === 'pro' || idx === 1;
+              return `
+                <article class="landing-pricing-card ${isFeatured ? 'featured' : ''}">
+                  ${isFeatured ? '<div class="landing-pricing-badge">Más elegido</div>' : ''}
+                  <div class="landing-pricing-name">${esc(plan.name)}</div>
+                  <div class="landing-pricing-price">${money(plan)}</div>
+                  <p class="muted landing-pricing-desc">
+                    ${plan.key === 'free' ? 'Ideal para profesionales independientes y equipos pequeños probando Haitani.' : plan.key === 'pro' ? 'Para empresas y agencias que necesitan sincronización continua de Git y Sanzu AI.' : 'Control avanzado, infraestructura dedicada y soporte prioritario sin límites.'}
+                  </p>
+                  <ul class="landing-pricing-features">
+                    <li>${icon('check')} <strong>${plan.max_users ?? 'Ilimitados'}</strong> usuarios</li>
+                    <li>${icon('check')} <strong>${plan.max_projects ?? 'Ilimitados'}</strong> proyectos simultáneos</li>
+                    <li>${icon('check')} <strong>${plan.max_storage_mb >= 1000 ? `${(plan.max_storage_mb / 1000).toFixed(0)} GB` : `${plan.max_storage_mb} MB`}</strong> almacenamiento seguro</li>
+                    <li>${icon('check')} Tableros Kanban y Gantt</li>
+                    <li>${icon('check')} Mensajería cifrada y llamadas</li>
+                    <li class="${plan.key === 'free' ? 'disabled' : ''}">${icon('check')} Asistente Copiloto Sanzu AI</li>
+                    <li class="${plan.key === 'free' ? 'disabled' : ''}">${icon('check')} Auditoría de IPs y accesos</li>
+                  </ul>
+                  <a href="#/register" class="btn ${isFeatured ? '' : 'secondary'} landing-pricing-btn">
+                    ${plan.price_cents === 0 ? 'Comenzar gratis' : 'Elegir plan ' + esc(plan.name)}
+                  </a>
+                </article>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </section>
+
+      <!-- FAQ Section -->
+      <section class="landing-section landing-section-alt" id="faq">
+        <div class="landing-container">
+          <div class="landing-section-header">
+            <div class="landing-section-eyebrow">Preguntas Frecuentes</div>
+            <h2 class="landing-section-title">Respuestas directas sobre la plataforma</h2>
+            <p class="landing-section-desc">Todo lo que necesitas saber antes de dar de alta tu organización en Haitani.</p>
+          </div>
+
+          <div class="landing-faq-grid">
+            <div class="landing-faq-item">
+              <h4>¿Cómo funciona la integración con GitHub?</h4>
+              <p>Puedes conectar cualquier repositorio público o privado introduciendo tu Personal Access Token. El token nunca se expone en el navegador y se almacena en memoria segura del servidor para consultar commits, ramas y pull requests.</p>
+            </div>
+            <div class="landing-faq-item">
+              <h4>¿Puedo gestionar inasistencias y apelaciones de mi equipo?</h4>
+              <p>Sí. Los administradores pueden registrar inasistencias por fecha y materia. Los integrantes reciben avisos inmediatos y pueden subir evidencia documental (PDFs, capturas) para abrir un proceso de apelación con auditoría.</p>
+            </div>
+            <div class="landing-faq-item">
+              <h4>¿Qué nivel de seguridad ofrece el bloqueo por IP?</h4>
+              <p>Haitani inspecciona las direcciones IP de cada solicitud. Puedes bloquear IPs manualmente o por comportamiento inusual detectado en la cabecera User-Agent o peticiones erráticas.</p>
+            </div>
+            <div class="landing-faq-item">
+              <h4>¿Cómo cambio de tema claro a oscuro?</h4>
+              <p>El selector de tema visual está disponible en la barra superior tanto de la landing page como dentro de cualquier panel de trabajo, memorizando tu preferencia automáticamente.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Final Call to Action -->
+      <section class="landing-section">
+        <div class="landing-container">
+          <div class="landing-cta-box">
+            <h3>Construye software con máxima claridad</h3>
+            <p>Únete a las organizaciones que han sustituido el ruido y la fragmentación por un espacio de trabajo limpio, ágil y seguro.</p>
+            <div class="landing-hero-actions">
+              <a href="#/register" class="btn" style="background:#ffffff;color:var(--color-ink-black);border-color:#ffffff;">Crear organización gratis →</a>
+              <a href="#/login" class="btn secondary">Ya tengo una cuenta</a>
+            </div>
+            <small class="muted" style="color:#8c909b;">Activación inmediata. Sin descargas complejas ni tarjetas requeridas.</small>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="landing-footer">
+        <div class="landing-container">
+          <div class="landing-footer-grid">
+            <div class="landing-footer-brand">
+              <a href="#/" class="landing-brand">HAI<span>TANI</span></a>
+              <p>Plataforma integral de gestión ágil de proyectos, seguimiento técnico con GitHub, analítica y colaboración en tiempo real.</p>
+              <div style="margin-top:16px;">
+                <span class="muted" style="font-size:12px;">Soporte: <strong>adminpruebassakura@gmail.com</strong></span>
+              </div>
+            </div>
+            <div class="landing-footer-col">
+              <h5>Producto</h5>
+              <ul>
+                <li><a href="#features">Tableros Kanban</a></li>
+                <li><a href="#features">Diagramas de Gantt</a></li>
+                <li><a href="#sanzu">Copiloto Sanzu AI</a></li>
+                <li><a href="#features">GitHub Sync</a></li>
+                <li><a href="#pricing">Planes y Tarifas</a></li>
+              </ul>
+            </div>
+            <div class="landing-footer-col">
+              <h5>Gobernanza</h5>
+              <ul>
+                <li><a href="#features">Control de Inasistencias</a></li>
+                <li><a href="#features">Seguridad Perimetral IP</a></li>
+                <li><a href="#faq">Políticas de Privacidad</a></li>
+                <li><a href="#faq">Cifrado de Sesiones</a></li>
+              </ul>
+            </div>
+            <div class="landing-footer-col">
+              <h5>Acceso</h5>
+              <ul>
+                <li><a href="#/login">Iniciar sesión</a></li>
+                <li><a href="#/register">Crear organización</a></li>
+                <li><a href="#/admin/dashboard">Panel Administrativo</a></li>
+                <li><a href="#/member/dashboard">Espacio Personal</a></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="landing-footer-bottom">
+            <span>© 2026 Haitani Systems. Todos los derechos reservados.</span>
+            <span>Versión 2.4 LTS · Servidor en línea</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  `;
+
+  bindTheme();
+
+  const menuBtn = document.querySelector('#landing-menu-btn');
+  const drawer = document.querySelector('#landing-drawer');
+  if (menuBtn && drawer) {
+    menuBtn.onclick = () => {
+      const isOpen = drawer.classList.toggle('open');
+      menuBtn.setAttribute('aria-expanded', String(isOpen));
+    };
+    drawer.querySelectorAll('a').forEach(link => {
+      link.onclick = () => {
+        drawer.classList.remove('open');
+        menuBtn.setAttribute('aria-expanded', 'false');
+      };
+    });
+  }
+}
+
+async function render(){
+  if(!state.user){
+    try{
+      state.user=(await api('/auth/me')).user;
+    }catch{}
+    if(!state.user){
+      if(location.hash.includes('login')) return loginView();
+      if(location.hash.includes('register')) return registerView();
+      return landingView();
+    }
+  }
+  if(location.hash === '' || location.hash === '#' || location.hash === '#/' || location.hash === '#/landing'){
+    location.hash = `#/${state.user.role}/dashboard`;
+    return;
+  }
+  await refreshNotifications();
+  startNotificationPolling();
+  const route=location.hash||`#/${state.user.role}/dashboard`;
+  try{
+    if(route.includes('announcements'))return renderAnnouncements();
+    if(route.includes('absences'))return renderAbsences();
+    if(route.includes('assistant'))return state.user.role==='admin'?renderAssistant():renderDashboard();
+    if(route.includes('kanban'))return renderKanban();
+    if(route.includes('gantt'))return renderGantt();
+    if(route.includes('messages'))return renderMessages();
+    if(route.includes('members'))return state.user.role==='admin'?renderMembers():renderTeam();
+    if(route.includes('files'))return renderFiles();
+    if(route.includes('billing'))return state.user.role==='admin'?renderBilling():renderDashboard();
+    if(route.includes('settings'))return renderSettings();
+    if(route.includes('profile'))return renderProfile();
+    if(route.includes('team-activity'))return renderGithub('activity');
+    if(route.includes('github'))return renderGithub(route.includes('commits')?'commits':route.includes('branches')?'branches':route.includes('pull-requests')?'pulls':route.includes('activity')?'activity':'repository');
+    if(route.includes('tasks'))return renderTasks();
+    return renderDashboard();
+  }catch(error){
+    layout(`<div class="alert">${esc(error.message)}</div>`);
+  }
+}
 function absenceStatusBadge(status){const map={ninguna:['','Sin apelación'],pendiente:['yellow','En revisión'],aprobada:['green','Aprobada'],rechazada:['pink','Rechazada']};const [cls,label]=map[status]||['',status];return `<span class="badge ${cls}">${esc(label)}</span>`}
 function absenceWarning(absences){return `<div class="alert absence-warning" id="absence-warning"><strong>Cuidado:</strong> ya llevas ${absences.length} inasistencias. Se aplicará una sanción.<div class="absence-warning-actions"><button type="button" class="btn secondary" id="go-to-absences">Ver y apelar mis inasistencias</button><button type="button" class="btn secondary" id="dismiss-absence-warning">Entendido</button></div></div>`}
 const renderDashboardBase=renderDashboard;
 renderDashboard=async function(){const absences=state.user.role==='member'?await api('/absences'):[];await renderDashboardBase();if(absences.length>=4){document.querySelector('.content')?.insertAdjacentHTML('afterbegin',absenceWarning(absences));document.querySelector('#go-to-absences')?.addEventListener('click',()=>{location.hash='/member/absences'});document.querySelector('#dismiss-absence-warning')?.addEventListener('click',()=>document.querySelector('#absence-warning')?.remove())}}
-function absenceAdminPanel(absences, users){const memberOptions=users.filter(user=>user.role==='member').map(user=>`<option value="${user.id}">${esc(user.name)}</option>`).join('');return `<section class="card absence-admin" id="absence-admin"><div class="section-heading"><div><h2>Registro de inasistencias</h2><p class="muted">Registra la fecha y la materia de cada falta.</p></div><strong class="absence-total">${absences.length} registradas</strong></div><form id="absence-form" class="form-grid"><label>Integrante<select class="select" name="user_id" required><option value="">Selecciona un integrante</option>${memberOptions}</select></label><label>Fecha<input class="input" name="absence_date" type="date" required></label><label>Materia<input class="input" name="subject" required></label><div class="actions full"><button class="btn">Añadir inasistencia</button></div></form><div class="absence-list">${absences.map(absence=>`<div class="absence-row"><span><strong>${esc(absence.user_name)}</strong><small class="muted">${esc(absence.absence_date)} · ${esc(absence.subject)}</small></span><span class="actions">${absenceStatusBadge(absence.appeal_status)}<button type="button" class="btn danger mini delete-absence" data-id="${absence.id}">Eliminar</button></span></div>`).join('')||'<div class="empty">No hay inasistencias registradas.</div>'}</div></section>`}
-function absenceAppealRow(item,isAdmin){const evidenceLink=item.appeal_evidence_id?`<a class="btn secondary mini" href="/api/files/${item.appeal_evidence_id}/view" target="_blank" rel="noopener">Ver evidencia</a>`:'';const resolveActions=isAdmin&&item.appeal_status==='pendiente'?`<button type="button" class="btn secondary mini approve-appeal" data-id="${item.id}">Aprobar</button><button type="button" class="btn danger mini reject-appeal" data-id="${item.id}">Rechazar</button>`:'';return `<div class="absence-row"><span>${isAdmin?`<strong>${esc(item.user_name)}</strong>`:''}<small class="muted">${esc(item.absence_date)} · ${esc(item.subject)}</small><small class="muted">Motivo: ${esc(item.appeal_reason||'Sin motivo')}</small>${item.resolution_note?`<small class="muted">Respuesta: ${esc(item.resolution_note)}</small>`:''}</span><span class="actions">${absenceStatusBadge(item.appeal_status)}${evidenceLink}${resolveActions}</span></div>`}
+function absenceAdminPanel(absences, users){const memberOptions=users.filter(user=>user.role==='member').map(user=>`<option value="${user.id}">${esc(user.name)}</option>`).join('');return `<section class="card absence-admin" id="absence-admin"><div class="section-heading"><div><h2>Registro de inasistencias</h2><p class="muted">Registra la fecha y la materia de cada falta.</p></div><strong class="absence-total">${absences.length} registradas</strong></div><form id="absence-form" class="form-grid"><label>Integrante<select class="select" name="user_id" required><option value="">Selecciona un integrante</option>${memberOptions}</select></label><label>Fecha<input class="input" name="absence_date" type="date" required></label><label>Materia<input class="input" name="subject" required></label><div class="actions full"><button class="btn">${icon('plus')}Añadir inasistencia</button></div></form><div class="absence-list">${absences.map(absence=>`<div class="absence-row"><span><strong>${esc(absence.user_name)}</strong><small class="muted">${esc(absence.absence_date)} · ${esc(absence.subject)}</small></span><span class="actions">${absenceStatusBadge(absence.appeal_status)}<button type="button" class="btn danger mini delete-absence" data-id="${absence.id}">${icon('trash')}Eliminar</button></span></div>`).join('')||'<div class="empty">No hay inasistencias registradas.</div>'}</div></section>`}
+function absenceAppealRow(item,isAdmin){const evidenceLink=item.appeal_evidence_id?`<a class="btn secondary mini" href="/api/files/${item.appeal_evidence_id}/view" target="_blank" rel="noopener">${icon('eye')}Ver evidencia</a>`:'';const resolveActions=isAdmin&&item.appeal_status==='pendiente'?`<button type="button" class="btn secondary mini approve-appeal" data-id="${item.id}">${icon('check')}Aprobar</button><button type="button" class="btn danger mini reject-appeal" data-id="${item.id}">${icon('close')}Rechazar</button>`:'';return `<div class="absence-row"><span>${isAdmin?`<strong>${esc(item.user_name)}</strong>`:''}<small class="muted">${esc(item.absence_date)} · ${esc(item.subject)}</small><small class="muted">Motivo: ${esc(item.appeal_reason||'Sin motivo')}</small>${item.resolution_note?`<small class="muted">Respuesta: ${esc(item.resolution_note)}</small>`:''}</span><span class="actions">${absenceStatusBadge(item.appeal_status)}${evidenceLink}${resolveActions}</span></div>`}
 function absenceAppealsPanel(appeals){const pending=appeals.filter(item=>item.appeal_status==='pendiente').length;return `<section class="card mt-4" id="absence-appeals"><div class="section-heading"><div><h2>Apelaciones</h2><p class="muted">Revisa la evidencia y resuelve las apelaciones enviadas por el equipo.</p></div><strong class="absence-total">${pending} pendiente${pending===1?'':'s'}</strong></div><div class="absence-list">${appeals.map(item=>absenceAppealRow(item,true)).join('')||'<div class="empty">No hay apelaciones registradas.</div>'}</div></section>`}
 async function renderAdminAbsences(){
   const [absences,appeals,users]=await Promise.all([api('/absences'),api('/absences/appeals'),api('/users')]);
@@ -953,10 +2555,10 @@ async function resolveAbsenceAppeal(id,status){
   if(resolution_note===null)return;
   try{await api(`/absences/${id}/resolve`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,resolution_note})});notify(status==='aprobada'?'Apelación aprobada':'Apelación rechazada');renderAdminAbsences()}catch(error){notify(error.message)}
 }
-function memberAbsenceRow(item){const canAppeal=['ninguna','rechazada'].includes(item.appeal_status);const evidenceLink=item.appeal_evidence_id?`<a class="btn secondary mini" href="/api/files/${item.appeal_evidence_id}/view" target="_blank" rel="noopener">Ver evidencia</a>`:'';return `<div class="absence-row"><span><strong>${esc(item.absence_date)}</strong><small class="muted">${esc(item.subject)}</small>${item.appeal_reason?`<small class="muted">Tu motivo: ${esc(item.appeal_reason)}</small>`:''}${item.resolution_note?`<small class="muted">Respuesta del administrador: ${esc(item.resolution_note)}</small>`:''}</span><span class="actions">${absenceStatusBadge(item.appeal_status)}${evidenceLink}${canAppeal?`<button type="button" class="btn secondary mini appeal-absence" data-id="${item.id}">Apelar</button>`:''}</span></div>`}
+function memberAbsenceRow(item){const canAppeal=['ninguna','rechazada'].includes(item.appeal_status);const evidenceLink=item.appeal_evidence_id?`<a class="btn secondary mini" href="/api/files/${item.appeal_evidence_id}/view" target="_blank" rel="noopener">${icon('eye')}Ver evidencia</a>`:'';return `<div class="absence-row"><span><strong>${esc(item.absence_date)}</strong><small class="muted">${esc(item.subject)}</small>${item.appeal_reason?`<small class="muted">Tu motivo: ${esc(item.appeal_reason)}</small>`:''}${item.resolution_note?`<small class="muted">Respuesta del administrador: ${esc(item.resolution_note)}</small>`:''}</span><span class="actions">${absenceStatusBadge(item.appeal_status)}${evidenceLink}${canAppeal?`<button type="button" class="btn secondary mini appeal-absence" data-id="${item.id}">${icon('edit')}Apelar</button>`:''}</span></div>`}
 async function renderMemberAbsences(){
   const absences=await api('/absences');
-  layout(`${heading('Inasistencias','Consulta tus faltas registradas y apela si consideras que hay un error.')}<section class="card"><div class="absence-list">${absences.map(memberAbsenceRow).join('')||'<div class="empty">No tienes inasistencias registradas.</div>'}</div></section><section class="card mt-4" id="appeal-form-section" style="display:none"><h2>Apelar inasistencia</h2><p class="muted">Explica el motivo y adjunta una evidencia (documento o imagen) que respalde tu apelación.</p><form id="appeal-form" class="form-grid"><input type="hidden" name="absence_id"><label class="full">Motivo de la apelación<textarea class="textarea" name="reason" rows="3" required></textarea></label><label class="full">Evidencia<input class="input" type="file" name="evidence" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" required></label><div class="actions full"><button class="btn">Enviar apelación</button><button class="btn secondary" type="button" id="cancel-appeal">Cancelar</button></div></form></section>`);
+  layout(`${heading('Inasistencias','Consulta tus faltas registradas y apela si consideras que hay un error.')}<section class="card"><div class="absence-list">${absences.map(memberAbsenceRow).join('')||'<div class="empty">No tienes inasistencias registradas.</div>'}</div></section><section class="card mt-4" id="appeal-form-section" style="display:none"><h2>Apelar inasistencia</h2><p class="muted">Explica el motivo y adjunta una evidencia (documento o imagen) que respalde tu apelación.</p><form id="appeal-form" class="form-grid"><input type="hidden" name="absence_id"><label class="full">Motivo de la apelación<textarea class="textarea" name="reason" rows="3" required></textarea></label><label class="full">Evidencia<input class="input" type="file" name="evidence" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" required></label><div class="actions full"><button class="btn">${icon('send')}Enviar apelación</button><button class="btn secondary" type="button" id="cancel-appeal">Cancelar</button></div></form></section>`);
   const section=document.querySelector('#appeal-form-section');
   const form=document.querySelector('#appeal-form');
   document.querySelectorAll('.appeal-absence').forEach(button=>button.onclick=()=>{form.reset();form.elements.absence_id.value=button.dataset.id;section.style.display='block';section.scrollIntoView({behavior:'smooth',block:'start'})});
@@ -981,17 +2583,98 @@ async function renderAbsences(){return state.user.role==='admin'?renderAdminAbse
 async function registerView(error=''){
   let plans=[];
   try{plans=await api('/plans')}catch(requestError){error=requestError.message}
-  app.innerHTML=`<main class="login"><form class="login-box wide" id="organization-register"><div class="brand">HAI<span>TANI</span></div><div class="eyebrow">Crear organización</div><h1>Comienza con Haitani</h1>${error?`<div class="alert">${esc(error)}</div>`:''}<div class="form-grid"><label>Empresa<input class="input" name="company_name" required></label><label>Slug<input class="input" name="slug" pattern="[a-z0-9][a-z0-9-]{2,49}" required></label><label>Correo de empresa<input class="input" name="email" type="email" required></label><label>Nombre<input class="input" name="first_name" required></label><label>Apellido<input class="input" name="last_name" required></label><label>Correo del administrador<input class="input" name="admin_email" type="email" required></label><label>Contraseña<input class="input" name="password" type="password" minlength="8" required></label><label class="full">Descripción<textarea class="textarea" name="description"></textarea></label><fieldset class="full"><legend>Selecciona un plan</legend><div class="grid two">${plans.map((plan,index)=>`<label class="card"><input type="radio" name="plan_key" value="${esc(plan.key)}" ${index===0?'checked':''}><strong>${esc(plan.name)}</strong><span class="muted">${plan.price_cents?`${(plan.price_cents/100).toLocaleString('es-MX',{style:'currency',currency:plan.currency})} / mes · `:'Gratis · '}${plan.max_users??'Ilimitados'} usuarios · ${plan.max_projects??'Ilimitados'} proyectos · ${plan.max_storage_mb} MB</span></label>`).join('')}</div></fieldset></div><button class="btn btn-block">Crear organización</button><button type="button" class="btn secondary btn-block" id="back-to-login">Volver al inicio de sesión</button></form></main>`;
-  document.querySelector('#back-to-login').onclick=()=>loginView();
-  document.querySelector('#organization-register').onsubmit=async event=>{event.preventDefault();try{const data=await api('/organizations/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});state.user=data.user;location.hash=data.redirect;render()}catch(requestError){registerView(requestError.message)}}
+  app.innerHTML=`
+    <main class="login">
+      <div class="auth-theme-bar">
+        ${themeToggle()}
+      </div>
+      <div class="auth-stage is-wide">
+        <form class="login-box wide" id="organization-register">
+          <div class="login-box-header">
+            <div class="brand">HAI<span>TANI</span></div>
+            <div class="eyebrow">Crear espacio de trabajo</div>
+            <h1>Comienza con Haitani</h1>
+            <p class="muted">Configura los datos de tu empresa y el primer administrador de la organización.</p>
+          </div>
+          ${error ? `<div class="alert">${esc(error)}</div>` : ''}
+          <div class="form-grid">
+            <label>Empresa
+              <input class="input" name="company_name" placeholder="Ej. Sakura Coffee" required>
+            </label>
+            <label>Slug (identificador)
+              <input class="input" name="slug" pattern="[a-z0-9][a-z0-9-]{2,49}" placeholder="sakura-coffee" required>
+            </label>
+            <label>Correo de empresa
+              <input class="input" name="email" type="email" placeholder="contacto@empresa.com" required>
+            </label>
+            <label>Nombre del administrador
+              <input class="input" name="first_name" placeholder="Tu nombre" required>
+            </label>
+            <label>Apellido
+              <input class="input" name="last_name" placeholder="Tu apellido" required>
+            </label>
+            <label>Correo de acceso
+              <input class="input" name="admin_email" type="email" placeholder="admin@empresa.com" required>
+            </label>
+            <label class="full">Contraseña maestra
+              <input class="input" name="password" type="password" minlength="8" placeholder="Mínimo 8 caracteres" required>
+            </label>
+            <label class="full">Descripción del proyecto
+              <textarea class="textarea" name="description" rows="2" placeholder="Objetivo, stack o contexto de la organización"></textarea>
+            </label>
+            <fieldset class="full">
+              <legend>Selecciona un plan para tu equipo</legend>
+              <div class="plan-radio-grid">
+                ${plans.map((plan, index) => `
+                  <label class="plan-radio-card ${index === 0 ? 'selected' : ''}">
+                    <input type="radio" name="plan_key" value="${esc(plan.key)}" ${index === 0 ? 'checked' : ''}>
+                    <strong>${esc(plan.name)}</strong>
+                    <div class="plan-price">${plan.price_cents ? `${(plan.price_cents/100).toLocaleString('es-MX', {style:'currency', currency:plan.currency})} / mes` : 'Gratis'}</div>
+                    <span class="plan-limits">${plan.max_users ?? 'Ilimitados'} usuarios · ${plan.max_projects ?? 'Ilimitados'} proyectos · ${plan.max_storage_mb} MB</span>
+                  </label>
+                `).join('')}
+              </div>
+            </fieldset>
+          </div>
+          <div class="auth-actions">
+            <button class="btn btn-block" type="submit">Crear organización y continuar →</button>
+            <button type="button" class="btn secondary btn-block" id="back-to-login">Volver al inicio de sesión</button>
+          </div>
+        </form>
+      </div>
+    </main>
+  `;
+
+  document.querySelectorAll('.plan-radio-card input[type="radio"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.querySelectorAll('.plan-radio-card').forEach(card => card.classList.remove('selected'));
+      radio.closest('.plan-radio-card')?.classList.add('selected');
+    });
+  });
+
+  bindTheme();
+  document.querySelector('#back-to-login').onclick = () => loginView();
+  document.querySelector('#organization-register').onsubmit = async event => {
+    event.preventDefault();
+    try {
+      const data = await api('/organizations/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.fromEntries(new FormData(event.target)))
+      });
+      state.user = data.user;
+      location.hash = data.redirect;
+      render();
+    } catch (requestError) {
+      registerView(requestError.message);
+    }
+  };
 }
-const loginViewBase=loginView;
-loginView=function(error=''){loginViewBase(error);const button=document.createElement('button');button.type='button';button.className='btn secondary btn-block';button.id='show-register';button.textContent='Crear organización';document.querySelector('.login-box')?.append(button);button.onclick=()=>registerView()};
 renderAssistant=async function(){layout(await assistant());let repositoryName='Repositorio';try{const github=await api('/github/repository');repositoryName=github.data?.name||repositoryName}catch{}document.querySelector('.assistant-kicker')?.replaceChildren(document.createTextNode(`Sanzu / ${repositoryName}`));document.querySelector('.assistant-message small')?.replaceChildren(document.createTextNode(`Listo para consultar ${repositoryName}`))};
 const renderGithubBase=renderGithub;
 renderGithub=async function(section='repository'){await renderGithubBase(section);if(section!=='repository')return;let repositoryName='Repositorio';try{const github=await api('/github/repository');repositoryName=github.data?.name||repositoryName}catch{}const subtitle=document.querySelector('.heading p');if(subtitle)subtitle.textContent=`Información real del repositorio ${repositoryName}.`};
 const renderSettingsBase=renderSettings;
-renderSettings=async function(){await renderSettingsBase();let data;try{data=await api('/security/ip-blocks')}catch(error){return}const section=document.createElement('section');section.className='card mt-4';section.innerHTML=`<h2>Bloqueo de IP</h2><p class="muted">IP actual: ${esc(data.current_ip||'No disponible')}</p><form id="ip-block-form" class="form-grid"><label>Dirección IPv4<input class="input" name="ip" placeholder="203.0.113.10" required></label><label>Motivo<input class="input" name="reason" placeholder="Actividad sospechosa"></label><div class="actions full"><button class="btn danger">Bloquear IP</button></div></form><div class="table-wrap"><table class="table"><thead><tr><th>IP</th><th>Motivo</th><th>Fecha</th><th></th></tr></thead><tbody>${data.blocks.map(block=>`<tr><td>${esc(block.ip)}</td><td>${esc(block.reason||'Sin motivo')}</td><td>${esc(block.created_at)}</td><td><button class="btn secondary unblock-ip" data-id="${block.id}">Desbloquear</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay IPs bloqueadas.</td></tr>'}</tbody></table></div>`;section.insertAdjacentHTML('beforeend',`<h2 class="mt-4">Actividad reciente</h2><div class="table-wrap"><table class="table"><thead><tr><th>IP</th><th>Usuario</th><th>Navegador</th><th>Ruta</th><th>Estado</th><th>Inusual</th><th>Fecha</th><th></th></tr></thead><tbody>${data.activity.map(event=>`<tr><td>${esc(event.ip)}</td><td>${esc(event.user_name||'No autenticado')}</td><td title="${esc(event.user_agent)}">${esc(event.user_agent||'No disponible').slice(0,60)}</td><td>${esc(event.method)} ${esc(event.path)}</td><td>${event.status}</td><td>${event.unusual?`<span class="badge pink">${esc(event.reason||'Sí')}</span>`:'No'}</td><td>${esc(event.created_at)}</td><td><button class="btn secondary block-event-ip" data-ip="${esc(event.ip)}">Bloquear</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No hay actividad registrada.</td></tr>'}</tbody></table></div>`);document.querySelector('.content')?.append(section);section.querySelector('#ip-block-form').onsubmit=async event=>{event.preventDefault();try{await api('/security/ip-blocks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});notify('IP bloqueada');renderSettings()}catch(error){notify(error.message)}};section.querySelectorAll('.unblock-ip').forEach(button=>button.onclick=async()=>{try{await api(`/security/ip-blocks/${button.dataset.id}`,{method:'DELETE'});notify('IP desbloqueada');renderSettings()}catch(error){notify(error.message)}});section.querySelectorAll('.block-event-ip').forEach(button=>button.onclick=async()=>{try{await api('/security/ip-blocks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip:button.dataset.ip,reason:'Bloqueada desde el registro de actividad'})});notify('IP bloqueada');renderSettings()}catch(error){notify(error.message)}})};
+renderSettings=async function(){await renderSettingsBase();let data;try{data=await api('/security/ip-blocks')}catch(error){return}const section=document.createElement('section');section.className='card mt-4';section.innerHTML=`<h2>Bloqueo de IP</h2><p class="muted">IP actual: ${esc(data.current_ip||'No disponible')}</p><form id="ip-block-form" class="form-grid"><label>Dirección IPv4<input class="input" name="ip" placeholder="203.0.113.10" required></label><label>Motivo<input class="input" name="reason" placeholder="Actividad sospechosa"></label><div class="actions full"><button class="btn danger">${icon('block')}Bloquear IP</button></div></form><div class="table-wrap"><table class="table"><thead><tr><th>IP</th><th>Motivo</th><th>Fecha</th><th></th></tr></thead><tbody>${data.blocks.map(block=>`<tr><td>${esc(block.ip)}</td><td>${esc(block.reason||'Sin motivo')}</td><td>${esc(block.created_at)}</td><td><button class="btn secondary mini unblock-ip" data-id="${block.id}">${icon('check')}Desbloquear</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay IPs bloqueadas.</td></tr>'}</tbody></table></div>`;section.insertAdjacentHTML('beforeend',`<h2 class="mt-4">Actividad reciente</h2><div class="table-wrap"><table class="table"><thead><tr><th>IP</th><th>Usuario</th><th>Navegador</th><th>Ruta</th><th>Estado</th><th>Inusual</th><th>Fecha</th><th></th></tr></thead><tbody>${data.activity.map(event=>`<tr><td>${esc(event.ip)}</td><td>${esc(event.user_name||'No autenticado')}</td><td title="${esc(event.user_agent)}">${esc(event.user_agent||'No disponible').slice(0,60)}</td><td>${esc(event.method)} ${esc(event.path)}</td><td>${event.status}</td><td>${event.unusual?`<span class="badge pink">${esc(event.reason||'Sí')}</span>`:'No'}</td><td>${esc(event.created_at)}</td><td><button class="btn secondary mini block-event-ip" data-ip="${esc(event.ip)}">${icon('block')}Bloquear</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No hay actividad registrada.</td></tr>'}</tbody></table></div>`);document.querySelector('.content')?.append(section);section.querySelector('#ip-block-form').onsubmit=async event=>{event.preventDefault();try{await api('/security/ip-blocks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});notify('IP bloqueada');renderSettings()}catch(error){notify(error.message)}};section.querySelectorAll('.unblock-ip').forEach(button=>button.onclick=async()=>{try{await api(`/security/ip-blocks/${button.dataset.id}`,{method:'DELETE'});notify('IP desbloqueada');renderSettings()}catch(error){notify(error.message)}});section.querySelectorAll('.block-event-ip').forEach(button=>button.onclick=async()=>{try{await api('/security/ip-blocks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip:button.dataset.ip,reason:'Bloqueada desde el registro de actividad'})});notify('IP bloqueada');renderSettings()}catch(error){notify(error.message)}})};
 function formatLastSeen(dateStr){
   if (!dateStr) return 'Nunca';
   const date = new Date(dateStr);
@@ -1088,6 +2771,11 @@ render=async function(){
   try{
     if(location.hash.includes('relax'))return await renderRelax();
     return await appRender();
+  } catch(error){
+    console.error('Error al renderizar vista:', error);
+    if(app && (!app.children || !app.children.length || !app.innerHTML.trim())){
+      app.innerHTML = `<div class="login"><div class="login-box"><div class="eyebrow">Recuperación de vista</div><h2>No fue posible cargar esta vista</h2><p class="muted">${esc(error.message || 'Ocurrió un error inesperado al inicializar la pantalla.')}</p><div class="actions"><a class="btn" href="#/">Ir al inicio</a><button class="btn secondary" onclick="location.reload()">Reintentar</button></div></div></div>`;
+    }
   } finally {
     hideSlowLoader();
   }

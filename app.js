@@ -111,14 +111,21 @@ app.use(session({
 app.use(securityAudit);
 app.use(requireAllowedIp);
 app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: isProd ? '1d' : '1h',
+  index: false,
+  maxAge: isProd ? '1d' : 0,
   etag: true,
   lastModified: true,
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
-    } else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
-      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+    if (!isProd) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      } else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+        res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+      }
     }
   }
 }));
@@ -144,7 +151,24 @@ app.use('/api/absences', require('./server/routes/absenceRoutes'));
 app.use('/api/announcements', require('./server/routes/announcementRoutes'));
 app.use('/api/security/ip-blocks', require('./server/routes/ipBlockRoutes'));
 app.use('/api/assistant', require('./server/routes/assistantRoutes'));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('*', (req, res) => {
+  try {
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    let html = fs.readFileSync(indexPath, 'utf8');
+    const cssPath = path.join(__dirname, 'public', 'css', 'style.css');
+    const jsPath = path.join(__dirname, 'public', 'js', 'app.js');
+    const cssMtime = fs.existsSync(cssPath) ? fs.statSync(cssPath).mtimeMs : Date.now();
+    const jsMtime = fs.existsSync(jsPath) ? fs.statSync(jsPath).mtimeMs : Date.now();
+    html = html.replace(/\/css\/style\.css(?:\?v=[^"'\s>]*)?/, `/css/style.css?v=${cssMtime}`);
+    html = html.replace(/\/js\/app\.js(?:\?v=[^"'\s>]*)?/, `/js/app.js?v=${jsMtime}`);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.send(html);
+  } catch {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
 app.use((error, req, res, next) => {
   console.error(error);
   if (error.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'El archivo supera el tamaño permitido.' });
