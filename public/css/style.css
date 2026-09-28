@@ -797,6 +797,31 @@ label {
   color: var(--color-paper-white);
   box-shadow: 0 2px 6px rgba(18, 20, 23, 0.18);
 }
+.topbar-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--color-fog-white);
+  box-shadow: 0 1px 2px rgba(18, 20, 23, 0.03);
+  transition: all .2s var(--ease);
+}
+.topbar-role-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2ea043;
+  box-shadow: 0 0 0 2px rgba(46, 160, 67, 0.2);
+  flex-shrink: 0;
+}
+.topbar-role-text {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-slate-gray);
+  letter-spacing: -0.1px;
+}
 .auth-theme-bar {
   position: absolute;
   top: 20px;
@@ -4408,8 +4433,23 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
    Default: Steep (Light editorial canvas, warm paper, mist gray cards)
    Ran: Dark variant preserving dark palette while adhering to Steep geometry & type
    ========================================================= */
+:root[data-theme="ran"] {
+  --color-paper-white: #17191c;
+  --color-fog-white: #13161a;
+  --color-mist-gray: #20242a;
+  --color-ink-black: #FEFCEA;
+  --color-slate-gray: #9da2af;
+  --panel: #17191c;
+  --panel-2: #20242a;
+  --line: #2a2d33;
+  --ink: #0D1117;
+  --white: #FEFCEA;
+  --muted: #9da2af;
+}
 :root[data-theme="ran"] body{background:#0D1117;color:#FEFCEA}
 :root[data-theme="ran"] .shell{background:#0D1117}
+:root[data-theme="ran"] .topbar-role-badge{background:#20242a;border-color:#2a2d33}
+:root[data-theme="ran"] .topbar-role-text{color:#9da2af}
 :root[data-theme="ran"] .theme-switch{background:#17191c;border-color:#2a2d33;box-shadow:inset 0 1px 2px rgba(0,0,0,0.3)}
 :root[data-theme="ran"] .theme-option{color:#8c909b}
 :root[data-theme="ran"] .theme-option:hover{color:#FEFCEA}
@@ -4800,8 +4840,32 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .status-ring .message-avatar,.status-ring img,.status-ring span.message-avatar{width:100%;height:100%;border:2px solid var(--panel)}
 .status-add{position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;display:grid;place-items:center;background:var(--pink);color:var(--ink);border:2px solid var(--panel);border-radius:50%;font-size:12px;font-weight:800}
 
-.status-overlay{position:fixed;inset:0;z-index:25;display:grid;place-items:center;padding:var(--sp-5);background:color-mix(in srgb,var(--ink) 85%,transparent)}
-.status-viewer{width:min(420px,100%);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);overflow:hidden}
+.status-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-5);
+  background: rgba(13, 17, 23, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow-y: auto;
+}
+:root[data-theme="steep"] .status-overlay, :root:not([data-theme="ran"]) .status-overlay {
+  background: rgba(18, 20, 23, 0.55);
+}
+.status-viewer{
+  width: min(460px, 94vw);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-cards);
+  box-shadow: var(--shadow-subtle-2);
+  overflow: hidden;
+}
+.status-viewer.admin-modal-panel {
+  width: min(640px, 94vw);
+}
 .status-viewer-head{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--line)}
 .status-viewer-body{padding:var(--sp-5);display:grid;gap:var(--sp-3)}
 .status-viewer-body img{width:100%;border-radius:var(--r-md);max-height:360px;object-fit:cover}

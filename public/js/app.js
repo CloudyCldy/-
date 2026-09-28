@@ -288,7 +288,7 @@ function sidebar(){
 }
 function avatarMarkup(user,size='avatar'){return user.profile_photo?`<img class="${size}" src="${esc(user.profile_photo)}" alt="Foto de ${esc(user.name)}">`:`<span class="${size}">${esc(user.name?.[0]||'?')}</span>`}
 function layout(content){
-  app.innerHTML=`<div class="shell"><div class="sidebar-backdrop" id="side-backdrop"></div>${sidebar()}<section class="main"><header class="topbar"><button class="mobile-toggle" id="menu" aria-label="Abrir menú de navegación">${icon('menu')}</button><span class="muted">${state.user.role==='admin'?'Panel administrativo':'Espacio personal'}</span><div class="topbar-actions">${themeToggle()}<div class="user-chip"><span>${esc(state.user.name)}</span>${avatarMarkup(state.user)}</div></div></header><main class="content">${content}</main></section></div>`;
+  app.innerHTML=`<div class="shell"><div class="sidebar-backdrop" id="side-backdrop"></div>${sidebar()}<section class="main"><header class="topbar"><button class="mobile-toggle" id="menu" aria-label="Abrir menú de navegación">${icon('menu')}</button><div class="topbar-role-badge"><span class="topbar-role-indicator"></span><span class="topbar-role-text">${state.user.role==='admin'?'Panel administrativo':'Espacio personal'}</span></div><div class="topbar-actions">${themeToggle()}<div class="user-chip"><span>${esc(state.user.name)}</span>${avatarMarkup(state.user)}</div></div></header><main class="content">${content}</main></section></div>`;
   const side = document.querySelector('#side');
   const backdrop = document.querySelector('#side-backdrop');
   const closeSide = () => { side?.classList.remove('open'); backdrop?.classList.remove('active'); };
