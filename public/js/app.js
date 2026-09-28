@@ -3,6 +3,7 @@ const app = document.querySelector('#app') || document.getElementById('app') || 
 const desktopNotificationState = { lastMessages: null, lastTasks: null, permissionRequested: false };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
 function iconAsset(name, alt = '', className = '') { return `<img class="icon-image ${className}" src="/static/img/${name}.png" alt="${esc(alt || name)}">`; }
+function brandLogo(className = '') { return `<img class="brand-logo ${className}" src="/static/img/ht.png" alt="Haitani">`; }
 const SVG_ICONS = {
   palette: '<path d="M10 2.2C5.7 2.2 2.2 5.8 2.2 10c0 3.4 2.7 6.1 6 6.1h.9c.6 0 1.1-.5 1.1-1.1v-.4c0-.5.4-.9.9-.9h1.4a3.3 3.3 0 0 0 3.3-3.3c0-4.5-3-8.2-5.8-8.2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="6.1" cy="9" r="1" fill="currentColor"/><circle cx="9.2" cy="5.9" r="1" fill="currentColor"/><circle cx="13" cy="7.4" r="1" fill="currentColor"/>',
   bell: '<path d="M10 3a3.7 3.7 0 0 0-3.7 3.7v2.4c0 .47-.19.93-.52 1.26L4.6 11.5c-.55.55-.16 1.5.62 1.5h9.56c.78 0 1.17-.95.62-1.5l-1.18-1.14a1.78 1.78 0 0 1-.52-1.26V6.7A3.7 3.7 0 0 0 10 3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8.3 15.2a1.75 1.75 0 0 0 3.4 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
@@ -91,7 +92,7 @@ function bindPaginationControls() {
   });
 }
 function blockedView(reason='Tu dirección IP no puede acceder a esta aplicación.') { app.innerHTML=`<main class="login"><section class="login-box blocked-access"><img src="/static/blocked.jpg" alt="Acceso bloqueado"><h1>Acceso bloqueado</h1><p class="muted">${esc(reason)}</p></section></main>`; }
-let currentTheme = localStorage.getItem('haitani-theme') || 'steep';
+let currentTheme = localStorage.getItem('haitani-theme') || 'ran';
 let notificationTimer;
 document.documentElement.dataset.theme = currentTheme;
 let ganttStatusFilter = '';
@@ -188,7 +189,7 @@ function loginView(error='') {
       </div>
       <div class="auth-stage">
         <section class="auth-story">
-          <div class="brand">HAI<span>TANI</span></div>
+          <div class="brand">${brandLogo()}</div>
           <h2 class="auth-story-headline">
             Control integral para <em>organizaciones de alto nivel</em>
           </h2>
@@ -199,7 +200,7 @@ function loginView(error='') {
 
         <form class="login-box" id="login-form">
           <div class="login-box-header">
-            <div class="brand auth-box-brand">HAI<span>TANI</span></div>
+            <div class="brand auth-box-brand">${brandLogo()}</div>
             <div class="eyebrow">Acceso seguro</div>
             <h1>Iniciar sesión</h1>
             <p class="muted">Ingresa tus credenciales para acceder al espacio de trabajo.</p>
@@ -284,7 +285,7 @@ function sidebar(){
     ['/member/github','GitHub','github'],
     ['/member/profile','Perfil','user']
   ];
-  return `<aside class="side" id="side"><div class="brand">HAI<span>TANI</span></div><div class="project">${esc(state.user.organization_name||'Organización')}</div><div class="nav-title">Workspace</div>${links.map(([href,label,iconName,type])=>`<button class="nav ${location.hash===href?'active':''}" data-route="${href}">${icon(iconName)}<span class="nav-label">${label}</span>${type?notificationDot(type):''}</button>`).join('')}<div class="nav-title">Cuenta</div><button class="nav" id="logout">${icon('logout')}<span class="nav-label">Cerrar sesión</span></button></aside>`;
+  return `<aside class="side" id="side"><div class="brand">${brandLogo()}</div><div class="project">${esc(state.user.organization_name||'Organización')}</div><div class="nav-title">Workspace</div>${links.map(([href,label,iconName,type])=>`<button class="nav ${location.hash===href?'active':''}" data-route="${href}">${icon(iconName)}<span class="nav-label">${label}</span>${type?notificationDot(type):''}</button>`).join('')}<div class="nav-title">Cuenta</div><button class="nav" id="logout">${icon('logout')}<span class="nav-label">Cerrar sesión</span></button></aside>`;
 }
 function avatarMarkup(user,size='avatar'){return user.profile_photo?`<img class="${size}" src="${esc(user.profile_photo)}" alt="Foto de ${esc(user.name)}">`:`<span class="${size}">${esc(user.name?.[0]||'?')}</span>`}
 function layout(content){
@@ -298,7 +299,7 @@ function layout(content){
   backdrop.onclick=closeSide;
   bindTheme();
 }
-function heading(title, subtitle, action=''){return `<div class="heading"><div><div class="eyebrow">Haitani / ${esc(state.user.organization_name||'Organización')}</div><h1>${title}</h1><p>${subtitle}</p></div>${action}</div>`}
+function heading(title, subtitle, action=''){return `<div class="heading"><div><div class="eyebrow"><img class="brand-logo-inline" src="/static/img/ht.png" alt="Haitani"> / ${esc(state.user.organization_name||'Organización')}</div><h1>${title}</h1><p>${subtitle}</p></div>${action}</div>`}
 function projectEditor(project){if(state.user.role!=='admin')return '';const methods=[['AGILE','Agile'],['SCRUM','Scrum'],['KANBAN','Kanban'],['XP','XP'],['LEAN','Lean'],['WATERFALL','Waterfall'],['HYBRID','Híbrida']];return `<form id="project-form" class="form-grid mt-4"><input type="hidden" name="id" value="${project?.id||''}"><label>Nombre<input class="input" name="name" value="${esc(project?.name||'')}" required></label><label>Descripción<input class="input" name="description" value="${esc(project?.description||'')}"></label><label>Metodología<select class="select" name="methodology_id" required>${methods.map(([value,label])=>`<option value="${value}" ${project?.methodology_id===value||(!project&&value==='AGILE')?'selected':''}>${label}</option>`).join('')}</select></label><label class="full">Requerimientos<textarea class="textarea" name="requirements" rows="4" placeholder="Alcance, stack, restricciones y criterios de aceptación">${esc(project?.requirements||'')}</textarea></label><div class="actions full"><button class="btn">${icon('check')}${project?'Guardar proyecto':'Crear proyecto'}</button></div></form>`}
 function methodologyWidgets(project){const method=project?.methodology_id;const links=[];if(['SCRUM','KANBAN','XP','AGILE'].includes(method))links.push(`<a class="btn secondary" href="#/admin/kanban">${icon('kanban')}Abrir tablero</a>`);if(method==='WATERFALL'||method==='LEAN'||method==='HYBRID')links.push(`<a class="btn secondary" href="#/admin/gantt">${icon('gantt')}Abrir hitos y Gantt</a>`);return `<div class="actions mt-3"><span class="muted">${method?`Flujo recomendado: ${esc(method)}`:'Define una metodología'}</span>${links.join('')}</div>`}
 function projectHealth(health){if(!health)return '';const statusLabel={saludable:'Saludable',atencion:'Requiere atención',riesgo:'En riesgo'}[health.status]||'Sin datos';const workload=health.workload||[];const activity=health.recentActivity||[];return `<section class="card project-health mt-4"><div class="project-health-head"><div><div class="eyebrow">Control operativo</div><h2>Salud del proyecto</h2><p class="muted">Lectura combinada de avance, planificación, riesgos y capacidad del equipo.</p></div><div class="health-score health-${esc(health.status)}"><strong>${health.score}</strong><span>/ 100</span><small>${statusLabel}</small></div></div><div class="health-overview"><div class="health-meter"><div class="health-meter-track"><i style="width:${health.score}%"></i></div><div class="health-meter-labels"><span>Riesgo</span><span>Atención</span><span>Saludable</span></div></div><div class="health-metrics"><div><strong>${health.overdue}</strong><span>Vencidas</span></div><div><strong>${health.dueSoon}</strong><span>Próximas 7 días</span></div><div><strong>${health.critical}</strong><span>Alta prioridad</span></div><div><strong>${health.unassigned}</strong><span>Sin responsable</span></div></div></div><div class="health-detail-grid"><div><h3>Calidad de planificación</h3><div class="health-progress-row"><span>Fechas definidas</span><strong>${health.dateCoverage}%</strong><i><b style="width:${health.dateCoverage}%"></b></i></div><div class="health-progress-row"><span>Responsables asignados</span><strong>${health.assignmentCoverage}%</strong><i><b style="width:${health.assignmentCoverage}%"></b></i></div><h3 class="health-subtitle">Recomendaciones</h3><ul class="health-list">${health.recommendations.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div><div><h3>Carga del equipo</h3>${workload.length?`<div class="health-workload">${workload.map(item=>{const percentage=item.total?Math.round(item.completed/item.total*100):0;return `<div class="health-workload-row"><span>${esc(item.name)}</span><strong>${item.total} <small>${percentage}% completado</small></strong><i><b style="width:${percentage}%"></b></i></div>`}).join('')}</div>`:'<div class="empty">No hay integrantes activos.</div>'}<h3 class="health-subtitle">Actividad reciente</h3>${activity.length?`<div class="health-activity">${activity.map(item=>`<div><strong>${esc(item.action)}</strong><small>${esc(item.description||'Actualización registrada')}</small></div>`).join('')}</div>`:'<div class="empty">No hay actividad reciente.</div>'}</div></div></section>`}
@@ -1911,7 +1912,7 @@ const RELAX_SOURCES=[['spotify','Spotify'],['youtube','YouTube'],['soundcloud','
 let relaxSource='spotify';
 function sourceLabel(key){return RELAX_SOURCES.find(([value])=>value===key)?.[1]||key}
 function trackImage(track){return track.artwork_url||track.artworkUrl||track.image||track.thumbnail||track.cover||track.cover_url||track.coverUrl||track.album?.images?.[0]?.url||track.album_art||track.thumbnails?.high?.url||track.thumbnails?.default?.url||''}
-async function relax(){return `${`<section class="relax-hero"><div class="relax-hero-text"><div class="eyebrow">Haitani </div><h1>Relax 梵天</h1><p class="muted">Encuentra tu playlist de enfoque y reprodúcela sin salir del panel.</p></div></section>`}<section class="card relax-search"><form id="music-search" class="relax-search-form"><div class="relax-search-input"><span class="relax-search-icon">${icon('search')}</span><input class="input" name="q" placeholder="Busca una canción, artista o álbum" required></div><div class="source-pills" role="radiogroup" aria-label="Fuente de música">${RELAX_SOURCES.map(([value,label])=>`<button type="button" class="source-pill ${relaxSource===value?'active':''}" data-source="${value}">${label}</button>`).join('')}</div><input type="hidden" name="source" value="${relaxSource}"><button class="btn relax-search-btn">${icon('search')}Buscar</button></form></section><section id="music-results" class="music-results empty"><div class="relax-empty"><div class="relax-empty-icon">${icon('music')}</div><p>Busca una canción para comenzar a relajarte.</p></div></section><section class="card music-player" id="music-player" hidden><div class="music-player-art" id="music-art">${icon('music')}</div><div class="music-player-info"><span class="music-player-eq"><i></i><i></i><i></i><i></i></span><div><strong id="music-title">Selecciona una pista</strong><small id="music-artist" class="muted"></small></div></div><audio id="music-audio" controls preload="none"></audio><a id="music-link" class="btn secondary" target="_blank" rel="noopener">${icon('external')}Abrir servicio</a></section>`}
+async function relax(){return `${`<section class="relax-hero"><div class="relax-hero-text"><div class="eyebrow"><img class="brand-logo-inline" src="/static/img/ht.png" alt="Haitani"></div><h1>Relax 梵天</h1><p class="muted">Encuentra tu playlist de enfoque y reprodúcela sin salir del panel.</p></div></section>`}<section class="card relax-search"><form id="music-search" class="relax-search-form"><div class="relax-search-input"><span class="relax-search-icon">${icon('search')}</span><input class="input" name="q" placeholder="Busca una canción, artista o álbum" required></div><div class="source-pills" role="radiogroup" aria-label="Fuente de música">${RELAX_SOURCES.map(([value,label])=>`<button type="button" class="source-pill ${relaxSource===value?'active':''}" data-source="${value}">${label}</button>`).join('')}</div><input type="hidden" name="source" value="${relaxSource}"><button class="btn relax-search-btn">${icon('search')}Buscar</button></form></section><section id="music-results" class="music-results empty"><div class="relax-empty"><div class="relax-empty-icon">${icon('music')}</div><p>Busca una canción para comenzar a relajarte.</p></div></section><section class="card music-player" id="music-player" hidden><div class="music-player-art" id="music-art">${icon('music')}</div><div class="music-player-info"><span class="music-player-eq"><i></i><i></i><i></i><i></i></span><div><strong id="music-title">Selecciona una pista</strong><small id="music-artist" class="muted"></small></div></div><audio id="music-audio" controls preload="none"></audio><a id="music-link" class="btn secondary" target="_blank" rel="noopener">${icon('external')}Abrir servicio</a></section>`}
 function musicUrl(track){return track.preview_url||track.previewUrl||track.audio||track.stream_url||track.streamUrl||track.permalink_url||track.permalinkUrl||track.embed_url||track.embedUrl||track.link||track.uri||track.url||track.external_url||track.externalUrl}
 function musicEmbed(url){const value=String(url||'');const youtube=value.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^?&/]+)/);if(youtube)return `https://www.youtube.com/embed/${youtube[1]}?autoplay=1`;const spotify=value.match(/open\.spotify\.com\/(track|album|playlist)\/([^?&/]+)/);if(spotify)return `https://open.spotify.com/embed/${spotify[1]}/${spotify[2]}?utm_source=generator`;if(value.includes('soundcloud.com/'))return `https://w.soundcloud.com/player/?url=${encodeURIComponent(value)}&color=%237D9B9F&auto_play=true&hide_related=true&show_comments=false&show_user=true&show_reposts=false&visual=false&show_artwork=true`;return ''}
 function loadSoundCloudWidget(){return new Promise(resolve=>{if(window.SC?.Widget){resolve();return}const script=document.createElement('script');script.src='https://w.soundcloud.com/player/api.js';script.onload=resolve;script.onerror=resolve;document.head.append(script)})}
@@ -1946,7 +1947,7 @@ async function landingView() {
       <!-- Navigation -->
       <header class="landing-nav">
         <div class="landing-container landing-nav-inner">
-          <a href="#/" class="landing-brand">HAI<span>TANI</span></a>
+          <a href="#/" class="landing-brand" aria-label="Haitani">${brandLogo()}</a>
           <ul class="landing-links">
             <li><a class="landing-link" href="#features">Características</a></li>
             <li><a class="landing-link" href="#methodologies">Metodologías</a></li>
@@ -2015,7 +2016,7 @@ async function landingView() {
             </div>
             <div class="landing-mockup-body">
               <aside class="landing-mockup-sidebar">
-                <div class="brand" style="font-size:18px;">HAI<span>TANI</span></div>
+                <div class="brand">${brandLogo('brand-logo-sm')}</div>
                 <div class="landing-mockup-sideitem active">${icon('dashboard')} Dashboard</div>
                 <div class="landing-mockup-sideitem">${icon('kanban')} Tablero Kanban</div>
                 <div class="landing-mockup-sideitem">${icon('gantt')} Diagrama de Gantt</div>
@@ -2434,7 +2435,7 @@ async function landingView() {
         <div class="landing-container">
           <div class="landing-footer-grid">
             <div class="landing-footer-brand">
-              <a href="#/" class="landing-brand">HAI<span>TANI</span></a>
+              <a href="#/" class="landing-brand" aria-label="Haitani">${brandLogo()}</a>
               <p>Plataforma integral de gestión ágil de proyectos, seguimiento técnico con GitHub, analítica y colaboración en tiempo real.</p>
               <div style="margin-top:16px;">
                 <span class="muted" style="font-size:12px;">Soporte: <strong>adminpruebassakura@gmail.com</strong></span>
@@ -2591,7 +2592,7 @@ async function registerView(error=''){
       <div class="auth-stage is-wide">
         <form class="login-box wide" id="organization-register">
           <div class="login-box-header">
-            <div class="brand">HAI<span>TANI</span></div>
+            <div class="brand">${brandLogo()}</div>
             <div class="eyebrow">Crear espacio de trabajo</div>
             <h1>Comienza con Haitani</h1>
             <p class="muted">Configura los datos de tu empresa y el primer administrador de la organización.</p>
