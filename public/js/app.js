@@ -1043,7 +1043,8 @@ function profile(){
       <div class="grid stats mt-4">
         <div><div class="muted">Usuario</div><h2>${esc(state.user.username)}</h2></div>
         <div><div class="muted">Rol</div><h2>${esc(state.user.role)}</h2></div>
-        <div><div class="muted">GitHub</div><h2>${esc(state.user.github_username||'No configurado')}</h2></div>
+        <div><div class="muted">GitHub</div>${state.user.github_username ? `<h2>${esc(state.user.github_username)}</h2>` : `<button id="connect-github" class="btn">Conectar a GitHub</button>`}</div>
+        <div><div class="muted">GitLab</div>${state.user.gitlab_username ? `<h2>${esc(state.user.gitlab_username)}</h2>` : `<button id="connect-gitlab" class="btn">Conectar a GitLab</button>`}</div>
       </div>
     </section>
     <section class="card mt-4">
