@@ -13,6 +13,7 @@ const database = require('./server/database');
 const { init: initDatabase } = require('./database/init');
 const { seed } = require('./database/seed');
 const billingRoutes = require('./server/routes/billingRoutes');
+const oauthRoutes = require('./server/routes/oauthRoutes');
 const { requireAllowedIp } = require('./server/middleware/ipBlockMiddleware');
 const securityAudit = require('./server/middleware/securityAuditMiddleware');
 
@@ -147,6 +148,7 @@ app.use('/api/chat-backgrounds', require('./server/routes/chatBackgroundRoutes')
 app.use('/api/calls', require('./server/routes/callRoutes'));
 app.use('/api/music', require('./server/routes/musicRoutes'));
 app.use('/api/notifications', require('./server/routes/notificationRoutes'));
+app.use('/api/oauth', oauthRoutes);
 app.use('/api/absences', require('./server/routes/absenceRoutes'));
 app.use('/api/announcements', require('./server/routes/announcementRoutes'));
 app.use('/api/security/ip-blocks', require('./server/routes/ipBlockRoutes'));

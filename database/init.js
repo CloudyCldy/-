@@ -53,7 +53,18 @@ async function init() {
       email TEXT NOT NULL UNIQUE, password TEXT NOT NULL,
       role TEXT NOT NULL CHECK (role IN ('admin', 'member', 'project_manager', 'viewer')), active INTEGER NOT NULL DEFAULT 1,
       github_username TEXT, gitlab_username TEXT, gitlab_token TEXT, profile_photo TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+      -- OAuth connections table for GitHub and GitLab tokens
+      CREATE TABLE IF NOT EXISTS oauth_connections (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL CHECK (provider IN ('github','gitlab')),
+        access_token TEXT NOT NULL,
+        username TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT now(),
+        UNIQUE (user_id, provider)
+      );
     );
     ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
