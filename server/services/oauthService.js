@@ -1,4 +1,4 @@
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fetch = globalThis.fetch;
 
 /**
  * Exchange the OAuth authorization code for an access token.
@@ -24,8 +24,8 @@ async function exchangeToken(provider, code) {
     const clientSecret = process.env.GITLAB_CLIENT_SECRET;
     const response = await fetch('https://gitlab.com/oauth/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code, grant_type: 'authorization_code', redirect_uri: redirectUri })
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code, grant_type: 'authorization_code', redirect_uri: redirectUri })
     });
     const data = await response.json();
     return data.access_token;
