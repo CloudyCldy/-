@@ -783,7 +783,7 @@ function taskImportForm(projects){
           </div>
           <div class="actions mt-4">
             <button class="btn" type="submit">Importar tareas</button>
-            <button class="btn secondary" type="button" id="download-task-template">Descargar plantilla CSV</button>
+            <button class="btn secondary" type="button" id="download-task-template">Descargar plantilla XLSX</button>
             <button class="btn secondary" type="button" id="cancel-task-import">Cancelar</button>
           </div>
           <div class="alert mt-4" id="task-import-results" role="status" hidden></div>
@@ -829,13 +829,19 @@ async function renderTasks(){
   document.querySelector('#close-task-import')?.addEventListener('click',closeImportModal);
   document.querySelector('#cancel-task-import')?.addEventListener('click',closeImportModal);
   importModal.onclick=e=>{if(e.target===importModal)closeImportModal()};
-  document.querySelector('#download-task-template')?.addEventListener('click',()=>{
-    const blob=new Blob(['title,description,priority,status,start_date,due_date\n'],{type:'text/csv;charset=utf-8'});
-    const link=document.createElement('a');
-    link.href=URL.createObjectURL(blob);
-    link.download='plantilla-tareas.csv';
-    link.click();
-    URL.revokeObjectURL(link.href);
+  document.querySelector('#download-task-template')?.addEventListener('click',async()=>{
+    try{
+      const response=await fetch('/api/tasks/import-template',{credentials:'include'});
+      if(!response.ok){
+        const error=await response.json().catch(()=>({}));
+        throw new Error(error.error||'No se pudo descargar la plantilla.');
+      }
+      const link=document.createElement('a');
+      link.href=URL.createObjectURL(await response.blob());
+      link.download='plantilla-tareas.xlsx';
+      link.click();
+      setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+    }catch(error){notify(error.message)}
   });
   importForm?.addEventListener('submit',async event=>{
     event.preventDefault();

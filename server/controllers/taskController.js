@@ -166,6 +166,19 @@ async function importTasks(req, res) {
   res.json(results);
 }
 
+function downloadImportTemplate(req, res) {
+  const xlsx = require('xlsx');
+  const headers = ['title', 'description', 'priority', 'status', 'start_date', 'due_date'];
+  const sheet = xlsx.utils.aoa_to_sheet([headers]);
+  sheet['!cols'] = [{ wch: 24 }, { wch: 48 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }];
+  const workbook = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(workbook, sheet, 'Tareas');
+  const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename="plantilla-tareas.xlsx"');
+  res.send(buffer);
+}
+
 async function update(req, res) {
   const database = req.app.locals.database;
   const id = taskId(req, res);
@@ -215,4 +228,4 @@ async function image(req, res) {
   res.send(asset.content);
 }
 async function remove(req, res) { const id = taskId(req, res); if (!id) return; const database = req.app.locals.database; const task = await database.prepare('SELECT * FROM tasks WHERE id = ? AND organization_id = ?').get(id, req.session.user.organization_id); if (!task) return res.status(404).json({ error: 'La tarea no existe.' }); await database.prepare('DELETE FROM tasks WHERE id = ? AND organization_id = ?').run(id, req.session.user.organization_id); await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, task.project_id, 'task.deleted', `Tarea eliminada: ${task.title}`); res.json({ ok: true }); }
-module.exports = { list, get, create, update, status, image, remove, importTasks };
+module.exports = { list, get, create, update, status, image, remove, importTasks, downloadImportTemplate };
