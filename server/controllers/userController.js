@@ -51,7 +51,7 @@ async function profile(req, res) {
   if (req.file) {
     const asset = await database.prepare('INSERT INTO stored_assets (organization_id, uploaded_by, kind, mime_type, content) VALUES (?, ?, ?, ?, ?) RETURNING id').run(req.session.user.organization_id, req.session.user.id, 'profile-photo', req.file.mimetype, req.file.buffer);
     profileAssetId = asset.lastInsertRowid;
-    profilePhoto = `/api/users/${req.session.user.id}/profile-photo`;
+    profilePhoto = `/api/users/${req.session.user.id}/profile-photo?v=${encodeURIComponent(profileAssetId)}`;
   }
   await database.prepare('UPDATE users SET name = ?, username = ?, email = ?, password = COALESCE(?, password), profile_photo = COALESCE(?, profile_photo), profile_asset_id = COALESCE(?, profile_asset_id), gitlab_username = COALESCE(?, gitlab_username), gitlab_token = COALESCE(?, gitlab_token), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?').run(nextName, nextUsername, nextEmail, new_password ? await bcrypt.hash(String(new_password), 12) : null, req.file ? profilePhoto : null, req.file ? profileAssetId : null, gitlab_username !== undefined ? String(gitlab_username || '').trim() || null : null, gitlab_token !== undefined ? String(gitlab_token || '').trim() || null : null, user.id, req.session.user.organization_id);
   req.session.user.name = nextName;
