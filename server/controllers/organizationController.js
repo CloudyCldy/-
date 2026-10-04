@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 function parseGithubUrl(value) {
   if (!value) return {};
