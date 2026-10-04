@@ -96,7 +96,7 @@ async function importTasks(req, res) {
     ]));
     const title = fields.title ?? fields.titulo;
     const description = fields.description ?? fields.descripcion ?? '';
-    const assignedTo = fields.assigned_to ?? fields.responsable_id;
+    const assignedTo = fields.assigned_to ?? fields.responsable_id ?? fields.responsable ?? fields.assignee;
     const priority = String(fields.priority ?? fields.prioridad ?? 'media').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
     const status = String(fields.status ?? fields.estado ?? 'pendiente').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, '_');
     const projectId = Number(fields.project_id || req.body.project_id);
@@ -131,10 +131,16 @@ async function importTasks(req, res) {
       continue;
     }
     let assignee = null;
-    if (assignedTo) {
-      assignee = await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(Number(assignedTo), req.session.user.organization_id);
+    const assigneeValue = String(assignedTo ?? '').trim();
+    if (assigneeValue) {
+      if (/^\d+$/.test(assigneeValue)) {
+        assignee = await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(Number(assigneeValue), req.session.user.organization_id);
+      } else {
+        const matches = await database.prepare('SELECT id FROM users WHERE organization_id = ? AND active = 1 AND (LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?))').all(req.session.user.organization_id, assigneeValue, assigneeValue, assigneeValue);
+        if (matches.length === 1) assignee = matches[0];
+      }
       if (!assignee) {
-        results.errors.push({ row: index + 2, error: 'Responsable no válido.' });
+        results.errors.push({ row: index + 2, error: 'Responsable no válido o ambiguo; usa ID, usuario, correo o nombre exacto.' });
         continue;
       }
     }
@@ -168,11 +174,15 @@ async function importTasks(req, res) {
 
 function downloadImportTemplate(req, res) {
   const xlsx = require('xlsx');
-  const headers = ['title', 'description', 'priority', 'status', 'start_date', 'due_date'];
+  const headers = ['title', 'description', 'assigned_to', 'priority', 'status', 'start_date', 'due_date'];
   const sheet = xlsx.utils.aoa_to_sheet([headers]);
-  sheet['!cols'] = [{ wch: 24 }, { wch: 48 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }];
+  sheet['!cols'] = [{ wch: 24 }, { wch: 48 }, { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }];
   const workbook = xlsx.utils.book_new();
   xlsx.utils.book_append_sheet(workbook, sheet, 'Tareas');
+  xlsx.utils.book_append_sheet(workbook, xlsx.utils.aoa_to_sheet([
+    ['Columna', 'Instrucciones'],
+    ['assigned_to', 'ID, nombre de usuario, correo o nombre exacto de un usuario activo. Déjalo vacío para no asignar la tarea.']
+  ]), 'Guia');
   const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', 'attachment; filename="plantilla-tareas.xlsx"');
