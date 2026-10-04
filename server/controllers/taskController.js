@@ -57,7 +57,107 @@ async function create(req, res) {
   await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, project.id, 'task.created', `Tarea creada: ${title.trim()}`);
   res.status(201).json({ id: result.lastInsertRowid });
 }
-async function update(req, res) {
+async function importTasks(req, res) {
+  const database = req.app.locals.database;
+  if (!req.file) return res.status(400).json({ error: 'Archivo requerido.' });
+  const ext = req.file.originalname.split('.').pop().toLowerCase();
+  let rows = [];
+  try {
+    if (ext === 'csv') {
+      const csv = require('csv-parser');
+      const { Readable } = require('stream');
+      const stream = Readable.from(req.file.buffer);
+      await new Promise((resolve, reject) => {
+        stream
+          .pipe(csv())
+          .on('data', data => rows.push(data))
+          .on('end', resolve)
+          .on('error', reject);
+      });
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      const xlsx = require('xlsx');
+      const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+      const firstSheet = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[firstSheet];
+      rows = xlsx.utils.sheet_to_json(sheet);
+    } else {
+      return res.status(400).json({ error: 'Formato de archivo no soportado. Use .csv o .xlsx.' });
+    }
+  } catch (e) {
+    return res.status(500).json({ error: 'Error al procesar el archivo.', details: e.message });
+  }
+
+  const results = { created: 0, errors: [] };
+  for (const [index, row] of rows.entries()) {
+    // Expected keys (case‑insensitive): title, description, assigned_to, priority, start_date, due_date, status, project_id
+    const {
+      title,
+      description = '',
+      assigned_to,
+      priority = 'media',
+      start_date,
+      due_date,
+      status = 'pendiente',
+      project_id
+    } = row;
+    if (!title || !String(title).trim()) {
+      results.errors.push({ row: index + 1, error: 'Título vacío.' });
+      continue;
+    }
+    const projectId = Number(project_id);
+    if (!Number.isInteger(projectId) || projectId < 1) {
+      results.errors.push({ row: index + 1, error: 'project_id inválido.' });
+      continue;
+    }
+    if (!TASK_PRIORITIES.has(priority)) {
+      results.errors.push({ row: index + 1, error: 'Prioridad no válida.' });
+      continue;
+    }
+    if (!TASK_STATUSES.has(status)) {
+      results.errors.push({ row: index + 1, error: 'Estado no válido.' });
+      continue;
+    }
+    const project = await database.prepare('SELECT id FROM projects WHERE id = ? AND organization_id = ?').get(projectId, req.session.user.organization_id);
+    if (!project) {
+      results.errors.push({ row: index + 1, error: 'Proyecto no pertenece a la organización.' });
+      continue;
+    }
+    let assignee = null;
+    if (assigned_to) {
+      assignee = await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(Number(assigned_to), req.session.user.organization_id);
+      if (!assignee) {
+        results.errors.push({ row: index + 1, error: 'Responsable no válido.' });
+        continue;
+      }
+    }
+    try {
+      const result = await database.prepare(`INSERT INTO tasks (project_id, organization_id, creator_id, title, description, assigned_to, priority, start_date, due_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`).run(
+        project.id,
+        req.session.user.organization_id,
+        req.session.user.id,
+        String(title).trim(),
+        description,
+        assignee ? assignee.id : null,
+        priority,
+        start_date || null,
+        due_date || null,
+        status
+      );
+      await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(
+        req.session.user.organization_id,
+        req.session.user.id,
+        project.id,
+        'task.created',
+        `Tarea importada: ${String(title).trim()}`
+      );
+      results.created++;
+    } catch (e) {
+      results.errors.push({ row: index + 1, error: 'Error de base de datos.', details: e.message });
+    }
+  }
+  res.json(results);
+}
+
   const database = req.app.locals.database;
   const id = taskId(req, res);
   if (!id) return;
@@ -106,4 +206,4 @@ async function image(req, res) {
   res.send(asset.content);
 }
 async function remove(req, res) { const id = taskId(req, res); if (!id) return; const database = req.app.locals.database; const task = await database.prepare('SELECT * FROM tasks WHERE id = ? AND organization_id = ?').get(id, req.session.user.organization_id); if (!task) return res.status(404).json({ error: 'La tarea no existe.' }); await database.prepare('DELETE FROM tasks WHERE id = ? AND organization_id = ?').run(id, req.session.user.organization_id); await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, task.project_id, 'task.deleted', `Tarea eliminada: ${task.title}`); res.json({ ok: true }); }
-module.exports = { list, get, create, update, status, image, remove };
+module.exports = { list, get, create, update, status, image, remove, importTasks };
