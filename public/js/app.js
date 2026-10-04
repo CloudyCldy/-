@@ -647,12 +647,12 @@ async function tasksView(){
   return `
     ${heading(canDelete?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',canManage?`<div class="actions"><button class="btn secondary" id="import-tasks">Importar CSV/XLSX</button><button class="btn" id="new-task">${icon('plus')}Nueva tarea</button></div>`:'')}
     <section class="card admin-table-card">
-      ${canDelete?`<div class="actions task-bulk-actions"><button class="btn danger" id="delete-selected-tasks" disabled>Eliminar seleccionadas (<span id="selected-task-count">0</span>)</button><button class="btn danger secondary" id="delete-all-tasks" ${tasks.length?'':'disabled'}>Eliminar todas (${tasks.length})</button></div>`:''}
+      ${canDelete?`<div class="actions task-bulk-actions"><button class="btn danger" id="delete-selected-tasks" disabled>Eliminar seleccionadas (<span id="selected-task-count">0</span>)</button><button class="btn danger secondary" id="delete-all-tasks" data-total="${tasks.length}" ${tasks.length?'':'disabled'}>Eliminar todas (${tasks.length})</button></div>`:''}
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr>
-              ${canDelete?'<th><input id="select-visible-tasks" type="checkbox" aria-label="Seleccionar tareas visibles"></th>':''}
+              ${canDelete?'<th><label class="task-checkbox"><input id="select-visible-tasks" type="checkbox" aria-label="Seleccionar tareas visibles"></label></th>':''}
               <th>Tarea / Detalle</th>
               <th>Responsable</th>
               <th>Prioridad</th>
@@ -666,7 +666,7 @@ async function tasksView(){
               const prioClass=t.priority==='critica'?'pink':t.priority==='alta'?'yellow':'';
               return `
                 <tr>
-                  ${canDelete?`<td><input class="task-row-select" type="checkbox" value="${t.id}" aria-label="Seleccionar ${esc(t.title)}"></td>`:''}
+                  ${canDelete?`<td><label class="task-checkbox"><input class="task-row-select" type="checkbox" value="${t.id}" aria-label="Seleccionar ${esc(t.title)}"></label></td>`:''}
                   <td>
                     <strong class="task-title-cell">${esc(t.title)}</strong>
                     ${t.description?`<small class="muted sub">${esc(t.description)}</small>`:''}
@@ -805,6 +805,7 @@ async function renderTasks(){
   const selectVisibleTasks=document.querySelector('#select-visible-tasks');
   const deleteSelectedTasks=document.querySelector('#delete-selected-tasks');
   const deleteAllTasks=document.querySelector('#delete-all-tasks');
+  const totalTasks=Number(deleteAllTasks?.dataset.total||0);
   const updateSelection=()=>{
     const selectedCount=selectedTaskChecks.filter(input=>input.checked).length;
     document.querySelector('#selected-task-count')?.replaceChildren(String(selectedCount));
@@ -829,7 +830,7 @@ async function renderTasks(){
     }catch(error){notify(error.message)}
   });
   deleteAllTasks?.addEventListener('click',async()=>{
-    if(!confirm(`¿Eliminar permanentemente las ${tasks.length} tareas de esta organización? Esta acción no se puede deshacer.`))return;
+    if(!confirm(`¿Eliminar permanentemente las ${totalTasks} tareas de esta organización? Esta acción no se puede deshacer.`))return;
     try{
       const result=await api('/tasks/bulk',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({all:true})});
       notify(`${result.deleted} tareas eliminadas.`);

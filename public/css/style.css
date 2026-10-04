@@ -1958,6 +1958,15 @@ input[type="radio"], input[type="checkbox"] {
   height: 16px;
   flex-shrink: 0;
 }
+.task-checkbox {
+  display: inline-flex;
+  min-width: 32px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.task-checkbox input { cursor: pointer; }
 label.card {
   display: grid;
   grid-template-columns: auto 1fr;
