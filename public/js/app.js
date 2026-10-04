@@ -642,14 +642,17 @@ async function tasksView(){
   const {items,totalPages,currentPage,totalItems}=paginateItems(tasks,'tasks');
   const canManage=['admin','project_manager','member'].includes(state.user.role);
   const isAdmin=state.user.role==='admin';
+  const canDelete=['admin','project_manager'].includes(state.user.role);
 
   return `
-    ${heading(isAdmin?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',canManage?`<div class="actions"><button class="btn secondary" id="import-tasks">Importar CSV/XLSX</button><button class="btn" id="new-task">${icon('plus')}Nueva tarea</button></div>`:'')}
+    ${heading(canDelete?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',canManage?`<div class="actions"><button class="btn secondary" id="import-tasks">Importar CSV/XLSX</button><button class="btn" id="new-task">${icon('plus')}Nueva tarea</button></div>`:'')}
     <section class="card admin-table-card">
+      ${canDelete?`<div class="actions task-bulk-actions"><button class="btn danger" id="delete-selected-tasks" disabled>Eliminar seleccionadas (<span id="selected-task-count">0</span>)</button><button class="btn danger secondary" id="delete-all-tasks" ${tasks.length?'':'disabled'}>Eliminar todas (${tasks.length})</button></div>`:''}
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr>
+              ${canDelete?'<th><input id="select-visible-tasks" type="checkbox" aria-label="Seleccionar tareas visibles"></th>':''}
               <th>Tarea / Detalle</th>
               <th>Responsable</th>
               <th>Prioridad</th>
@@ -663,6 +666,7 @@ async function tasksView(){
               const prioClass=t.priority==='critica'?'pink':t.priority==='alta'?'yellow':'';
               return `
                 <tr>
+                  ${canDelete?`<td><input class="task-row-select" type="checkbox" value="${t.id}" aria-label="Seleccionar ${esc(t.title)}"></td>`:''}
                   <td>
                     <strong class="task-title-cell">${esc(t.title)}</strong>
                     ${t.description?`<small class="muted sub">${esc(t.description)}</small>`:''}
@@ -683,12 +687,12 @@ async function tasksView(){
                     <div class="actions" style="justify-content:flex-end">
                       <button class="btn secondary mini view-task-details" data-id="${t.id}">${icon('eye')}Detalles</button>
                       ${canManage?`<button class="btn secondary mini edit-task" data-id="${t.id}">${icon('edit')}Editar</button>`:''}
-                      ${isAdmin?`<button class="btn danger mini delete-task" data-id="${t.id}">${icon('trash')}Eliminar</button>`:''}
+                      ${canDelete?`<button class="btn danger mini delete-task" data-id="${t.id}">${icon('trash')}Eliminar</button>`:''}
                     </div>
                   </td>
                 </tr>
               `;
-            }).join('')||'<tr><td colspan="6" class="empty">No hay tareas registradas todavía.</td></tr>'}
+            }).join('')||`<tr><td colspan="${canDelete?7:6}" class="empty">No hay tareas registradas todavía.</td></tr>`}
           </tbody>
         </table>
         ${paginationMarkup('tasks','renderTasks',totalPages,currentPage,totalItems)}
@@ -797,6 +801,41 @@ async function renderTasks(){
   bindPaginationControls();
   const modal=document.querySelector('#task-modal');
   const form=document.querySelector('#task-form-element');
+  const selectedTaskChecks=[...document.querySelectorAll('.task-row-select')];
+  const selectVisibleTasks=document.querySelector('#select-visible-tasks');
+  const deleteSelectedTasks=document.querySelector('#delete-selected-tasks');
+  const deleteAllTasks=document.querySelector('#delete-all-tasks');
+  const updateSelection=()=>{
+    const selectedCount=selectedTaskChecks.filter(input=>input.checked).length;
+    document.querySelector('#selected-task-count')?.replaceChildren(String(selectedCount));
+    if(deleteSelectedTasks)deleteSelectedTasks.disabled=selectedCount===0;
+    if(selectVisibleTasks){
+      selectVisibleTasks.checked=selectedTaskChecks.length>0&&selectedCount===selectedTaskChecks.length;
+      selectVisibleTasks.indeterminate=selectedCount>0&&selectedCount<selectedTaskChecks.length;
+    }
+  };
+  selectVisibleTasks?.addEventListener('change',()=>{
+    selectedTaskChecks.forEach(input=>input.checked=selectVisibleTasks.checked);
+    updateSelection();
+  });
+  selectedTaskChecks.forEach(input=>input.addEventListener('change',updateSelection));
+  deleteSelectedTasks?.addEventListener('click',async()=>{
+    const ids=selectedTaskChecks.filter(input=>input.checked).map(input=>Number(input.value));
+    if(!ids.length||!confirm(`¿Eliminar las ${ids.length} tareas seleccionadas?`))return;
+    try{
+      const result=await api('/tasks/bulk',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})});
+      notify(`${result.deleted} tareas eliminadas.`);
+      renderTasks();
+    }catch(error){notify(error.message)}
+  });
+  deleteAllTasks?.addEventListener('click',async()=>{
+    if(!confirm(`¿Eliminar permanentemente las ${tasks.length} tareas de esta organización? Esta acción no se puede deshacer.`))return;
+    try{
+      const result=await api('/tasks/bulk',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({all:true})});
+      notify(`${result.deleted} tareas eliminadas.`);
+      renderTasks();
+    }catch(error){notify(error.message)}
+  });
   const importModal=document.querySelector('#task-import-modal');
   const importForm=document.querySelector('#task-import-form');
   const importResults=document.querySelector('#task-import-results');

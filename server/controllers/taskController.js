@@ -228,4 +228,23 @@ async function image(req, res) {
   res.send(asset.content);
 }
 async function remove(req, res) { const id = taskId(req, res); if (!id) return; const database = req.app.locals.database; const task = await database.prepare('SELECT * FROM tasks WHERE id = ? AND organization_id = ?').get(id, req.session.user.organization_id); if (!task) return res.status(404).json({ error: 'La tarea no existe.' }); await database.prepare('DELETE FROM tasks WHERE id = ? AND organization_id = ?').run(id, req.session.user.organization_id); await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, task.project_id, 'task.deleted', `Tarea eliminada: ${task.title}`); res.json({ ok: true }); }
-module.exports = { list, get, create, update, status, image, remove, importTasks, downloadImportTemplate };
+async function removeMany(req, res) {
+  const database = req.app.locals.database;
+  const organizationId = req.session.user.organization_id;
+  let tasks;
+  if (req.body?.all === true) {
+    tasks = await database.prepare('SELECT id, project_id, title FROM tasks WHERE organization_id = ?').all(organizationId);
+  } else {
+    if (!Array.isArray(req.body?.ids) || !req.body.ids.length) return res.status(400).json({ error: 'Selecciona al menos una tarea.' });
+    const ids = [...new Set(req.body.ids.map(Number))];
+    if (ids.some(id => !Number.isInteger(id) || id < 1)) return res.status(400).json({ error: 'La selección contiene identificadores no válidos.' });
+    const placeholders = ids.map(() => '?').join(', ');
+    tasks = await database.prepare(`SELECT id, project_id, title FROM tasks WHERE organization_id = ? AND id IN (${placeholders})`).all(organizationId, ...ids);
+  }
+  for (const task of tasks) {
+    await database.prepare('DELETE FROM tasks WHERE id = ? AND organization_id = ?').run(task.id, organizationId);
+    await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(organizationId, req.session.user.id, task.project_id, 'task.deleted', `Tarea eliminada: ${task.title}`);
+  }
+  res.json({ deleted: tasks.length });
+}
+module.exports = { list, get, create, update, status, image, remove, removeMany, importTasks, downloadImportTemplate };
