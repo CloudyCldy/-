@@ -158,6 +158,7 @@ async function importTasks(req, res) {
   res.json(results);
 }
 
+async function update(req, res) {
   const database = req.app.locals.database;
   const id = taskId(req, res);
   if (!id) return;
