@@ -644,7 +644,7 @@ async function tasksView(){
   const isAdmin=state.user.role==='admin';
 
   return `
-    ${heading(isAdmin?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',canManage?`<button class="btn" id="new-task">${icon('plus')}Nueva tarea</button>`:'')}
+    ${heading(isAdmin?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',canManage?`<div class="actions"><button class="btn secondary" id="import-tasks">Importar CSV/XLSX</button><button class="btn" id="new-task">${icon('plus')}Nueva tarea</button></div>`:'')}
     <section class="card admin-table-card">
       <div class="table-wrap">
         <table class="table">
@@ -695,6 +695,7 @@ async function tasksView(){
       </div>
     </section>
     ${canManage?taskForm(users,projects):''}
+    ${canManage?taskImportForm(projects):''}
   `;
 }
 function taskForm(users,projects){
@@ -760,11 +761,46 @@ function taskForm(users,projects){
     </div>
   `;
 }
+function taskImportForm(projects){
+  return `
+    <div class="status-overlay" id="task-import-modal" style="display:none" role="dialog" aria-modal="true">
+      <div class="status-viewer admin-modal-panel">
+        <div class="status-viewer-head">
+          <strong>Importar tareas</strong>
+          <button type="button" class="icon-btn" id="close-task-import" aria-label="Cerrar">${icon('close')}</button>
+        </div>
+        <form class="admin-modal-form" id="task-import-form" enctype="multipart/form-data">
+          <div class="form-grid">
+            <label class="full">Proyecto
+              <select class="select" name="project_id" required>
+                <option value="">Selecciona un proyecto</option>
+                ${projects.map(project=>`<option value="${project.id}">${esc(project.name)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="full">Archivo CSV o Excel
+              <input class="input" name="file" type="file" accept=".csv,.xlsx" required>
+            </label>
+          </div>
+          <div class="actions mt-4">
+            <button class="btn" type="submit">Importar tareas</button>
+            <button class="btn secondary" type="button" id="download-task-template">Descargar plantilla CSV</button>
+            <button class="btn secondary" type="button" id="cancel-task-import">Cancelar</button>
+          </div>
+          <div class="alert mt-4" id="task-import-results" role="status" hidden></div>
+        </form>
+      </div>
+    </div>
+  `;
+}
 async function renderTasks(){
   layout(await tasksView());
   bindPaginationControls();
   const modal=document.querySelector('#task-modal');
   const form=document.querySelector('#task-form-element');
+  const importModal=document.querySelector('#task-import-modal');
+  const importForm=document.querySelector('#task-import-form');
+  const importResults=document.querySelector('#task-import-results');
+  let importedTasks=false;
   const openForm=task=>{
     form.reset();
     modal.style.display='grid';
@@ -779,7 +815,42 @@ async function renderTasks(){
     form.elements.due_date.value=task?.due_date||'';
   };
   const closeModal=()=>modal.style.display='none';
+  const closeImportModal=()=>{
+    importModal.style.display='none';
+    if(importedTasks){importedTasks=false;renderTasks()}
+  };
   document.querySelector('#new-task')?.addEventListener('click',()=>openForm());
+  document.querySelector('#import-tasks')?.addEventListener('click',()=>{
+    importForm.reset();
+    importResults.hidden=true;
+    importResults.textContent='';
+    importModal.style.display='grid';
+  });
+  document.querySelector('#close-task-import')?.addEventListener('click',closeImportModal);
+  document.querySelector('#cancel-task-import')?.addEventListener('click',closeImportModal);
+  importModal.onclick=e=>{if(e.target===importModal)closeImportModal()};
+  document.querySelector('#download-task-template')?.addEventListener('click',()=>{
+    const blob=new Blob(['title,description,priority,status,start_date,due_date\n'],{type:'text/csv;charset=utf-8'});
+    const link=document.createElement('a');
+    link.href=URL.createObjectURL(blob);
+    link.download='plantilla-tareas.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  });
+  importForm?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const button=importForm.querySelector('button[type="submit"]');
+    button.disabled=true;
+    try{
+      const result=await api('/tasks/import',{method:'POST',body:new FormData(importForm)});
+      const errors=result.errors||[];
+      importResults.innerHTML=`<strong>${result.created} tareas creadas.</strong>${errors.length?`<ul>${errors.slice(0,10).map(item=>`<li>Fila ${item.row}: ${esc(item.error)}</li>`).join('')}</ul>`:''}`;
+      importResults.hidden=false;
+      importedTasks=result.created>0;
+      if(errors.length)notify(`${errors.length} fila(s) no se pudieron importar.`);
+    }catch(error){notify(error.message)}
+    finally{button.disabled=false}
+  });
   document.querySelector('#cancel-task')?.addEventListener('click',closeModal);
   document.querySelector('#cancel-task-btn')?.addEventListener('click',closeModal);
   modal.onclick=e=>{if(e.target===modal)closeModal()};

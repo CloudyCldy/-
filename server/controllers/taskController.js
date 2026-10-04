@@ -76,10 +76,10 @@ async function importTasks(req, res) {
       });
     } else if (ext === 'xlsx' || ext === 'xls') {
       const xlsx = require('xlsx');
-      const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+      const workbook = xlsx.read(req.file.buffer, { type: 'buffer', cellDates: true });
       const firstSheet = workbook.SheetNames[0];
       const sheet = workbook.Sheets[firstSheet];
-      rows = xlsx.utils.sheet_to_json(sheet);
+      rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
     } else {
       return res.status(400).json({ error: 'Formato de archivo no soportado. Use .csv o .xlsx.' });
     }
@@ -87,46 +87,54 @@ async function importTasks(req, res) {
     return res.status(500).json({ error: 'Error al procesar el archivo.', details: e.message });
   }
 
+  if (!rows.length) return res.status(400).json({ error: 'El archivo no contiene filas de datos.' });
   const results = { created: 0, errors: [] };
   for (const [index, row] of rows.entries()) {
-    // Expected keys (case‑insensitive): title, description, assigned_to, priority, start_date, due_date, status, project_id
-    const {
-      title,
-      description = '',
-      assigned_to,
-      priority = 'media',
-      start_date,
-      due_date,
-      status = 'pendiente',
-      project_id
-    } = row;
+    const fields = Object.fromEntries(Object.entries(row).map(([key, value]) => [
+      String(key).replace(/^\uFEFF/, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/[\s-]+/g, '_'),
+      value
+    ]));
+    const title = fields.title ?? fields.titulo;
+    const description = fields.description ?? fields.descripcion ?? '';
+    const assignedTo = fields.assigned_to ?? fields.responsable_id;
+    const priority = String(fields.priority ?? fields.prioridad ?? 'media').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    const status = String(fields.status ?? fields.estado ?? 'pendiente').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, '_');
+    const projectId = Number(fields.project_id || req.body.project_id);
+    const startDate = fields.start_date ?? fields.fecha_inicio ?? '';
+    const dueDate = fields.due_date ?? fields.fecha_entrega ?? '';
+    const formatDate = value => value instanceof Date ? value.toISOString().slice(0, 10) : (String(value || '').trim() || null);
+    const normalizedStartDate = formatDate(startDate);
+    const normalizedDueDate = formatDate(dueDate);
     if (!title || !String(title).trim()) {
-      results.errors.push({ row: index + 1, error: 'Título vacío.' });
+      results.errors.push({ row: index + 2, error: 'Título vacío.' });
       continue;
     }
-    const projectId = Number(project_id);
     if (!Number.isInteger(projectId) || projectId < 1) {
-      results.errors.push({ row: index + 1, error: 'project_id inválido.' });
+      results.errors.push({ row: index + 2, error: 'Proyecto no válido.' });
       continue;
     }
     if (!TASK_PRIORITIES.has(priority)) {
-      results.errors.push({ row: index + 1, error: 'Prioridad no válida.' });
+      results.errors.push({ row: index + 2, error: 'Prioridad no válida.' });
       continue;
     }
     if (!TASK_STATUSES.has(status)) {
-      results.errors.push({ row: index + 1, error: 'Estado no válido.' });
+      results.errors.push({ row: index + 2, error: 'Estado no válido.' });
+      continue;
+    }
+    if ([normalizedStartDate, normalizedDueDate].some(date => date && !/^\d{4}-\d{2}-\d{2}$/.test(date))) {
+      results.errors.push({ row: index + 2, error: 'Las fechas deben tener formato AAAA-MM-DD.' });
       continue;
     }
     const project = await database.prepare('SELECT id FROM projects WHERE id = ? AND organization_id = ?').get(projectId, req.session.user.organization_id);
     if (!project) {
-      results.errors.push({ row: index + 1, error: 'Proyecto no pertenece a la organización.' });
+      results.errors.push({ row: index + 2, error: 'Proyecto no pertenece a la organización.' });
       continue;
     }
     let assignee = null;
-    if (assigned_to) {
-      assignee = await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(Number(assigned_to), req.session.user.organization_id);
+    if (assignedTo) {
+      assignee = await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(Number(assignedTo), req.session.user.organization_id);
       if (!assignee) {
-        results.errors.push({ row: index + 1, error: 'Responsable no válido.' });
+        results.errors.push({ row: index + 2, error: 'Responsable no válido.' });
         continue;
       }
     }
@@ -139,8 +147,8 @@ async function importTasks(req, res) {
         description,
         assignee ? assignee.id : null,
         priority,
-        start_date || null,
-        due_date || null,
+        normalizedStartDate,
+        normalizedDueDate,
         status
       );
       await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(
@@ -152,7 +160,7 @@ async function importTasks(req, res) {
       );
       results.created++;
     } catch (e) {
-      results.errors.push({ row: index + 1, error: 'Error de base de datos.', details: e.message });
+      results.errors.push({ row: index + 2, error: 'Error de base de datos.', details: e.message });
     }
   }
   res.json(results);
