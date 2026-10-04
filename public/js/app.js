@@ -1089,7 +1089,15 @@ async function renderProfile(){
       notify(error.message);
     }
   };
+   // OAuth button listeners
+   document.querySelector('#connect-github')?.addEventListener('click', () => {
+     location.href = '/api/oauth/github/init';
+   });
+   document.querySelector('#connect-gitlab')?.addEventListener('click', () => {
+     location.href = '/api/oauth/gitlab/init';
+   });
 }
+
 async function members(){
   const users=await api('/users');
   const membersList=users.filter(u=>u.role==='member');
