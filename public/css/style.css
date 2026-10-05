@@ -2585,6 +2585,7 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .gantt-dot{display:inline-block;width:9px;height:9px;margin-right:6px;border-radius:50%;background:var(--color-mist-gray)}
 .gantt-dot.en_proceso{background:var(--color-blush-peach)}.gantt-dot.completada{background:var(--color-ink-black)}
 .gantt-popover{position:fixed;z-index:20;background:var(--color-paper-white);border:1px solid var(--line);border-radius:var(--radius-inputs);padding:var(--sp-4);min-width:240px;box-shadow:var(--shadow-subtle-3)}
+.task-detail-popover{width:min(360px,calc(100vw - 16px));min-width:0;box-sizing:border-box}
 .gantt-popover strong{display:block;margin-bottom:var(--sp-2)}
 .task-detail-header{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);margin-bottom:var(--sp-3)}
 .task-detail-header strong{margin:0;font-family:var(--font-signifier);font-weight:400;font-size:17px}

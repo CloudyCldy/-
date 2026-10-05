@@ -937,11 +937,24 @@ async function renderTasks(){
         </div>
       `;
       document.body.append(popover);
-      const close=()=>popover.remove();
+      const rect=button.getBoundingClientRect();
+      const margin=8;
+      const left=Math.max(margin,Math.min(rect.left,window.innerWidth-popover.offsetWidth-margin));
+      const below=rect.bottom+margin;
+      const top=below+popover.offsetHeight<=window.innerHeight-margin
+        ?below
+        :Math.max(margin,rect.top-popover.offsetHeight-margin);
+      popover.style.left=`${left}px`;
+      popover.style.top=`${top}px`;
+      const close=()=>{
+        popover.remove();
+        document.removeEventListener('pointerdown',onOutside);
+      };
+      const onOutside=event=>{
+        if(!popover.contains(event.target)&&!button.contains(event.target))close();
+      };
       popover.querySelector('.task-detail-close').onclick=close;
-      document.addEventListener('pointerdown',function onOutside(event){
-        if(!popover.contains(event.target)){close();document.removeEventListener('pointerdown',onOutside)}
-      });
+      setTimeout(()=>document.addEventListener('pointerdown',onOutside),0);
     }catch(error){notify(error.message)}
   });
   document.querySelectorAll('.edit-task').forEach(button=>button.onclick=async()=>{
