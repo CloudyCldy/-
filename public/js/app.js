@@ -655,7 +655,7 @@ async function tasksView(){
               <th>Tarea</th>
               <th>Asignado</th>
               <th>Importancia</th>
-              <th>Fecha</th>
+              <th style="text-align:right">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -665,13 +665,19 @@ async function tasksView(){
                 <tr>
                   ${canDelete?`<td><label class="task-checkbox"><input class="task-row-select" type="checkbox" value="${t.id}" aria-label="Seleccionar ${esc(t.title)}"></label></td>`:''}
                   <td>
-                    <button type="button" class="task-title-cell view-task-details" data-id="${t.id}">${esc(t.title)}</button>
+                    <strong class="task-title-cell">${esc(t.title)}</strong>
                   </td>
                   <td>
                     <span class="user-chip-mini">${avatarMarkup({name:t.assignee_name||'S'},'avatar mini')}${esc(t.assignee_name||'Sin asignar')}</span>
                   </td>
                   <td><span class="badge ${prioClass}">${esc(t.priority)}</span></td>
-                  <td><span class="due-date-cell">${esc(t.due_date||'Sin fecha')}</span></td>
+                  <td>
+                    <div class="actions task-row-actions" style="justify-content:flex-end">
+                      <button type="button" class="btn secondary mini view-task-details" data-id="${t.id}">${icon('eye')}Detalle</button>
+                      ${canManage?`<button type="button" class="btn secondary mini edit-task" data-id="${t.id}">${icon('edit')}Editar</button>`:''}
+                      ${canDelete?`<button type="button" class="btn danger mini delete-task" data-id="${t.id}">${icon('trash')}Eliminar</button>`:''}
+                    </div>
+                  </td>
                 </tr>
               `;
             }).join('')||`<tr><td colspan="${canDelete?5:4}" class="empty">No hay tareas registradas todavía.</td></tr>`}
