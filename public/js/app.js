@@ -673,9 +673,9 @@ async function tasksView(){
                   <td><span class="badge ${prioClass}">${esc(t.priority)}</span></td>
                   <td>
                     <div class="actions task-row-actions" style="justify-content:flex-end">
-                      <button type="button" class="btn secondary mini view-task-details" data-id="${t.id}">${icon('eye')}Detalle</button>
-                      ${canManage?`<button type="button" class="btn secondary mini edit-task" data-id="${t.id}">${icon('edit')}Editar</button>`:''}
-                      ${canDelete?`<button type="button" class="btn danger mini delete-task" data-id="${t.id}">${icon('trash')}Eliminar</button>`:''}
+                      <button type="button" class="btn secondary mini task-icon-action view-task-details" data-id="${t.id}" title="Ver detalle" aria-label="Ver detalle">${icon('eye')}</button>
+                      ${canManage?`<button type="button" class="btn secondary mini task-icon-action edit-task" data-id="${t.id}" title="Editar tarea" aria-label="Editar tarea">${icon('edit')}</button>`:''}
+                      ${canDelete?`<button type="button" class="btn danger mini task-icon-action delete-task" data-id="${t.id}" title="Eliminar tarea" aria-label="Eliminar tarea">${icon('trash')}</button>`:''}
                     </div>
                   </td>
                 </tr>
