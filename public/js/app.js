@@ -74,6 +74,7 @@ function paginationMarkup(pageKey, renderName, totalPages, currentPage, totalIte
   const nextPage = Math.min(totalPages, currentPage + 1);
   const prevIcon = '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12 4.5 6.5 10l5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const nextIcon = '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M8 4.5 13.5 10 8 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const ellipsisIcon = '<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg>';
 
   const pages = [];
   if (totalPages <= 5) {
@@ -87,17 +88,43 @@ function paginationMarkup(pageKey, renderName, totalPages, currentPage, totalIte
   }
 
   const controls = pages.map(item => {
-    if (item === 'ellipsis') return '<span class="page-btn ellipsis" aria-hidden="true">...</span>';
+    if (item === 'ellipsis') {
+      return `<li class="pagination-item"><span class="pagination-ellipsis page-btn ellipsis" aria-hidden="true">${ellipsisIcon}</span></li>`;
+    }
 
     const page = Number(item);
     const isActive = page === currentPage;
-    return `<button type="button" class="page-btn ${isActive ? 'active' : ''}" data-page-key="${pageKey}" data-page="${page}" data-render="${renderName}" aria-label="Ir a la página ${page}" ${isActive ? 'aria-current="page"' : ''}>${page}</button>`;
+    return `<li class="pagination-item"><button type="button" class="pagination-link page-btn ${isActive ? 'active is-active' : ''}" data-page-key="${pageKey}" data-page="${page}" data-render="${renderName}" aria-label="Ir a la página ${page}" ${isActive ? 'aria-current="page"' : ''}>${page}</button></li>`;
   }).join('');
 
-  return `<nav class="list-pagination" aria-label="Paginación"><div class="page-controls"><button type="button" class="page-btn nav text" data-page-key="${pageKey}" data-page="${prevPage}" data-render="${renderName}" aria-label="Página anterior" title="Página anterior" ${currentPage === 1 ? 'disabled' : ''}>${prevIcon}<span>Previous</span></button>${controls}<button type="button" class="page-btn nav text" data-page-key="${pageKey}" data-page="${nextPage}" data-render="${renderName}" aria-label="Página siguiente" title="Página siguiente" ${currentPage === totalPages ? 'disabled' : ''}><span>Next</span>${nextIcon}</button></div></nav>`;
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(totalItems, currentPage * pageSize);
+
+  return `
+    <nav class="pagination list-pagination" role="navigation" aria-label="Paginación">
+      <div class="pagination-meta list-pagination-meta">
+        <span>Mostrando <strong>${startItem}–${endItem}</strong> de <strong>${totalItems}</strong></span>
+      </div>
+      <ul class="pagination-content page-controls">
+        <li class="pagination-item">
+          <button type="button" class="pagination-link pagination-prev page-btn nav text" data-page-key="${pageKey}" data-page="${prevPage}" data-render="${renderName}" aria-label="Página anterior" title="Página anterior" ${currentPage === 1 ? 'disabled' : ''}>
+            ${prevIcon}
+            <span>Anterior</span>
+          </button>
+        </li>
+        ${controls}
+        <li class="pagination-item">
+          <button type="button" class="pagination-link pagination-next page-btn nav text" data-page-key="${pageKey}" data-page="${nextPage}" data-render="${renderName}" aria-label="Página siguiente" title="Página siguiente" ${currentPage === totalPages ? 'disabled' : ''}>
+            <span>Siguiente</span>
+            ${nextIcon}
+          </button>
+        </li>
+      </ul>
+    </nav>
+  `;
 }
 function bindPaginationControls() {
-  document.querySelectorAll('.page-btn[data-page]').forEach(button => {
+  document.querySelectorAll('.page-btn[data-page], .pagination-link[data-page]').forEach(button => {
     button.onclick = () => {
       const page = Number(button.dataset.page);
       if (!page || button.disabled) return;
@@ -678,21 +705,26 @@ async function tasksView(){
     ${heading(canDelete?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',canManage?`<div class="actions"><button class="btn secondary" id="import-tasks">Importar CSV/XLSX</button><button class="btn" id="new-task">${icon('plus')}Nueva tarea</button></div>`:'')}
     <section class="card admin-table-card">
       <div class="task-list-toolbar">
-        <div class="task-toolbar-search">
-          <span class="task-toolbar-icon">${icon('search')}</span>
-          <input id="task-search-input" class="input" type="search" value="${esc(taskSearch)}" placeholder="Buscar tareas..." aria-label="Buscar tareas">
+        <div class="task-toolbar-main">
+          <div class="task-toolbar-search">
+            <span class="task-toolbar-icon">${icon('search')}</span>
+            <input id="task-search-input" class="input task-search-field" type="search" value="${esc(taskSearch)}" placeholder="Buscar tareas por título, responsable, descripción..." aria-label="Buscar tareas">
+            ${taskSearch ? `<button type="button" class="task-search-clear" id="task-search-clear" aria-label="Limpiar búsqueda" title="Limpiar búsqueda">${icon('close')}</button>` : `<kbd class="task-search-kbd" title="Presiona / para buscar">/</kbd>`}
+          </div>
+          <span class="task-count-tag">${filteredTasks.length} ${filteredTasks.length === 1 ? 'tarea' : 'tareas'}${filteredTasks.length !== tasks.length ? ` de ${tasks.length}` : ''}</span>
         </div>
         <div class="task-toolbar-filters">
-          <select id="task-status-filter" class="select" aria-label="Filtrar por estado">
+          <select id="task-status-filter" class="select ${taskStatusFilter ? 'has-value' : ''}" aria-label="Filtrar por estado">
             <option value="">Todos los estados</option>
             <option value="pendiente" ${taskStatusFilter === 'pendiente' ? 'selected' : ''}>Pendiente</option>
             <option value="en_proceso" ${taskStatusFilter === 'en_proceso' ? 'selected' : ''}>En proceso</option>
             <option value="completada" ${taskStatusFilter === 'completada' ? 'selected' : ''}>Completada</option>
           </select>
-          <select id="task-assignee-filter" class="select" aria-label="Filtrar por responsable">
+          <select id="task-assignee-filter" class="select ${taskAssigneeFilter ? 'has-value' : ''}" aria-label="Filtrar por responsable">
             <option value="">Todos los responsables</option>
             ${assigneeOptions.map(user => `<option value="${esc(user.id)}" ${taskAssigneeFilter === String(user.id) ? 'selected' : ''}>${esc(user.name)}</option>`).join('')}
           </select>
+          ${(taskSearch || taskStatusFilter || taskAssigneeFilter) ? `<button type="button" class="task-reset-btn" id="task-reset-filters" title="Limpiar todos los filtros">${icon('close')}<span>Limpiar</span></button>` : ''}
         </div>
       </div>
       ${canDelete?`<div class="actions task-bulk-actions"><button class="btn danger" id="delete-selected-tasks" disabled>Eliminar seleccionadas (<span id="selected-task-count">0</span>)</button><button class="btn danger secondary" id="delete-all-tasks" data-total="${tasks.length}" ${tasks.length?'':'disabled'}>Eliminar todas (${tasks.length})</button></div>`:''}
@@ -833,16 +865,41 @@ function taskImportForm(projects){
     </div>
   `;
 }
-async function renderTasks(){
+async function renderTasks(focusSearchCursor = null){
   layout(await tasksView());
   const taskSearchInput=document.querySelector('#task-search-input');
   const taskStatusSelect=document.querySelector('#task-status-filter');
   const taskAssigneeSelect=document.querySelector('#task-assignee-filter');
+  const taskSearchClear=document.querySelector('#task-search-clear');
+  const taskResetFilters=document.querySelector('#task-reset-filters');
+
+  if (focusSearchCursor !== null && taskSearchInput) {
+    taskSearchInput.focus();
+    const pos = Math.min(focusSearchCursor, taskSearchInput.value.length);
+    taskSearchInput.setSelectionRange(pos, pos);
+  }
+
   taskSearchInput?.addEventListener('input', event => {
     taskSearch = event.target.value;
     state.listPages.tasks = 1;
+    const cursor = event.target.selectionStart;
+    renderTasks(cursor);
+  });
+
+  taskSearchClear?.addEventListener('click', () => {
+    taskSearch = '';
+    state.listPages.tasks = 1;
+    renderTasks(0);
+  });
+
+  taskResetFilters?.addEventListener('click', () => {
+    taskSearch = '';
+    taskStatusFilter = '';
+    taskAssigneeFilter = '';
+    state.listPages.tasks = 1;
     renderTasks();
   });
+
   taskStatusSelect?.addEventListener('change', event => {
     taskStatusFilter = event.target.value;
     state.listPages.tasks = 1;
@@ -853,6 +910,23 @@ async function renderTasks(){
     state.listPages.tasks = 1;
     renderTasks();
   });
+
+  const handleTaskKeydown = (e) => {
+    if (e.key === '/' && document.activeElement !== taskSearchInput && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+      e.preventDefault();
+      taskSearchInput?.focus();
+      taskSearchInput?.select();
+    } else if (e.key === 'Escape' && document.activeElement === taskSearchInput) {
+      if (taskSearch) {
+        taskSearch = '';
+        state.listPages.tasks = 1;
+        renderTasks(0);
+      } else {
+        taskSearchInput.blur();
+      }
+    }
+  };
+  window.addEventListener('keydown', handleTaskKeydown, { once: true });
   bindPaginationControls();
   const modal=document.querySelector('#task-modal');
   const form=document.querySelector('#task-form-element');

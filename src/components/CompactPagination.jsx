@@ -8,7 +8,8 @@ import {
   PaginationPrevious,
   PaginationNext,
   PaginationEllipsis,
-} from "@/components/ui/pagination";
+} from "./ui/pagination";
+export { PaginationSimple } from "./PaginationSimple";
 
 /**
  * Props
