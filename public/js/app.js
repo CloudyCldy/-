@@ -641,7 +641,6 @@ async function tasksView(){
   const projects=await api('/projects');
   const {items,totalPages,currentPage,totalItems}=paginateItems(tasks,'tasks');
   const canManage=['admin','project_manager','member'].includes(state.user.role);
-  const isAdmin=state.user.role==='admin';
   const canDelete=['admin','project_manager'].includes(state.user.role);
 
   return `
@@ -649,16 +648,14 @@ async function tasksView(){
     <section class="card admin-table-card">
       ${canDelete?`<div class="actions task-bulk-actions"><button class="btn danger" id="delete-selected-tasks" disabled>Eliminar seleccionadas (<span id="selected-task-count">0</span>)</button><button class="btn danger secondary" id="delete-all-tasks" data-total="${tasks.length}" ${tasks.length?'':'disabled'}>Eliminar todas (${tasks.length})</button></div>`:''}
       <div class="table-wrap">
-        <table class="table">
+        <table class="table task-list-table">
           <thead>
             <tr>
               ${canDelete?'<th><label class="task-checkbox"><input id="select-visible-tasks" type="checkbox" aria-label="Seleccionar tareas visibles"></label></th>':''}
-              <th>Tarea / Detalle</th>
-              <th>Responsable</th>
-              <th>Prioridad</th>
-              <th>Estado</th>
-              <th>Entrega</th>
-              <th style="text-align:right">Acciones</th>
+              <th>Tarea</th>
+              <th>Asignado</th>
+              <th>Importancia</th>
+              <th>Fecha</th>
             </tr>
           </thead>
           <tbody>
@@ -668,31 +665,16 @@ async function tasksView(){
                 <tr>
                   ${canDelete?`<td><label class="task-checkbox"><input class="task-row-select" type="checkbox" value="${t.id}" aria-label="Seleccionar ${esc(t.title)}"></label></td>`:''}
                   <td>
-                    <strong class="task-title-cell">${esc(t.title)}</strong>
-                    ${t.description?`<small class="muted sub">${esc(t.description)}</small>`:''}
+                    <button type="button" class="task-title-cell view-task-details" data-id="${t.id}">${esc(t.title)}</button>
                   </td>
                   <td>
                     <span class="user-chip-mini">${avatarMarkup({name:t.assignee_name||'S'},'avatar mini')}${esc(t.assignee_name||'Sin asignar')}</span>
                   </td>
                   <td><span class="badge ${prioClass}">${esc(t.priority)}</span></td>
-                  <td>
-                    <select class="select status-select-styled" data-id="${t.id}">
-                      <option value="pendiente" ${t.status==='pendiente'?'selected':''}>Pendiente</option>
-                      <option value="en_proceso" ${t.status==='en_proceso'?'selected':''}>En proceso</option>
-                      <option value="completada" ${t.status==='completada'?'selected':''}>Completada</option>
-                    </select>
-                  </td>
                   <td><span class="due-date-cell">${esc(t.due_date||'Sin fecha')}</span></td>
-                  <td style="text-align:right">
-                    <div class="actions" style="justify-content:flex-end">
-                      <button class="btn secondary mini view-task-details" data-id="${t.id}">${icon('eye')}Detalles</button>
-                      ${canManage?`<button class="btn secondary mini edit-task" data-id="${t.id}">${icon('edit')}Editar</button>`:''}
-                      ${canDelete?`<button class="btn danger mini delete-task" data-id="${t.id}">${icon('trash')}Eliminar</button>`:''}
-                    </div>
-                  </td>
                 </tr>
               `;
-            }).join('')||`<tr><td colspan="${canDelete?7:6}" class="empty">No hay tareas registradas todavía.</td></tr>`}
+            }).join('')||`<tr><td colspan="${canDelete?5:4}" class="empty">No hay tareas registradas todavía.</td></tr>`}
           </tbody>
         </table>
         ${paginationMarkup('tasks','renderTasks',totalPages,currentPage,totalItems)}
@@ -801,6 +783,8 @@ async function renderTasks(){
   bindPaginationControls();
   const modal=document.querySelector('#task-modal');
   const form=document.querySelector('#task-form-element');
+  const canManage=['admin','project_manager','member'].includes(state.user.role);
+  const canDelete=['admin','project_manager'].includes(state.user.role);
   const selectedTaskChecks=[...document.querySelectorAll('.task-row-select')];
   const selectVisibleTasks=document.querySelector('#select-visible-tasks');
   const deleteSelectedTasks=document.querySelector('#delete-selected-tasks');
@@ -846,6 +830,7 @@ async function renderTasks(){
     modal.style.display='grid';
     document.querySelector('#task-form-title').textContent=task?'Editar tarea':'Nueva tarea';
     form.elements.id.value=task?.id||'';
+    form.elements.project_id.value=task?.project_id||'';
     form.elements.title.value=task?.title||'';
     form.elements.description.value=task?.description||'';
     form.elements.assigned_to.value=task?.assigned_to||'';
@@ -935,6 +920,7 @@ async function renderTasks(){
           <span>Descripción</span>
           <p>${esc(task.description || 'Sin descripción adicional.')}</p>
         </div>
+        ${canManage?`<div class="actions task-detail-actions"><button type="button" class="btn secondary edit-task-detail">${icon('edit')}Editar</button>${canDelete?`<button type="button" class="btn danger delete-task-detail">${icon('trash')}Eliminar</button>`:''}</div>`:''}
       `;
       document.body.append(popover);
       const rect=button.getBoundingClientRect();
@@ -954,6 +940,16 @@ async function renderTasks(){
         if(!popover.contains(event.target)&&!button.contains(event.target))close();
       };
       popover.querySelector('.task-detail-close').onclick=close;
+      popover.querySelector('.edit-task-detail')?.addEventListener('click',()=>{close();openForm(task)});
+      popover.querySelector('.delete-task-detail')?.addEventListener('click',async()=>{
+        if(!confirm('¿Deseas eliminar esta tarea permanentemente?'))return;
+        try{
+          await api(`/tasks/${task.id}`,{method:'DELETE'});
+          notify('Tarea eliminada');
+          close();
+          renderTasks();
+        }catch(error){notify(error.message)}
+      });
       setTimeout(()=>document.addEventListener('pointerdown',onOutside),0);
     }catch(error){notify(error.message)}
   });
