@@ -1569,7 +1569,7 @@ label {
   padding: 0;
   min-width: 18px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 50%;
   font-size: 14px;
   font-weight: 500;
   line-height: 1;
@@ -1589,22 +1589,23 @@ label {
   border-color: rgba(255, 255, 255, 0.06);
   min-width: 34px;
   padding: 0 10px;
-  border-radius: 10px;
+  border-radius: 50%;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 .page-btn.nav {
-  min-width: 140px;
-  gap: 6px;
-  padding: 0 22px;
+  min-width: 34px;
+  width: 34px;
+  height: 34px;
+  gap: 0;
+  padding: 0;
   color: #f3e8db;
   background: rgba(92, 99, 109, 0.55);
-  border-radius: 12px;
+  border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 .page-btn.nav.text span {
-  font-size: 13px;
-  font-weight: 500;
+  display: none;
 }
 .page-btn.nav svg {
   width: 12px;
