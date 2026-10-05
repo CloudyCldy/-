@@ -668,10 +668,11 @@ async function tasksView(){
   const {items,totalPages,currentPage,totalItems}=paginateItems(filteredTasks,'tasks');
   const canManage=['admin','project_manager','member'].includes(state.user.role);
   const canDelete=['admin','project_manager'].includes(state.user.role);
-  const assigneeOptions = [...new Map(tasks
-    .filter(task => task.assignee_name)
-    .map(task => [String(task.assigned_to ?? ''), { id: String(task.assigned_to ?? ''), name: task.assignee_name }]))
-    .map(([, value]) => value)];
+  const assigneeOptions = [...new Map(
+    tasks
+      .filter(task => task.assignee_name)
+      .map(task => [String(task.assigned_to ?? ''), { id: String(task.assigned_to ?? ''), name: task.assignee_name }])
+  ).values()];
 
   return `
     ${heading(canDelete?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',canManage?`<div class="actions"><button class="btn secondary" id="import-tasks">Importar CSV/XLSX</button><button class="btn" id="new-task">${icon('plus')}Nueva tarea</button></div>`:'')}
