@@ -1731,6 +1731,43 @@ label {
 .task-list-table th, .task-list-table td { padding: 8px 12px; }
 .task-list-table td:first-child { white-space: normal; }
 .task-list-table .task-title-cell { white-space: normal; overflow-wrap: anywhere; }
+.task-list-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 0;
+  flex-wrap: wrap;
+}
+.task-toolbar-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 260px;
+  min-width: 220px;
+}
+.task-toolbar-search .input {
+  width: 100%;
+  padding-left: 36px;
+}
+.task-toolbar-icon {
+  position: absolute;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-slate-gray);
+  pointer-events: none;
+}
+.task-toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.task-toolbar-filters .select {
+  min-width: 150px;
+}
 .task-bulk-actions { gap: 6px; padding: 8px 10px; }
 .task-bulk-actions .btn { min-height: 30px; padding: 5px 10px; font-size: 11px; }
 .task-row-actions { flex-wrap: nowrap; gap: 4px; }

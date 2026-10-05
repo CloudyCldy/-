@@ -111,6 +111,9 @@ function blockedView(reason='Tu dirección IP no puede acceder a esta aplicació
 let currentTheme = localStorage.getItem('haitani-theme') || 'ran';
 let notificationTimer;
 document.documentElement.dataset.theme = currentTheme;
+let taskSearch = '';
+let taskStatusFilter = '';
+let taskAssigneeFilter = '';
 let ganttStatusFilter = '';
 let ganttAssigneeFilter = '';
 let ganttCalendarMonth = (() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d })();
@@ -655,13 +658,42 @@ async function tasksView(){
   const tasks=await api('/tasks');
   const users=['admin','project_manager'].includes(state.user.role)?await api('/users'):[];
   const projects=await api('/projects');
-  const {items,totalPages,currentPage,totalItems}=paginateItems(tasks,'tasks');
+  const normalizedSearch = taskSearch.trim().toLowerCase();
+  const filteredTasks = tasks.filter(task => {
+    const matchesSearch = !normalizedSearch || [task.title, task.description, task.assignee_name, task.status, task.priority].filter(Boolean).some(value => String(value).toLowerCase().includes(normalizedSearch));
+    const matchesStatus = !taskStatusFilter || String(task.status) === String(taskStatusFilter);
+    const matchesAssignee = !taskAssigneeFilter || String(task.assigned_to ?? '') === String(taskAssigneeFilter);
+    return matchesSearch && matchesStatus && matchesAssignee;
+  });
+  const {items,totalPages,currentPage,totalItems}=paginateItems(filteredTasks,'tasks');
   const canManage=['admin','project_manager','member'].includes(state.user.role);
   const canDelete=['admin','project_manager'].includes(state.user.role);
+  const assigneeOptions = [...new Map(tasks
+    .filter(task => task.assignee_name)
+    .map(task => [String(task.assigned_to ?? ''), { id: String(task.assigned_to ?? ''), name: task.assignee_name }]))
+    .map(([, value]) => value)];
 
   return `
     ${heading(canDelete?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',canManage?`<div class="actions"><button class="btn secondary" id="import-tasks">Importar CSV/XLSX</button><button class="btn" id="new-task">${icon('plus')}Nueva tarea</button></div>`:'')}
     <section class="card admin-table-card">
+      <div class="task-list-toolbar">
+        <div class="task-toolbar-search">
+          <span class="task-toolbar-icon">${icon('search')}</span>
+          <input id="task-search-input" class="input" type="search" value="${esc(taskSearch)}" placeholder="Buscar tareas..." aria-label="Buscar tareas">
+        </div>
+        <div class="task-toolbar-filters">
+          <select id="task-status-filter" class="select" aria-label="Filtrar por estado">
+            <option value="">Todos los estados</option>
+            <option value="pendiente" ${taskStatusFilter === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+            <option value="en_proceso" ${taskStatusFilter === 'en_proceso' ? 'selected' : ''}>En proceso</option>
+            <option value="completada" ${taskStatusFilter === 'completada' ? 'selected' : ''}>Completada</option>
+          </select>
+          <select id="task-assignee-filter" class="select" aria-label="Filtrar por responsable">
+            <option value="">Todos los responsables</option>
+            ${assigneeOptions.map(user => `<option value="${esc(user.id)}" ${taskAssigneeFilter === String(user.id) ? 'selected' : ''}>${esc(user.name)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
       ${canDelete?`<div class="actions task-bulk-actions"><button class="btn danger" id="delete-selected-tasks" disabled>Eliminar seleccionadas (<span id="selected-task-count">0</span>)</button><button class="btn danger secondary" id="delete-all-tasks" data-total="${tasks.length}" ${tasks.length?'':'disabled'}>Eliminar todas (${tasks.length})</button></div>`:''}
       <div class="table-wrap">
         <table class="table task-list-table">
@@ -696,7 +728,7 @@ async function tasksView(){
                   </td>
                 </tr>
               `;
-            }).join('')||`<tr><td colspan="${canDelete?5:4}" class="empty">No hay tareas registradas todavía.</td></tr>`}
+            }).join('')||`<tr><td colspan="${canDelete?5:4}" class="empty">${filteredTasks.length===0 ? 'No hay tareas que coincidan con los filtros.' : 'No hay tareas registradas todavía.'}</td></tr>`}
           </tbody>
         </table>
         ${paginationMarkup('tasks','renderTasks',totalPages,currentPage,totalItems)}
@@ -802,6 +834,24 @@ function taskImportForm(projects){
 }
 async function renderTasks(){
   layout(await tasksView());
+  const taskSearchInput=document.querySelector('#task-search-input');
+  const taskStatusSelect=document.querySelector('#task-status-filter');
+  const taskAssigneeSelect=document.querySelector('#task-assignee-filter');
+  taskSearchInput?.addEventListener('input', event => {
+    taskSearch = event.target.value;
+    state.listPages.tasks = 1;
+    renderTasks();
+  });
+  taskStatusSelect?.addEventListener('change', event => {
+    taskStatusFilter = event.target.value;
+    state.listPages.tasks = 1;
+    renderTasks();
+  });
+  taskAssigneeSelect?.addEventListener('change', event => {
+    taskAssigneeFilter = event.target.value;
+    state.listPages.tasks = 1;
+    renderTasks();
+  });
   bindPaginationControls();
   const modal=document.querySelector('#task-modal');
   const form=document.querySelector('#task-form-element');
