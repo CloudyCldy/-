@@ -1548,26 +1548,29 @@ label {
 }
 .list-pagination {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   gap: var(--sp-3);
   flex-wrap: wrap;
-  padding: var(--sp-4) 4px var(--sp-2);
-  border-top: 1px solid var(--line);
+  padding: var(--sp-3) 0 var(--sp-2);
   margin-top: var(--sp-4);
 }
-.list-pagination-meta { color: var(--color-slate-gray); font-size: 13px; }
-.page-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.page-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .page-btn {
-  border: 1px solid var(--line);
-  background: var(--color-paper-white);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--color-ink-black);
   padding: 0;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  border-radius: 50%;
-  font-size: 13px;
+  min-width: 18px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1;
   display: inline-flex;
@@ -1576,24 +1579,47 @@ label {
   flex-shrink: 0;
   transition: all .15s var(--ease);
 }
-.page-btn:not(:disabled):hover {
-  background: var(--color-mist-gray);
-  border-color: var(--color-ink-black);
+.page-btn:not(.ellipsis):not(:disabled):hover {
+  color: var(--color-ink-black);
+  background: rgba(18, 20, 23, 0.04);
 }
 .page-btn.active {
-  background: var(--color-ink-black);
-  color: var(--color-paper-white);
-  border-color: var(--color-ink-black);
-  box-shadow: 0 2px 6px rgba(18, 20, 23, 0.2);
+  background: rgba(18, 20, 23, 0.12);
+  color: var(--color-ink-black);
+  border-color: rgba(18, 20, 23, 0.14);
+  min-width: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
 }
-.page-btn.nav { width: 34px; height: 34px; }
-.page-btn.nav svg { width: 14px; height: 14px; display: block; pointer-events: none; }
+.page-btn.nav {
+  min-width: auto;
+  gap: 6px;
+  padding: 0 2px;
+  color: var(--color-ink-black);
+}
+.page-btn.nav.text span {
+  font-size: 13px;
+  font-weight: 500;
+}
+.page-btn.nav svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+  pointer-events: none;
+}
+.page-btn.ellipsis {
+  color: var(--color-slate-gray);
+  min-width: 18px;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
 .page-btn:disabled {
   opacity: .35;
   cursor: not-allowed;
   color: var(--color-slate-gray);
   background: transparent;
-  border-color: var(--line);
+  border-color: transparent;
 }
 .page-btn:focus-visible {
   outline: 2px solid var(--color-ink-black);

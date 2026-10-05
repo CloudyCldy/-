@@ -69,17 +69,32 @@ function paginateItems(items, pageKey, pageSize = 8) {
 }
 function paginationMarkup(pageKey, renderName, totalPages, currentPage, totalItems, pageSize = 8) {
   if (totalPages <= 1) return '';
-  const startItem = Math.min((currentPage - 1) * pageSize + 1, totalItems);
-  const endItem = Math.min(currentPage * pageSize, totalItems);
-  const controls = Array.from({ length: Math.min(totalPages, 4) }, (_, index) => {
-    const page = index + 1;
+
+  const prevPage = Math.max(1, currentPage - 1);
+  const nextPage = Math.min(totalPages, currentPage + 1);
+  const prevIcon = '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12 4.5 6.5 10l5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const nextIcon = '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M8 4.5 13.5 10 8 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  const pages = [];
+  if (totalPages <= 5) {
+    for (let page = 1; page <= totalPages; page += 1) pages.push(page);
+  } else if (currentPage <= 3) {
+    pages.push(1, 2, 3, 'ellipsis', totalPages);
+  } else if (currentPage >= totalPages - 2) {
+    pages.push(1, 'ellipsis', totalPages - 2, totalPages - 1, totalPages);
+  } else {
+    pages.push(1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages);
+  }
+
+  const controls = pages.map(item => {
+    if (item === 'ellipsis') return '<span class="page-btn ellipsis" aria-hidden="true">...</span>';
+
+    const page = Number(item);
     const isActive = page === currentPage;
     return `<button type="button" class="page-btn ${isActive ? 'active' : ''}" data-page-key="${pageKey}" data-page="${page}" data-render="${renderName}" aria-label="Ir a la página ${page}" ${isActive ? 'aria-current="page"' : ''}>${page}</button>`;
   }).join('');
-  const pageStatus = currentPage > 4 ? `Página ${currentPage} de ${totalPages} · ` : '';
-  const prevIcon = '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12 4.5 6.5 10l5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const nextIcon = '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M8 4.5 13.5 10 8 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  return `<nav class="list-pagination" aria-label="Paginación"><div class="list-pagination-meta">${pageStatus}Mostrando ${startItem}-${endItem} de ${totalItems}</div><div class="page-controls"><button type="button" class="page-btn nav" data-page-key="${pageKey}" data-page="${Math.max(1, currentPage - 1)}" data-render="${renderName}" aria-label="Página anterior" title="Página anterior" ${currentPage === 1 ? 'disabled' : ''}>${prevIcon}</button>${controls}<button type="button" class="page-btn nav" data-page-key="${pageKey}" data-page="${Math.min(totalPages, currentPage + 1)}" data-render="${renderName}" aria-label="Página siguiente" title="Página siguiente" ${currentPage === totalPages ? 'disabled' : ''}>${nextIcon}</button></div></nav>`;
+
+  return `<nav class="list-pagination" aria-label="Paginación"><div class="page-controls"><button type="button" class="page-btn nav text" data-page-key="${pageKey}" data-page="${prevPage}" data-render="${renderName}" aria-label="Página anterior" title="Página anterior" ${currentPage === 1 ? 'disabled' : ''}>${prevIcon}<span>Previous</span></button>${controls}<button type="button" class="page-btn nav text" data-page-key="${pageKey}" data-page="${nextPage}" data-render="${renderName}" aria-label="Página siguiente" title="Página siguiente" ${currentPage === totalPages ? 'disabled' : ''}><span>Next</span>${nextIcon}</button></div></nav>`;
 }
 function bindPaginationControls() {
   document.querySelectorAll('.page-btn[data-page]').forEach(button => {
