@@ -919,6 +919,13 @@ label {
   border-radius: var(--r-pill);
   background: var(--color-fog-white);
   transition: border-color .15s var(--ease), background .15s var(--ease);
+  text-decoration: none;
+  cursor: pointer;
+  color: inherit;
+}
+.user-chip:focus-visible {
+  outline: 2px solid var(--color-ink-black);
+  outline-offset: 2px;
 }
 .user-chip:hover {
   background: var(--color-paper-white);
@@ -3164,7 +3171,7 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .assistant-message{display:flex;align-items:flex-start;gap:11px;max-width:760px}
 .assistant-message>div{min-width:0}
 .assistant-message strong{display:block;margin:2px 0 5px;font-size:12px;font-weight:500;color:var(--color-slate-gray)}
-.assistant-message p{margin:0;padding:14px 18px;background:var(--color-mist-gray);border:1px solid transparent;border-radius:var(--radius-inputs);line-height:1.55;color:var(--color-ink-black)}
+.assistant-message p{margin:0;padding:14px 18px;background:var(--color-mist-gray);border:1px solid transparent;border-radius:var(--radius-inputs);line-height:1.55;color:var(--color-ink-black);white-space:pre-wrap;word-break:break-word}
 .assistant-message small{display:block;margin-top:6px;color:var(--color-ash-gray);font-size:10px}
 .assistant-user{margin-left:auto;flex-direction:row-reverse}
 .assistant-user>div{text-align:right}
