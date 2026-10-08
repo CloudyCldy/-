@@ -2883,7 +2883,7 @@ async function landingView() {
   }
 }
 
-// ===================== Backlog del producto (SB-04, datos en Sanzu) =====================
+// ===================== Backlog del producto (SB-04, se guarda en Haitani) =====================
 const BACKLOG_TYPES={USER_STORY:'Historia de usuario',BUG:'Error',TASK:'Tarea',FEATURE:'Funcionalidad',IMPROVEMENT:'Mejora'};
 const BACKLOG_PRIORITIES={CRITICAL:['Crítica','pink'],HIGH:['Alta','yellow'],MEDIUM:['Media',''],LOW:['Baja','']};
 const BACKLOG_STATUSES={BACKLOGGED:['Por hacer',''],READY:['Lista','yellow'],IN_PROGRESS:['En proceso','pink'],DONE:['Terminada','green']};
@@ -3086,7 +3086,7 @@ async function renderBacklog(){
     }else if(!values.title.trim())return notify('Escribe un título.');
     ['id','storyRole','storyWant','storyBenefit'].forEach(key=>delete values[key]);
     values.sprintId=values.sprintId||null;
-    if(values.storyPoints==='')delete values.storyPoints;
+    if(values.storyPoints==='')values.storyPoints=null;
     try{
       if(id)await send(`/backlog/${id}`,'PUT',values);else await send('/backlog','POST',values);
       close();notify(id?'Ítem actualizado':'Ítem agregado al backlog');renderBacklog();

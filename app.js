@@ -106,6 +106,23 @@ async function ensureRuntimeSchema() {
       CREATE INDEX IF NOT EXISTS sprints_org_project_idx ON sprints (organization_id, project_id, status);
       ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL;
       CREATE INDEX IF NOT EXISTS tasks_org_sprint_idx ON tasks (organization_id, sprint_id);
+      CREATE TABLE IF NOT EXISTS backlog_items (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        type TEXT NOT NULL CHECK (type IN ('USER_STORY', 'BUG', 'TASK', 'FEATURE', 'IMPROVEMENT')),
+        priority TEXT NOT NULL DEFAULT 'MEDIUM' CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+        story_points INTEGER CHECK (story_points BETWEEN 0 AND 100),
+        status TEXT NOT NULL DEFAULT 'BACKLOGGED' CHECK (status IN ('BACKLOGGED', 'READY', 'IN_PROGRESS', 'DONE')),
+        acceptance_criteria TEXT NOT NULL DEFAULT '',
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS backlog_items_org_project_idx ON backlog_items (organization_id, project_id, status);
     `);
   } catch (error) {
     console.error('No fue posible asegurar el esquema de usuarios:', error);
