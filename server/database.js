@@ -13,6 +13,9 @@ const sslConfig = isLocalhost || process.env.PGSSLMODE === 'disable'
 const pool = connectionString
   ? new Pool({
       connectionString,
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 30000,
+      max: 20,
       ...(sslConfig ? { ssl: sslConfig } : {})
     })
   : new Pool({
@@ -21,8 +24,15 @@ const pool = connectionString
       database: process.env.PGDATABASE,
       user: process.env.PGUSER,
       password: process.env.PGPASSWORD,
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 30000,
+      max: 20,
       ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : undefined
     });
+
+pool.on('error', (err) => {
+  console.error('Error imprevisto en cliente inactivo de PostgreSQL:', err.message);
+});
 
 function prepare(text) {
   let index = 0;

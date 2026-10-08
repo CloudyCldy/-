@@ -172,10 +172,18 @@ function showDesktopNotification(title, body){
   });
   setTimeout(() => notification.close(), 5000);
 }
+let isRefreshingNotifications = false;
 async function refreshNotifications(){
-  if(!state.user)return;
+  if(!state.user || isRefreshingNotifications) return;
+  isRefreshingNotifications = true;
   try{
-    state.notifications=await api('/notifications');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    try {
+      state.notifications = await api('/notifications', { signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (desktopNotificationState.lastMessages === null) desktopNotificationState.lastMessages = state.notifications.messages;
     if (desktopNotificationState.lastTasks === null) desktopNotificationState.lastTasks = state.notifications.tasks;
     if (state.notifications.messages > desktopNotificationState.lastMessages) {
@@ -193,6 +201,9 @@ async function refreshNotifications(){
       dot.title=`${count} notificaciones`;
     });
   }catch{}
+  finally {
+    isRefreshingNotifications = false;
+  }
 }
 function startNotificationPolling(){
   clearInterval(notificationTimer);
