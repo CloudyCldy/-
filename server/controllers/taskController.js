@@ -10,6 +10,8 @@ async function list(req, res) {
   const status = valueFromQuery(req.query.status);
   const priority = valueFromQuery(req.query.priority);
   const assignedTo = valueFromQuery(req.query.assigned_to);
+  const projectId = valueFromQuery(req.query.project_id);
+  const sprintId = valueFromQuery(req.query.sprint_id);
   if (status && !TASK_STATUSES.has(status)) return res.status(400).json({ error: 'Estado no válido.' });
   if (priority && !TASK_PRIORITIES.has(priority)) return res.status(400).json({ error: 'Prioridad no válida.' });
   if (assignedTo && (!Number.isInteger(Number(assignedTo)) || Number(assignedTo) < 1)) return res.status(400).json({ error: 'El responsable no es válido.' });
@@ -18,8 +20,16 @@ async function list(req, res) {
   if (status) { filters.push('tasks.status = ?'); params.push(status); }
   if (priority) { filters.push('tasks.priority = ?'); params.push(priority); }
   if (assignedTo) { filters.push('tasks.assigned_to = ?'); params.push(Number(assignedTo)); }
+  if (projectId) { filters.push('tasks.project_id = ?'); params.push(Number(projectId)); }
+  if (sprintId) { filters.push('tasks.sprint_id = ?'); params.push(Number(sprintId)); }
   if (req.session.user.role === 'member') { filters.push('tasks.assigned_to = ?'); params.push(req.session.user.id); }
-  const query = `SELECT tasks.*, users.name AS assignee_name, users.username AS assignee_username FROM tasks LEFT JOIN users ON users.id = tasks.assigned_to WHERE ${filters.join(' AND ')} ORDER BY CASE tasks.status WHEN 'en_proceso' THEN 1 WHEN 'pendiente' THEN 2 ELSE 3 END, tasks.due_date`;
+  const query = `
+    SELECT tasks.*, users.name AS assignee_name, users.username AS assignee_username, sprints.name AS sprint_name
+    FROM tasks
+    LEFT JOIN users ON users.id = tasks.assigned_to
+    LEFT JOIN sprints ON sprints.id = tasks.sprint_id AND sprints.organization_id = tasks.organization_id
+    WHERE ${filters.join(' AND ')}
+    ORDER BY CASE tasks.status WHEN 'en_proceso' THEN 1 WHEN 'pendiente' THEN 2 ELSE 3 END, tasks.due_date`;
   res.json(await req.app.locals.database.prepare(query).all(...params));
 }
 function taskId(req, res) {
@@ -33,23 +43,76 @@ function taskId(req, res) {
 async function get(req, res) {
   const id = taskId(req, res);
   if (!id) return;
-  const task = await req.app.locals.database.prepare(`SELECT tasks.*, users.name AS assignee_name FROM tasks LEFT JOIN users ON users.id = tasks.assigned_to WHERE tasks.id = ? AND tasks.organization_id = ?`).get(id, req.session.user.organization_id);
+  const task = await req.app.locals.database.prepare(`
+    SELECT tasks.*, users.name AS assignee_name, sprints.name AS sprint_name
+    FROM tasks
+    LEFT JOIN users ON users.id = tasks.assigned_to
+    LEFT JOIN sprints ON sprints.id = tasks.sprint_id AND sprints.organization_id = tasks.organization_id
+    WHERE tasks.id = ? AND tasks.organization_id = ?
+  `).get(id, req.session.user.organization_id);
   if (!task || (req.session.user.role === 'member' && task.assigned_to !== req.session.user.id)) return res.status(404).json({ error: 'La tarea no existe.' });
   res.json(task);
 }
+
+async function listByProject(req, res) {
+  const projectId = Number(req.params.id);
+  if (!Number.isInteger(projectId) || projectId < 1) {
+    return res.status(400).json({ error: 'El identificador del proyecto no es válido.' });
+  }
+  const organizationId = req.session.user.organization_id;
+  const database = req.app.locals.database;
+  const project = await database.prepare('SELECT id FROM projects WHERE id = ? AND organization_id = ?').get(projectId, organizationId);
+  if (!project) return res.status(404).json({ error: 'El proyecto no existe en tu organización.' });
+
+  const filters = ['tasks.organization_id = ?', 'tasks.project_id = ?'];
+  const params = [organizationId, projectId];
+  if (req.session.user.role === 'member') {
+    filters.push('tasks.assigned_to = ?');
+    params.push(req.session.user.id);
+  }
+  const query = `
+    SELECT tasks.*, users.name AS assignee_name, users.username AS assignee_username, sprints.name AS sprint_name
+    FROM tasks
+    LEFT JOIN users ON users.id = tasks.assigned_to
+    LEFT JOIN sprints ON sprints.id = tasks.sprint_id AND sprints.organization_id = tasks.organization_id
+    WHERE ${filters.join(' AND ')}
+    ORDER BY CASE tasks.status WHEN 'en_proceso' THEN 1 WHEN 'pendiente' THEN 2 ELSE 3 END, tasks.due_date`;
+  res.json(await database.prepare(query).all(...params));
+}
+
 async function create(req, res) {
   const database = req.app.locals.database;
   const { title, description = '', assigned_to, priority = 'media', start_date, due_date, status = 'pendiente' } = req.body;
-  const projectId = Number(req.body.project_id);
+  const projectId = Number(req.params.id || req.body.project_id);
   if (!String(title || '').trim()) return res.status(400).json({ error: 'El título es obligatorio.' });
   if (!Number.isInteger(projectId) || projectId < 1) return res.status(400).json({ error: 'El proyecto es obligatorio.' });
   if (!TASK_PRIORITIES.has(priority)) return res.status(400).json({ error: 'Prioridad no válida.' });
   if (!TASK_STATUSES.has(status)) return res.status(400).json({ error: 'Estado no válido.' });
-  const project = await database.prepare('SELECT id FROM projects WHERE id = ? AND organization_id = ?').get(projectId, req.session.user.organization_id);
-  if (!project) return res.status(400).json({ error: 'El proyecto no existe en tu organización.' });
+  const project = await database.prepare('SELECT id, manager_id FROM projects WHERE id = ? AND organization_id = ?').get(projectId, req.session.user.organization_id);
+  if (!project) return res.status(404).json({ error: 'El proyecto no existe en tu organización.' });
+
+  if (req.session.user.role !== 'admin') {
+    const isMember = await database.prepare('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ? AND organization_id = ?').get(projectId, req.session.user.id, req.session.user.organization_id);
+    const isManager = project.manager_id === req.session.user.id;
+    if (!isMember && !isManager) {
+      return res.status(403).json({ error: 'No tienes permiso para crear tareas en este proyecto.' });
+    }
+  }
+
+  let sprintId = req.body.sprint_id !== undefined && req.body.sprint_id !== '' && req.body.sprint_id !== null ? Number(req.body.sprint_id) : null;
+  if (sprintId !== null) {
+    if (!Number.isInteger(sprintId) || sprintId < 1) {
+      return res.status(400).json({ error: 'El identificador del sprint no es válido.' });
+    }
+    const sprint = await database.prepare('SELECT id, project_id FROM sprints WHERE id = ? AND organization_id = ?').get(sprintId, req.session.user.organization_id);
+    if (!sprint || sprint.project_id !== projectId) {
+      return res.status(400).json({ error: 'El sprint no pertenece al mismo proyecto u organización.' });
+    }
+  }
+
   const assignee = assigned_to ? await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(assigned_to, req.session.user.organization_id) : null;
   if (assigned_to && !assignee) return res.status(400).json({ error: 'El responsable no pertenece a tu organización.' });
-  const result = await database.prepare(`INSERT INTO tasks (project_id, organization_id, creator_id, title, description, assigned_to, priority, start_date, due_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`).run(project.id, req.session.user.organization_id, req.session.user.id, title.trim(), description, assigned_to || null, priority, start_date || null, due_date || null, status);
+  const result = await database.prepare(`INSERT INTO tasks (project_id, organization_id, creator_id, title, description, assigned_to, priority, start_date, due_date, status, sprint_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`).run(project.id, req.session.user.organization_id, req.session.user.id, title.trim(), description, assigned_to || null, priority, start_date || null, due_date || null, status, sprintId);
   if (req.file) {
     const asset = await database.prepare('INSERT INTO stored_assets (organization_id, uploaded_by, kind, mime_type, content) VALUES (?, ?, ?, ?, ?) RETURNING id').run(req.session.user.organization_id, req.session.user.id, 'task-image', req.file.mimetype, req.file.buffer);
     await database.prepare('UPDATE tasks SET image_asset_id = ? WHERE id = ? AND organization_id = ?').run(asset.lastInsertRowid, result.lastInsertRowid, req.session.user.organization_id);
@@ -196,6 +259,24 @@ async function update(req, res) {
   const task = await database.prepare('SELECT * FROM tasks WHERE id = ? AND organization_id = ?').get(id, req.session.user.organization_id);
   if (!task) return res.status(404).json({ error: 'La tarea no existe.' });
   if (req.session.user.role === 'member' && task.assigned_to !== req.session.user.id) return res.status(403).json({ error: 'Solo puedes modificar tus tareas.' });
+
+  let sprintId = task.sprint_id;
+  if (req.body.sprint_id !== undefined) {
+    if (req.body.sprint_id === '' || req.body.sprint_id === null) {
+      sprintId = null;
+    } else {
+      const parsedSprintId = Number(req.body.sprint_id);
+      if (!Number.isInteger(parsedSprintId) || parsedSprintId < 1) {
+        return res.status(400).json({ error: 'El identificador del sprint no es válido.' });
+      }
+      const sprint = await database.prepare('SELECT id, project_id FROM sprints WHERE id = ? AND organization_id = ?').get(parsedSprintId, req.session.user.organization_id);
+      if (!sprint || sprint.project_id !== task.project_id) {
+        return res.status(400).json({ error: 'El sprint no pertenece al mismo proyecto u organización.' });
+      }
+      sprintId = parsedSprintId;
+    }
+  }
+
   const fields = ['title', 'description', 'assigned_to', 'priority', 'start_date', 'due_date', 'status'];
   const values = fields.map(field => {
     const value = req.body[field] === undefined ? task[field] : req.body[field];
@@ -206,13 +287,51 @@ async function update(req, res) {
   if (!TASK_PRIORITIES.has(values[3]) || !TASK_STATUSES.has(values[6])) return res.status(400).json({ error: 'Prioridad o estado no válido.' });
   if ([values[4], values[5]].some(value => value !== null && !/^\d{4}-\d{2}-\d{2}$/.test(String(value)))) return res.status(400).json({ error: 'La fecha no es válida.' });
   if (values[2] && !(await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(values[2], req.session.user.organization_id))) return res.status(400).json({ error: 'El responsable no pertenece a tu organización.' });
-  await database.prepare(`UPDATE tasks SET title = ?, description = ?, assigned_to = ?, priority = ?, start_date = ?, due_date = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?`).run(...values, id, req.session.user.organization_id);
+  await database.prepare(`UPDATE tasks SET title = ?, description = ?, assigned_to = ?, priority = ?, start_date = ?, due_date = ?, status = ?, sprint_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?`).run(...values, sprintId, id, req.session.user.organization_id);
   if (req.file) {
     const asset = await database.prepare('INSERT INTO stored_assets (organization_id, uploaded_by, kind, mime_type, content) VALUES (?, ?, ?, ?, ?) RETURNING id').run(req.session.user.organization_id, req.session.user.id, 'task-image', req.file.mimetype, req.file.buffer);
     await database.prepare('UPDATE tasks SET image_asset_id = ? WHERE id = ? AND organization_id = ?').run(asset.lastInsertRowid, id, req.session.user.organization_id);
   }
   await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, task.project_id, 'task.updated', `Tarea actualizada: ${values[0]}`);
   res.json({ ok: true });
+}
+
+async function updateSprint(req, res) {
+  const id = taskId(req, res);
+  if (!id) return;
+  if (req.session.user.role === 'viewer') {
+    return res.status(403).json({ error: 'No tienes permisos de edición.' });
+  }
+  const database = req.app.locals.database;
+  const task = await database.prepare('SELECT * FROM tasks WHERE id = ? AND organization_id = ?').get(id, req.session.user.organization_id);
+  if (!task) return res.status(404).json({ error: 'La tarea no existe.' });
+  if (req.session.user.role === 'member' && task.assigned_to !== req.session.user.id) {
+    return res.status(403).json({ error: 'Solo puedes modificar tus tareas.' });
+  }
+
+  let sprintId = req.body.sprint_id;
+  if (sprintId === '' || sprintId === null || sprintId === undefined) {
+    sprintId = null;
+  } else {
+    sprintId = Number(sprintId);
+    if (!Number.isInteger(sprintId) || sprintId < 1) {
+      return res.status(400).json({ error: 'El identificador del sprint no es válido.' });
+    }
+    const sprint = await database.prepare('SELECT id, project_id FROM sprints WHERE id = ? AND organization_id = ?').get(sprintId, req.session.user.organization_id);
+    if (!sprint || sprint.project_id !== task.project_id) {
+      return res.status(400).json({ error: 'El sprint no pertenece al mismo proyecto u organización.' });
+    }
+  }
+
+  await database.prepare('UPDATE tasks SET sprint_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?').run(sprintId, id, req.session.user.organization_id);
+  await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(
+    req.session.user.organization_id,
+    req.session.user.id,
+    task.project_id,
+    'task.sprint_changed',
+    sprintId ? `Tarea asignada a sprint ${sprintId}: ${task.title}` : `Tarea retirada de sprint: ${task.title}`
+  );
+  res.json({ ok: true, sprint_id: sprintId });
 }
 async function status(req, res) {
   const database = req.app.locals.database;
@@ -257,4 +376,4 @@ async function removeMany(req, res) {
   }
   res.json({ deleted: tasks.length });
 }
-module.exports = { list, get, create, update, status, image, remove, removeMany, importTasks, downloadImportTemplate };
+module.exports = { list, get, listByProject, create, update, updateSprint, status, image, remove, removeMany, importTasks, downloadImportTemplate };

@@ -304,6 +304,7 @@ function sidebar(){
     ['/admin/absences','Inasistencias','calendar'],
     ['/admin/assistant','Asistente IA','sparkles'],
     ['/admin/tasks','Tareas','tasks','tasks'],
+    ['/admin/sprints','Sprints','gantt'],
     ['/admin/kanban','Kanban','kanban'],
     ['/admin/gantt','Gantt','gantt'],
     ['/admin/members','Integrantes','users'],
@@ -322,6 +323,7 @@ function sidebar(){
     ['/member/announcements','Anuncios','announcements'],
     ['/member/absences','Inasistencias','calendar'],
     ['/member/tasks','Mis tareas','tasks','tasks'],
+    ['/member/sprints','Sprints','gantt'],
     ['/member/kanban','Kanban','kanban'],
     ['/member/gantt','Gantt','gantt'],
     ['/member/files','Archivos','folder'],
@@ -347,7 +349,7 @@ function layout(content){
 }
 function heading(title, subtitle, action=''){return `<div class="heading"><div><div class="eyebrow"><img class="brand-logo-inline" src="/static/img/ht.png" alt="Haitani"> / ${esc(state.user.organization_name||'Organización')}</div><h1>${title}</h1><p>${subtitle}</p></div>${action}</div>`}
 function projectEditor(project){if(state.user.role!=='admin')return '';const methods=[['AGILE','Agile'],['SCRUM','Scrum'],['KANBAN','Kanban'],['XP','XP'],['LEAN','Lean'],['WATERFALL','Waterfall'],['HYBRID','Híbrida']];return `<form id="project-form" class="form-grid mt-4"><input type="hidden" name="id" value="${project?.id||''}"><label>Nombre<input class="input" name="name" value="${esc(project?.name||'')}" required></label><label>Descripción<input class="input" name="description" value="${esc(project?.description||'')}"></label><label>Metodología<select class="select" name="methodology_id" required>${methods.map(([value,label])=>`<option value="${value}" ${project?.methodology_id===value||(!project&&value==='AGILE')?'selected':''}>${label}</option>`).join('')}</select></label><label class="full">Requerimientos<textarea class="textarea" name="requirements" rows="4" placeholder="Alcance, stack, restricciones y criterios de aceptación">${esc(project?.requirements||'')}</textarea></label><div class="actions full"><button class="btn">${icon('check')}${project?'Guardar proyecto':'Crear proyecto'}</button></div></form>`}
-function methodologyWidgets(project){const method=project?.methodology_id;const links=[];if(['SCRUM','KANBAN','XP','AGILE'].includes(method))links.push(`<a class="btn secondary" href="#/admin/kanban">${icon('kanban')}Abrir tablero</a>`);if(method==='WATERFALL'||method==='LEAN'||method==='HYBRID')links.push(`<a class="btn secondary" href="#/admin/gantt">${icon('gantt')}Abrir hitos y Gantt</a>`);return `<div class="actions mt-3"><span class="muted">${method?`Flujo recomendado: ${esc(method)}`:'Define una metodología'}</span>${links.join('')}</div>`}
+function methodologyWidgets(project){const method=project?.methodology_id;const links=[];links.push(`<a class="btn secondary" href="#/${state.user.role}/sprints">${icon('gantt')}Ver Sprints</a>`);if(['SCRUM','KANBAN','XP','AGILE'].includes(method))links.push(`<a class="btn secondary" href="#/${state.user.role}/kanban">${icon('kanban')}Abrir tablero</a>`);if(method==='WATERFALL'||method==='LEAN'||method==='HYBRID')links.push(`<a class="btn secondary" href="#/${state.user.role}/gantt">${icon('gantt')}Abrir hitos y Gantt</a>`);if(project?.id)links.push(`<button type="button" class="btn secondary" id="dash-new-project-task" data-project-id="${project.id}">${icon('plus')}Nueva tarea</button>`);return `<div class="actions mt-3"><span class="muted">${method?`Flujo recomendado: ${esc(method)}`:'Define una metodología'}</span>${links.join('')}</div>`}
 function projectHealth(health){if(!health)return '';const statusLabel={saludable:'Saludable',atencion:'Requiere atención',riesgo:'En riesgo'}[health.status]||'Sin datos';const workload=health.workload||[];const activity=health.recentActivity||[];return `<section class="card project-health mt-4"><div class="project-health-head"><div><div class="eyebrow">Control operativo</div><h2>Salud del proyecto</h2><p class="muted">Lectura combinada de avance, planificación, riesgos y capacidad del equipo.</p></div><div class="health-score health-${esc(health.status)}"><strong>${health.score}</strong><span>/ 100</span><small>${statusLabel}</small></div></div><div class="health-overview"><div class="health-meter"><div class="health-meter-track"><i style="width:${health.score}%"></i></div><div class="health-meter-labels"><span>Riesgo</span><span>Atención</span><span>Saludable</span></div></div><div class="health-metrics"><div><strong>${health.overdue}</strong><span>Vencidas</span></div><div><strong>${health.dueSoon}</strong><span>Próximas 7 días</span></div><div><strong>${health.critical}</strong><span>Alta prioridad</span></div><div><strong>${health.unassigned}</strong><span>Sin responsable</span></div></div></div><div class="health-detail-grid"><div><h3>Calidad de planificación</h3><div class="health-progress-row"><span>Fechas definidas</span><strong>${health.dateCoverage}%</strong><i><b style="width:${health.dateCoverage}%"></b></i></div><div class="health-progress-row"><span>Responsables asignados</span><strong>${health.assignmentCoverage}%</strong><i><b style="width:${health.assignmentCoverage}%"></b></i></div><h3 class="health-subtitle">Recomendaciones</h3><ul class="health-list">${health.recommendations.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div><div><h3>Carga del equipo</h3>${workload.length?`<div class="health-workload">${workload.map(item=>{const percentage=item.total?Math.round(item.completed/item.total*100):0;return `<div class="health-workload-row"><span>${esc(item.name)}</span><strong>${item.total} <small>${percentage}% completado</small></strong><i><b style="width:${percentage}%"></b></i></div>`}).join('')}</div>`:'<div class="empty">No hay integrantes activos.</div>'}<h3 class="health-subtitle">Actividad reciente</h3>${activity.length?`<div class="health-activity">${activity.map(item=>`<div><strong>${esc(item.action)}</strong><small>${esc(item.description||'Actualización registrada')}</small></div>`).join('')}</div>`:'<div class="empty">No hay actividad reciente.</div>'}</div></div></section>`}
 async function dashboard(){
   state.dashboard=await api('/dashboard');
@@ -754,6 +756,7 @@ async function tasksView(){
                   <td><span class="badge ${prioClass}">${esc(t.priority)}</span></td>
                   <td>
                     <div class="actions task-row-actions" style="justify-content:flex-end">
+                      <button type="button" class="btn secondary mini task-icon-action move-task-sprint" data-id="${t.id}" data-project-id="${t.project_id}" data-sprint-id="${t.sprint_id||''}" title="Mover a sprint" aria-label="Mover a sprint">${icon('gantt')}</button>
                       <button type="button" class="btn secondary mini task-icon-action view-task-details" data-id="${t.id}" title="Ver detalle" aria-label="Ver detalle">${icon('eye')}</button>
                       ${canManage?`<button type="button" class="btn secondary mini task-icon-action edit-task" data-id="${t.id}" title="Editar tarea" aria-label="Editar tarea">${icon('edit')}</button>`:''}
                       ${canDelete?`<button type="button" class="btn danger mini task-icon-action delete-task" data-id="${t.id}" title="Eliminar tarea" aria-label="Eliminar tarea">${icon('trash')}</button>`:''}
@@ -783,19 +786,21 @@ function taskForm(users,projects){
           <input type="hidden" name="id">
           <div class="form-grid">
             <label>Proyecto
-              <select class="select" name="project_id" required>
+              <select class="select" name="project_id" id="task-form-project" required>
                 <option value="">Selecciona un proyecto</option>
                 ${projects.map(project=>`<option value="${project.id}">${esc(project.name)}</option>`).join('')}
               </select>
             </label>
+            <label>Sprint (opcional)
+              <select class="select" name="sprint_id" id="task-form-sprint">
+                <option value="">Sin sprint (Backlog)</option>
+              </select>
+            </label>
             <label>Responsable
-              <select class="select" name="assigned_to">
+              <select class="select" name="assigned_to" id="task-form-assignee">
                 <option value="">Sin asignar</option>
                 ${users.filter(u=>u.role==='member').map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}
               </select>
-            </label>
-            <label class="full">Título de la tarea
-              <input class="input" name="title" placeholder="Ej. Implementar endpoints de autenticación" required>
             </label>
             <label>Prioridad
               <select class="select" name="priority">
@@ -805,10 +810,15 @@ function taskForm(users,projects){
                 <option value="critica">Crítica</option>
               </select>
             </label>
+            <label class="full">Título de la tarea
+              <input class="input" name="title" placeholder="Ej. Implementar endpoints de autenticación" required>
+            </label>
             <label>Estado
               <select class="select" name="status">
                 <option value="pendiente">Pendiente</option>
                 <option value="en_proceso">En proceso</option>
+                <option value="en_revision">En revisión</option>
+                <option value="bloqueada">Bloqueada</option>
                 <option value="completada">Completada</option>
               </select>
             </label>
@@ -821,8 +831,12 @@ function taskForm(users,projects){
             <label class="full">Imagen o maqueta de referencia
               <input class="input" name="image" type="file" accept="image/png,image/jpeg,image/webp">
             </label>
-            <label class="full">Descripción y criterios de aceptación
-              <textarea class="textarea" name="description" rows="4" placeholder="Detalles de la tarea..."></textarea>
+            <label class="full">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span>Descripción y criterios de aceptación</span>
+                <button type="button" class="btn secondary mini" id="btn-use-story-template" style="padding:2px 8px;font-size:12px">${icon('file')} Usar plantilla</button>
+              </div>
+              <textarea class="textarea" name="description" id="task-form-description" rows="5" placeholder="Detalles de la tarea..."></textarea>
             </label>
           </div>
           <div class="actions mt-4">
@@ -972,10 +986,25 @@ async function renderTasks(focusSearchCursor = null){
   const importForm=document.querySelector('#task-import-form');
   const importResults=document.querySelector('#task-import-results');
   let importedTasks=false;
-  const openForm=task=>{
+
+  const loadSprintsForTaskForm = async (projectId, selectedSprintId = null) => {
+    const sprintSelect = document.querySelector('#task-form-sprint');
+    if (!sprintSelect) return;
+    sprintSelect.innerHTML = '<option value="">Sin sprint (Backlog)</option>';
+    if (!projectId) return;
+    try {
+      const sprints = await api(`/projects/${projectId}/sprints`);
+      sprintSelect.innerHTML = [
+        '<option value="">Sin sprint (Backlog)</option>',
+        ...sprints.map(s => `<option value="${s.id}" ${String(s.id) === String(selectedSprintId) ? 'selected' : ''}>${esc(s.name)} (${esc(s.status)})</option>`)
+      ].join('');
+    } catch {}
+  };
+
+  const openForm=async task=>{
     form.reset();
     modal.style.display='grid';
-    document.querySelector('#task-form-title').textContent=task?'Editar tarea':'Nueva tarea';
+    document.querySelector('#task-form-title').textContent=task?.id?'Editar tarea':'Nueva tarea';
     form.elements.id.value=task?.id||'';
     form.elements.project_id.value=task?.project_id||'';
     form.elements.title.value=task?.title||'';
@@ -983,9 +1012,70 @@ async function renderTasks(focusSearchCursor = null){
     form.elements.assigned_to.value=task?.assigned_to||'';
     form.elements.priority.value=task?.priority||'media';
     form.elements.status.value=task?.status||'pendiente';
-    form.elements.start_date.value=task?.start_date||'';
-    form.elements.due_date.value=task?.due_date||'';
+    form.elements.start_date.value=task?.start_date?String(task.start_date).slice(0,10):'';
+    form.elements.due_date.value=task?.due_date?String(task.due_date).slice(0,10):'';
+    await loadSprintsForTaskForm(task?.project_id, task?.sprint_id);
   };
+
+  document.querySelector('#task-form-project')?.addEventListener('change', e => {
+    loadSprintsForTaskForm(e.target.value);
+  });
+
+  document.querySelector('#btn-use-story-template')?.addEventListener('click', async () => {
+    try {
+      const templates = await api('/templates?type=story');
+      const promptText = templates.map((t, i) => `${i + 1}. ${t.name}: ${t.description}`).join('\n');
+      const choice = window.prompt(`Selecciona una plantilla de historia (1-${templates.length}):\n\n${promptText}`, '1');
+      if (!choice) return;
+      const selected = templates[Number(choice) - 1];
+      if (selected) {
+        const descField = document.querySelector('#task-form-description');
+        if (descField) descField.value = selected.content;
+      }
+    } catch (e) {
+      notify(e.message);
+    }
+  });
+
+  document.querySelectorAll('.move-task-sprint').forEach(btn => {
+    btn.onclick = async () => {
+      const taskId = btn.dataset.id;
+      const projectId = btn.dataset.projectId;
+      const currentSprintId = btn.dataset.sprintId;
+      try {
+        const sprints = await api(`/projects/${projectId}/sprints`);
+        if (!sprints.length) {
+          notify('Este proyecto aún no tiene sprints creados.');
+          return;
+        }
+        const promptList = sprints.map(s => `ID ${s.id}: ${s.name} [${s.status}]`).join('\n');
+        const answer = window.prompt(
+          `Mover tarea a un sprint:\n\n${promptList}\n\nIngresa el ID del sprint o déjalo vacío para devolver al Backlog:`,
+          currentSprintId || ''
+        );
+        if (answer === null) return;
+        const targetSprintId = answer.trim() === '' || answer.trim() === '0' ? null : Number(answer.trim());
+        await api(`/tasks/${taskId}/sprint`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sprint_id: targetSprintId })
+        });
+        notify(targetSprintId ? 'Tarea asignada al sprint' : 'Tarea devuelta al backlog');
+        renderTasks();
+      } catch (e) {
+        notify(e.message);
+      }
+    };
+  });
+
+  const preselectedProjectId = sessionStorage.getItem('preselected_project_id');
+  if (preselectedProjectId) {
+    sessionStorage.removeItem('preselected_project_id');
+    setTimeout(() => {
+      openForm({ project_id: Number(preselectedProjectId) });
+    }, 50);
+  }
+
   const closeModal=()=>modal.style.display='none';
   const closeImportModal=()=>{
     importModal.style.display='none';
@@ -2802,6 +2892,7 @@ async function render(){
     if(route.includes('announcements'))return renderAnnouncements();
     if(route.includes('absences'))return renderAbsences();
     if(route.includes('assistant'))return state.user.role==='admin'?renderAssistant():renderDashboard();
+    if(route.includes('sprints'))return renderSprints();
     if(route.includes('kanban'))return renderKanban();
     if(route.includes('gantt'))return renderGantt();
     if(route.includes('messages'))return renderMessages();
@@ -2817,6 +2908,518 @@ async function render(){
   }catch(error){
     layout(`<div class="alert">${esc(error.message)}</div>`);
   }
+}
+
+function sprintStatusBadge(status) {
+  const map = {
+    planificado: ['yellow', 'Planificado'],
+    activo: ['green', 'Activo'],
+    cerrado: ['pink', 'Cerrado']
+  };
+  const [cls, label] = map[status] || ['', status];
+  return `<span class="badge ${cls}">${esc(label)}</span>`;
+}
+
+async function renderSprints() {
+  const route = location.hash;
+  const match = route.match(/\/sprints\/(\d+)/);
+  if (match) {
+    return renderSprintDetail(Number(match[1]));
+  }
+  return renderSprintsList();
+}
+
+async function renderSprintsList() {
+  const canManage = ['admin', 'project_manager'].includes(state.user.role);
+  let projects = [];
+  try {
+    projects = await api('/projects');
+  } catch {}
+
+  if (!projects.length) {
+    layout(`${heading('Sprints', 'Ciclos ágiles de desarrollo y planificación')}<div class="card"><p class="muted">No hay proyectos registrados en tu organización. Crea un proyecto primero en el Dashboard.</p></div>`);
+    return;
+  }
+
+  const selectedProjectId = Number(state.activeSprintProjectId || projects[0].id);
+  state.activeSprintProjectId = selectedProjectId;
+
+  let sprints = [];
+  try {
+    sprints = await api(`/projects/${selectedProjectId}/sprints`);
+  } catch (e) {
+    notify(e.message);
+  }
+
+  const projectOptions = projects.map(p =>
+    `<option value="${p.id}" ${p.id === selectedProjectId ? 'selected' : ''}>${esc(p.name)}</option>`
+  ).join('');
+
+  const sprintsHtml = `
+    ${heading(
+      'Sprints',
+      'Planificación, ejecución y seguimiento de sprints por proyecto.',
+      canManage ? `<button type="button" class="btn" id="open-new-sprint-modal">${icon('plus')}Nuevo sprint</button>` : ''
+    )}
+    <div class="card mb-4">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <label style="font-weight:600;font-size:13px">Proyecto:</label>
+        <select class="select" id="sprints-project-filter" style="max-width:320px">
+          ${projectOptions}
+        </select>
+      </div>
+    </div>
+    ${sprints.length ? `
+      <div class="sprint-cards-grid">
+        ${sprints.map(s => {
+          const total = Number(s.total_tasks || 0);
+          const completed = Number(s.completed_tasks || 0);
+          const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+          return `
+            <div class="card sprint-card-item">
+              <div>
+                <div class="sprint-card-header">
+                  <div>
+                    <h3 style="font-size:16px;margin-bottom:4px">${esc(s.name)}</h3>
+                    <span class="muted" style="font-size:12px">${esc(s.start_date)} al ${esc(s.end_date)}</span>
+                  </div>
+                  ${sprintStatusBadge(s.status)}
+                </div>
+                ${s.goal ? `<div class="sprint-goal-box mt-3">${esc(s.goal)}</div>` : ''}
+                <div class="sprint-progress-wrap">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                    <span class="muted">${completed} de ${total} tareas</span>
+                    <strong>${pct}%</strong>
+                  </div>
+                  <div class="sprint-progress-bar">
+                    <div class="sprint-progress-fill" style="width:${pct}%"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="actions mt-4" style="justify-content:flex-end">
+                <a class="btn mini" href="#/${state.user.role}/sprints/${s.id}">${icon('eye')}Abrir sprint</a>
+                ${canManage && s.status === 'planificado' ? `<button type="button" class="btn secondary mini start-sprint-btn" data-id="${s.id}">${icon('play')}Iniciar</button>` : ''}
+                ${canManage && s.status === 'activo' ? `<button type="button" class="btn secondary mini close-sprint-btn" data-id="${s.id}" data-project="${s.project_id}">${icon('check')}Cerrar</button>` : ''}
+                ${canManage && s.status === 'planificado' ? `<button type="button" class="btn danger mini delete-sprint-btn" data-id="${s.id}">${icon('trash')}Eliminar</button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    ` : `
+      <div class="card empty">
+        No hay sprints creados en este proyecto todavía.
+        ${canManage ? '<br><button type="button" class="btn mt-3" id="empty-new-sprint-btn">Crear primer sprint</button>' : ''}
+      </div>
+    `}
+
+    ${canManage ? `
+      <div class="status-overlay" id="new-sprint-modal" style="display:none" role="dialog" aria-modal="true">
+        <div class="status-viewer admin-modal-panel">
+          <div class="status-viewer-head">
+            <strong>Nuevo Sprint</strong>
+            <button type="button" class="icon-btn" id="close-new-sprint" aria-label="Cerrar">${icon('close')}</button>
+          </div>
+          <form class="admin-modal-form" id="new-sprint-form">
+            <input type="hidden" name="project_id" value="${selectedProjectId}">
+            <div class="form-grid">
+              <label class="full">Nombre del Sprint
+                <input class="input" name="name" placeholder="Ej. Sprint 1 - Autenticación y Perfiles" required>
+              </label>
+              <label>Fecha de inicio
+                <input class="input" name="start_date" type="date" required>
+              </label>
+              <label>Fecha de fin
+                <input class="input" name="end_date" type="date" required>
+              </label>
+              <label class="full">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <span>Objetivo y Notas del Sprint</span>
+                  <button type="button" class="btn secondary mini" id="btn-use-sprint-template" style="padding:2px 8px;font-size:12px">${icon('file')} Usar plantilla de planificación</button>
+                </div>
+                <textarea class="textarea" name="goal" id="new-sprint-goal" rows="5" placeholder="Define el objetivo del sprint..."></textarea>
+              </label>
+            </div>
+            <div class="actions mt-4">
+              <button class="btn" type="submit">${icon('check')}Crear sprint</button>
+              <button type="button" class="btn secondary" id="cancel-new-sprint">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    ` : ''}
+  `;
+
+  layout(sprintsHtml);
+
+  document.querySelector('#sprints-project-filter')?.addEventListener('change', e => {
+    state.activeSprintProjectId = Number(e.target.value);
+    renderSprintsList();
+  });
+
+  const modal = document.querySelector('#new-sprint-modal');
+  const openModal = () => { if (modal) modal.style.display = 'grid'; };
+  const closeModal = () => { if (modal) modal.style.display = 'none'; };
+
+  document.querySelector('#open-new-sprint-modal')?.addEventListener('click', openModal);
+  document.querySelector('#empty-new-sprint-btn')?.addEventListener('click', openModal);
+  document.querySelector('#close-new-sprint')?.addEventListener('click', closeModal);
+  document.querySelector('#cancel-new-sprint')?.addEventListener('click', closeModal);
+  if (modal) modal.onclick = e => { if (e.target === modal) closeModal(); };
+
+  document.querySelector('#btn-use-sprint-template')?.addEventListener('click', async () => {
+    try {
+      const templates = await api('/templates?type=sprint');
+      const promptText = templates.map((t, i) => `${i + 1}. ${t.name}: ${t.description}`).join('\n');
+      const choice = window.prompt(`Selecciona plantilla de planificación (1-${templates.length}):\n\n${promptText}`, '1');
+      if (!choice) return;
+      const selected = templates[Number(choice) - 1];
+      if (selected) {
+        const goalEl = document.querySelector('#new-sprint-goal');
+        if (goalEl) goalEl.value = selected.content;
+      }
+    } catch (e) {
+      notify(e.message);
+    }
+  });
+
+  document.querySelector('#new-sprint-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const values = Object.fromEntries(new FormData(e.target));
+    try {
+      await api(`/projects/${selectedProjectId}/sprints`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values)
+      });
+      notify('Sprint creado exitosamente');
+      closeModal();
+      renderSprintsList();
+    } catch (err) {
+      notify(err.message);
+    }
+  });
+
+  document.querySelectorAll('.start-sprint-btn').forEach(btn => {
+    btn.onclick = async () => {
+      try {
+        await api(`/sprints/${btn.dataset.id}/start`, { method: 'POST' });
+        notify('Sprint iniciado');
+        renderSprintsList();
+      } catch (err) {
+        notify(err.message);
+      }
+    };
+  });
+
+  document.querySelectorAll('.close-sprint-btn').forEach(btn => {
+    btn.onclick = async () => {
+      await handleCloseSprint(btn.dataset.id, btn.dataset.project);
+      renderSprintsList();
+    };
+  });
+
+  document.querySelectorAll('.delete-sprint-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm('¿Eliminar este sprint planificado? Las tareas quedarán sin sprint.')) return;
+      try {
+        await api(`/sprints/${btn.dataset.id}`, { method: 'DELETE' });
+        notify('Sprint eliminado');
+        renderSprintsList();
+      } catch (err) {
+        notify(err.message);
+      }
+    };
+  });
+}
+
+async function handleCloseSprint(sprintId, projectId) {
+  try {
+    let moveToSprintId = null;
+    const sprints = await api(`/projects/${projectId}/sprints`);
+    const plannedSprints = sprints.filter(s => s.status === 'planificado' && s.id !== Number(sprintId));
+    if (plannedSprints.length) {
+      const promptText = plannedSprints.map(s => `ID ${s.id}: ${s.name}`).join('\n');
+      const answer = window.prompt(
+        `¿Deseas mover las tareas no completadas a otro sprint planificado?\n\n${promptText}\n\nIngresa el ID del sprint destino, o déjalo vacío para devolverlas al Backlog:`,
+        ''
+      );
+      if (answer === null) return;
+      if (answer.trim() !== '') {
+        moveToSprintId = Number(answer.trim());
+      }
+    } else {
+      if (!confirm('¿Cerrar este sprint? Las tareas no completadas volverán al backlog.')) return;
+    }
+
+    const result = await api(`/sprints/${sprintId}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ move_to_sprint_id: moveToSprintId })
+    });
+    notify(`Sprint cerrado. Completadas: ${result.completed}, Pendientes: ${result.pending}`);
+  } catch (err) {
+    notify(err.message);
+  }
+}
+
+async function renderSprintDetail(sprintId) {
+  const canManage = ['admin', 'project_manager'].includes(state.user.role);
+  let data;
+  try {
+    data = await api(`/sprints/${sprintId}`);
+  } catch (err) {
+    layout(`${heading('Sprint no encontrado', '')}<div class="card alert">${esc(err.message)}</div><div class="mt-3"><a href="#/${state.user.role}/sprints" class="btn secondary">Volver a Sprints</a></div>`);
+    return;
+  }
+
+  const { sprint, tasks, by_status, summary, pending_tasks, backlog } = data;
+  const statusColumns = [
+    { key: 'pendiente', label: 'Pendiente' },
+    { key: 'en_proceso', label: 'En proceso' },
+    { key: 'en_revision', label: 'En revisión' },
+    { key: 'bloqueada', label: 'Bloqueada' },
+    { key: 'completada', label: 'Completada' }
+  ];
+
+  const html = `
+    <div style="margin-bottom:12px">
+      <a href="#/${state.user.role}/sprints" class="btn secondary mini">← Volver al listado de sprints</a>
+    </div>
+    ${heading(
+      `${esc(sprint.name)} ${sprintStatusBadge(sprint.status)}`,
+      `Proyecto: ${esc(sprint.project_name)} · Fechas: ${esc(sprint.start_date)} al ${esc(sprint.end_date)}`,
+      `<div class="actions">
+        ${canManage && sprint.status === 'planificado' ? `<button type="button" class="btn" id="detail-start-sprint">${icon('play')}Iniciar sprint</button>` : ''}
+        ${canManage && sprint.status === 'activo' ? `<button type="button" class="btn danger" id="detail-close-sprint">${icon('check')}Cerrar sprint</button>` : ''}
+        <button type="button" class="btn secondary" id="detail-new-task-btn">${icon('plus')}Nueva tarea</button>
+      </div>`
+    )}
+
+    <section class="card mb-4">
+      <div class="sprint-summary-grid">
+        <div class="sprint-summary-stat">
+          <strong>${summary.total}</strong>
+          <span>Total tareas</span>
+        </div>
+        <div class="sprint-summary-stat">
+          <strong style="color:#10b981">${summary.completed}</strong>
+          <span>Completadas</span>
+        </div>
+        <div class="sprint-summary-stat">
+          <strong style="color:#f59e0b">${summary.pending}</strong>
+          <span>Pendientes</span>
+        </div>
+        <div class="sprint-summary-stat">
+          <strong>${summary.progress}%</strong>
+          <span>Avance</span>
+        </div>
+      </div>
+      <div class="sprint-progress-wrap">
+        <div class="sprint-progress-bar">
+          <div class="sprint-progress-fill" style="width:${summary.progress}%"></div>
+        </div>
+      </div>
+      ${sprint.goal ? `<div class="sprint-goal-box mt-3"><strong>Objetivo:</strong>\n${esc(sprint.goal)}</div>` : ''}
+    </section>
+
+    <!-- Tablero del Sprint (SB-05.3) -->
+    <div class="section-heading mb-3">
+      <div>
+        <h2>Tablero del Sprint</h2>
+        <p class="muted">Tareas del ciclo agrupadas por estado.</p>
+      </div>
+    </div>
+    <div class="sprint-board mb-4">
+      ${statusColumns.map(col => {
+        const colTasks = by_status[col.key] || [];
+        return `
+          <div class="column">
+            <h3><span>${col.label}</span> <span class="badge mini">${colTasks.length}</span></h3>
+            <div class="sprint-column-cards">
+              ${colTasks.map(t => {
+                const prioCls = t.priority === 'critica' ? 'pink' : t.priority === 'alta' ? 'yellow' : '';
+                return `
+                  <div class="sprint-task-card">
+                    <strong>${esc(t.title)}</strong>
+                    <div class="task-meta">
+                      <span class="badge mini ${prioCls}">${esc(t.priority)}</span>
+                      <span class="muted">${esc(t.assignee_name || 'Sin asignar')}</span>
+                    </div>
+                    <div class="task-card-actions">
+                      <select class="select mini change-task-status-select" data-id="${t.id}" style="font-size:11px;padding:2px 4px">
+                        ${statusColumns.map(sc => `<option value="${sc.key}" ${sc.key === t.status ? 'selected' : ''}>${sc.label}</option>`).join('')}
+                      </select>
+                      <button type="button" class="btn secondary mini remove-from-sprint-btn" data-id="${t.id}" title="Quitar del sprint y devolver al backlog" style="padding:2px 6px">${icon('close')}</button>
+                    </div>
+                  </div>
+                `;
+              }).join('') || '<div class="empty mini" style="padding:16px 8px;font-size:12px">Sin tareas</div>'}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+
+    <!-- Sección Pendientes (SB-05.3) -->
+    <section class="card mb-4">
+      <div class="section-heading">
+        <div>
+          <h2>Pendientes del Sprint</h2>
+          <p class="muted">Tareas en este sprint que aún no han sido completadas (${pending_tasks.length}).</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Tarea</th>
+              <th>Estado</th>
+              <th>Prioridad</th>
+              <th>Responsable</th>
+              <th style="text-align:right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${pending_tasks.map(t => `
+              <tr>
+                <td><strong>${esc(t.title)}</strong></td>
+                <td><span class="badge ${t.status === 'en_proceso' ? 'pink' : 'yellow'}">${esc(t.status.replace('_', ' '))}</span></td>
+                <td><span class="badge ${t.priority === 'critica' ? 'pink' : t.priority === 'alta' ? 'yellow' : ''}">${esc(t.priority)}</span></td>
+                <td>${esc(t.assignee_name || 'Sin asignar')}</td>
+                <td style="text-align:right">
+                  <button type="button" class="btn secondary mini mark-task-completed-btn" data-id="${t.id}">${icon('check')}Completar</button>
+                  <button type="button" class="btn secondary mini remove-from-sprint-btn" data-id="${t.id}">Devolver a backlog</button>
+                </td>
+              </tr>
+            `).join('') || '<tr><td colspan="5" class="empty">¡Todas las tareas del sprint han sido completadas!</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Sección Backlog del Proyecto (SB-05.3) -->
+    <section class="card">
+      <div class="section-heading">
+        <div>
+          <h2>Backlog del Proyecto (Sin Sprint)</h2>
+          <p class="muted">Tareas disponibles para incorporar a este sprint (${backlog.length}).</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Tarea</th>
+              <th>Estado</th>
+              <th>Prioridad</th>
+              <th>Responsable</th>
+              <th style="text-align:right">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${backlog.map(t => `
+              <tr>
+                <td><strong>${esc(t.title)}</strong></td>
+                <td><span class="badge">${esc(t.status.replace('_', ' '))}</span></td>
+                <td><span class="badge ${t.priority === 'critica' ? 'pink' : t.priority === 'alta' ? 'yellow' : ''}">${esc(t.priority)}</span></td>
+                <td>${esc(t.assignee_name || 'Sin asignar')}</td>
+                <td style="text-align:right">
+                  <button type="button" class="btn secondary mini add-to-sprint-btn" data-id="${t.id}">${icon('plus')}Agregar al sprint</button>
+                </td>
+              </tr>
+            `).join('') || '<tr><td colspan="5" class="empty">No hay tareas pendientes en el backlog.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+
+  layout(html);
+
+  document.querySelector('#detail-start-sprint')?.addEventListener('click', async () => {
+    try {
+      await api(`/sprints/${sprintId}/start`, { method: 'POST' });
+      notify('Sprint iniciado');
+      renderSprintDetail(sprintId);
+    } catch (err) {
+      notify(err.message);
+    }
+  });
+
+  document.querySelector('#detail-close-sprint')?.addEventListener('click', async () => {
+    await handleCloseSprint(sprintId, sprint.project_id);
+    renderSprintDetail(sprintId);
+  });
+
+  document.querySelector('#detail-new-task-btn')?.addEventListener('click', () => {
+    sessionStorage.setItem('preselected_project_id', String(sprint.project_id));
+    location.hash = `#/${state.user.role}/tasks`;
+  });
+
+  document.querySelectorAll('.change-task-status-select').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      try {
+        await api(`/tasks/${e.target.dataset.id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: e.target.value })
+        });
+        notify('Estado actualizado');
+        renderSprintDetail(sprintId);
+      } catch (err) {
+        notify(err.message);
+      }
+    });
+  });
+
+  document.querySelectorAll('.mark-task-completed-btn').forEach(btn => {
+    btn.onclick = async () => {
+      try {
+        await api(`/tasks/${btn.dataset.id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'completada' })
+        });
+        notify('Tarea marcada como completada');
+        renderSprintDetail(sprintId);
+      } catch (err) {
+        notify(err.message);
+      }
+    };
+  });
+
+  document.querySelectorAll('.remove-from-sprint-btn').forEach(btn => {
+    btn.onclick = async () => {
+      try {
+        await api(`/tasks/${btn.dataset.id}/sprint`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sprint_id: null })
+        });
+        notify('Tarea retirada del sprint');
+        renderSprintDetail(sprintId);
+      } catch (err) {
+        notify(err.message);
+      }
+    };
+  });
+
+  document.querySelectorAll('.add-to-sprint-btn').forEach(btn => {
+    btn.onclick = async () => {
+      try {
+        await api(`/tasks/${btn.dataset.id}/sprint`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sprint_id: sprintId })
+        });
+        notify('Tarea añadida al sprint');
+        renderSprintDetail(sprintId);
+      } catch (err) {
+        notify(err.message);
+      }
+    };
+  });
 }
 function absenceStatusBadge(status){const map={ninguna:['','Sin apelación'],pendiente:['yellow','En revisión'],aprobada:['green','Aprobada'],rechazada:['pink','Rechazada']};const [cls,label]=map[status]||['',status];return `<span class="badge ${cls}">${esc(label)}</span>`}
 function absenceWarning(absences){return `<div class="alert absence-warning" id="absence-warning"><strong>Cuidado:</strong> ya llevas ${absences.length} inasistencias. Se aplicará una sanción.<div class="absence-warning-actions"><button type="button" class="btn secondary" id="go-to-absences">Ver y apelar mis inasistencias</button><button type="button" class="btn secondary" id="dismiss-absence-warning">Entendido</button></div></div>`}

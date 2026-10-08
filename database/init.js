@@ -117,7 +117,24 @@ async function init() {
     ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_status_check;
     ALTER TABLE tasks ADD CONSTRAINT tasks_status_check CHECK (status IN ('pendiente', 'en_proceso', 'en_revision', 'bloqueada', 'completada'));
     ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_priority_check;
-    ALTER TABLE tasks ADD CONSTRAINT tasks_priority_check CHECK (priority IN ('baja', 'media', 'alta', 'critica'));
+    CREATE TABLE IF NOT EXISTS sprints (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      goal TEXT NOT NULL DEFAULT '',
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'planificado' CHECK (status IN ('planificado', 'activo', 'cerrado')),
+      started_at TIMESTAMPTZ,
+      closed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CHECK (end_date >= start_date)
+    );
+    CREATE INDEX IF NOT EXISTS sprints_org_project_idx ON sprints (organization_id, project_id, status);
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS tasks_org_sprint_idx ON tasks (organization_id, sprint_id);
     CREATE TABLE IF NOT EXISTS project_members (
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

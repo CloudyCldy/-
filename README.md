@@ -60,7 +60,72 @@ npm start
 SANZU_API_URL=https://sanzu.onrender.com
 ```
 
-Sanzuを利用できない場合、アシスタントは期限切れタスクやプロジェクトの進捗についてローカルモードで回答します。
+## Gestión de Sprints y Metodología Ágil (SB-03, SB-05)
 
-Sakura Coffeeのリポジトリ。
+Haitani incluye soporte nativo para ciclos de desarrollo ágil (Sprints):
+
+- **Tareas asociadas a proyectos (SB-03.1):** Las tareas pertenecen estrictamente a un proyecto validado dentro de la organización (`GET /api/projects/:id/tasks`, `POST /api/projects/:id/tasks`).
+- **Asignación de tareas a sprints (SB-03.2):** Cada tarea puede ser vinculada a un sprint mediante `tasks.sprint_id` (`PATCH /api/tasks/:id/sprint`). Se valida que el sprint pertenezca al mismo proyecto y organización (respondiendo 400 en caso contrario).
+- **Ciclo de vida de Sprints (SB-05.1 & SB-05.2):**
+  - Estados soportados: `planificado`, `activo` y `cerrado`.
+  - Creación con validación de fechas (`end_date >= start_date`).
+  - Solo un sprint activo por proyecto de forma concurrente (responde 409 en caso de conflicto).
+  - Al cerrar un sprint (`POST /api/sprints/:id/close`), las tareas incompletas regresan al backlog o pueden transferirse a otro sprint planificado mediante `move_to_sprint_id`.
+  - Auditoría de eventos en `activities` (`sprint.created`, `sprint.started`, `sprint.closed`).
+- **Tablero y Vista de Sprint (SB-05.3):**
+  - Rutas hash `#/<rol>/sprints` y `#/<rol>/sprints/:id`.
+  - Visualización del avance (% completado, total, pendientes), tablero kanban por columnas de estado (`pendiente`, `en_proceso`, `en_revision`, `bloqueada`, `completada`), lista de pendientes y backlog de tareas no asignadas con incorporación rápida.
+
+---
+
+## Plantillas de Historias y Sprints (KB-01)
+
+El endpoint `GET /api/templates?type=story|sprint` provee plantillas estandarizadas:
+
+1. **Historias de Usuario (`story`):**
+   - Historia de Usuario Estándar (formato Como... Quiero... Para... con criterios Given/When/Then).
+   - Reporte de Error (Bug Report estructurado con pasos para reproducir y severidad).
+   - Tarea Técnica / Spike (investigación con timebox y entregables).
+2. **Planificación de Sprints (`sprint`):**
+   - Planificación de Sprint Estándar (objetivo, capacidad y riesgos).
+   - Sprint de Estabilización y Calidad (Bugfix / Hardening).
+
+En la interfaz de usuario, los botones "Usar plantilla" y "Usar plantilla de planificación" rellenan automáticamente los campos de descripción y objetivo.
+
+---
+
+## Pruebas Automatizadas (QA-01)
+
+La suite de pruebas utiliza el ejecutor nativo de Node.js (`node --test`) y `supertest` para validar la lógica del backend y el aislamiento multi-tenant.
+
+### Ejecución de pruebas
+
+```bash
+npm test
+```
+
+### Configuración de base de datos de pruebas
+
+Para ejecutar las pruebas contra una base de datos PostgreSQL dedicada, define la variable de entorno `TEST_DATABASE_URL`:
+
+```bash
+# En Windows PowerShell
+$env:TEST_DATABASE_URL="postgres://usuario:password@localhost:5432/haitani_test"
+npm test
+
+# En Linux/macOS
+TEST_DATABASE_URL="postgres://usuario:password@localhost:5432/haitani_test" npm test
+```
+
+Si no se define `TEST_DATABASE_URL`, el runner ejecuta automáticamente la suite en un entorno de pruebas aislado en memoria que valida las 20 aserciones de integración y seguridad:
+1. Creación de tareas con validación de pertenencia al proyecto y organización.
+2. Validación de fechas de sprints (`fin >= inicio`).
+3. Asignación y aislamiento de sprints por proyecto.
+4. Restricción de un solo sprint activo por proyecto (409) y prevención de reinicio de sprints cerrados.
+5. Cierre de sprint y reubicación de tareas no terminadas.
+6. Cálculo de métricas y agrupación de tareas por estado en `GET /api/sprints/:id`.
+7. Aislamiento multi-tenant estricto (404 al acceder a recursos de otra organización).
+8. Control de acceso por roles (`admin`/`project_manager` vs. `member`/`viewer`).
+9. Disponibilidad de plantillas de historias y sprints.
+
 

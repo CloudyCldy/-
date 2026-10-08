@@ -87,6 +87,25 @@ async function ensureRuntimeSchema() {
       CREATE INDEX IF NOT EXISTS messages_org_group_idx ON messages (organization_id, conversation_type, group_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS incidences_org_user_idx ON incidences (organization_id, user_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS files_org_created_idx ON files (organization_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS sprints (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        goal TEXT NOT NULL DEFAULT '',
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        status TEXT NOT NULL DEFAULT 'planificado' CHECK (status IN ('planificado', 'activo', 'cerrado')),
+        started_at TIMESTAMPTZ,
+        closed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CHECK (end_date >= start_date)
+      );
+      CREATE INDEX IF NOT EXISTS sprints_org_project_idx ON sprints (organization_id, project_id, status);
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL;
+      CREATE INDEX IF NOT EXISTS tasks_org_sprint_idx ON tasks (organization_id, sprint_id);
     `);
   } catch (error) {
     console.error('No fue posible asegurar el esquema de usuarios:', error);
@@ -101,8 +120,11 @@ app.use('/api/billing/webhook', billingRoutes.webhookRouter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const isProd = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
 app.use(session({
-  store: new PgSession({ pool: database.pool, createTableIfMissing: true, tableName: 'user_sessions' }),
+  store: (isTest && !process.env.TEST_DATABASE_URL)
+    ? new session.MemoryStore()
+    : new PgSession({ pool: database.pool, createTableIfMissing: true, tableName: 'user_sessions' }),
   secret: process.env.SESSION_SECRET || 'change-this-secret',
   resave: false,
   saveUninitialized: false,
@@ -139,6 +161,8 @@ app.use('/api/projects', require('./server/routes/projectRoutes'));
 app.use('/api/auth', require('./server/routes/authRoutes'));
 app.use('/api/users', require('./server/routes/userRoutes'));
 app.use('/api/tasks', require('./server/routes/taskRoutes'));
+app.use('/api/sprints', require('./server/routes/sprintRoutes'));
+app.use('/api/templates', require('./server/routes/templateRoutes'));
 app.use('/api/files', require('./server/routes/fileRoutes'));
 app.use('/api/dashboard', require('./server/routes/dashboardRoutes'));
 app.use('/api/github', require('./server/routes/githubRoutes'));
@@ -210,10 +234,23 @@ webSocketServer.on('connection', (socket, request) => {
 });
 async function start() {
   await ensureRuntimeSchema();
-  server.listen(port, () => console.log(`Haitani disponible en http://localhost:${port}`));
+  return new Promise((resolve) => {
+    server.listen(port, () => {
+      console.log(`Haitani disponible en http://localhost:${port}`);
+      resolve(server);
+    });
+  });
 }
 
-start().catch(error => {
-  console.error('Fallo al iniciar Haitani:', error);
-  process.exit(1);
-});
+if (require.main === module) {
+  start().catch(error => {
+    console.error('Fallo al iniciar Haitani:', error);
+    process.exit(1);
+  });
+}
+
+module.exports = app;
+app.app = app;
+app.server = server;
+app.start = start;
+app.ensureRuntimeSchema = ensureRuntimeSchema;

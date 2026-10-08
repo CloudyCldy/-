@@ -1,12 +1,19 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = (process.env.NODE_ENV === 'test' && process.env.TEST_DATABASE_URL)
+  ? process.env.TEST_DATABASE_URL
+  : (process.env.DATABASE_URL || process.env.TEST_DATABASE_URL);
+
+const isLocalhost = connectionString && (connectionString.includes('localhost') || connectionString.includes('127.0.0.1'));
+const sslConfig = isLocalhost || process.env.PGSSLMODE === 'disable'
+  ? undefined
+  : { rejectUnauthorized: false };
 
 const pool = connectionString
   ? new Pool({
       connectionString,
-      ssl: { rejectUnauthorized: false }
+      ...(sslConfig ? { ssl: sslConfig } : {})
     })
   : new Pool({
       host: process.env.PGHOST,
