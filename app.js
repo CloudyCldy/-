@@ -158,6 +158,7 @@ app.use('/api/billing', billingRoutes.router);
 app.use('/api/plans', require('./server/routes/planRoutes'));
 app.use('/api/organizations', require('./server/routes/organizationRoutes'));
 app.use('/api/projects', require('./server/routes/projectRoutes'));
+app.use('/api/backlog', require('./server/routes/backlogRoutes'));
 app.use('/api/auth', require('./server/routes/authRoutes'));
 app.use('/api/users', require('./server/routes/userRoutes'));
 app.use('/api/tasks', require('./server/routes/taskRoutes'));

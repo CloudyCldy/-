@@ -54,7 +54,7 @@ async function syncProject(project) {
   const payload = {
     externalRef: project.sanzu_external_ref,
     name: project.name,
-    methodologyId: project.methodology_id,
+    methodologyId: project.methodology_id || 'AGILE', // proyectos antiguos no tienen metodología
     requirements: project.requirements
   };
   const result = await request(PARTNER_PROJECTS_PATH, { method: 'POST', body: JSON.stringify(payload) });
@@ -110,4 +110,52 @@ async function analyzeContext(project, payload) {
   return (await request(contextPath(project.sanzu_external_ref), { method: 'POST', body: JSON.stringify(payload) })).data;
 }
 
-module.exports = { syncProject, askSanzu, analyzeContext, buildContextPayload };
+// ---------- Backlog del producto (SB-04) ----------
+const backlogPath = externalRef => `${API_PREFIX}/partner/projects/${encodeURIComponent(externalRef)}/backlog`;
+const BACKLOG_FILTERS = ['type', 'status', 'priority', 'sprintId'];
+
+async function listBacklog(project, filters = {}) {
+  const query = new URLSearchParams();
+  for (const key of BACKLOG_FILTERS) if (filters[key]) query.set(key, filters[key]);
+  const suffix = query.toString() ? `?${query}` : '';
+  return (await request(`${backlogPath(project.sanzu_external_ref)}${suffix}`)).data || [];
+}
+
+async function createBacklogItem(project, item) {
+  return (await request(backlogPath(project.sanzu_external_ref), { method: 'POST', body: JSON.stringify(item) })).data;
+}
+
+async function updateBacklogItem(project, itemId, changes) {
+  return (await request(`${backlogPath(project.sanzu_external_ref)}/${encodeURIComponent(itemId)}`, { method: 'PUT', body: JSON.stringify(changes) })).data;
+}
+
+async function deleteBacklogItem(project, itemId) {
+  await request(`${backlogPath(project.sanzu_external_ref)}/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+}
+
+async function listSprints(project) {
+  return (await request(`${API_PREFIX}/partner/projects/${encodeURIComponent(project.sanzu_external_ref)}/sprints`)).data || [];
+}
+
+// Los sprints se crean en Haitani; Sanzu guarda una copia para poder asignarles ítems del backlog.
+const SPRINT_STATUS = { planificado: 'PLANNED', activo: 'ACTIVE', cerrado: 'COMPLETED' };
+// pg entrega las columnas DATE como fecha local a medianoche; se arma YYYY-MM-DD sin pasar por UTC.
+const sprintDate = value => value instanceof Date
+  ? `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+  : String(value).slice(0, 10);
+
+async function syncSprints(project, sprints) {
+  const body = {
+    sprints: sprints.map(sprint => ({
+      externalRef: `haitani-sprint-${sprint.id}`,
+      name: sprint.name,
+      goal: sprint.goal || undefined,
+      startDate: sprintDate(sprint.start_date),
+      endDate: sprintDate(sprint.end_date),
+      status: SPRINT_STATUS[sprint.status] || 'PLANNED'
+    }))
+  };
+  return (await request(`${API_PREFIX}/partner/projects/${encodeURIComponent(project.sanzu_external_ref)}/sprints`, { method: 'PUT', body: JSON.stringify(body) })).data || [];
+}
+
+module.exports = { syncProject, askSanzu, analyzeContext, buildContextPayload, listBacklog, createBacklogItem, updateBacklogItem, deleteBacklogItem, listSprints, syncSprints };
