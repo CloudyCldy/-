@@ -309,48 +309,93 @@ function loginView(error='') {
 }
 function sidebar(){
   const admin=state.user.role==='admin';
-  const links=admin?[
-    ['/admin/dashboard','Dashboard','dashboard'],
-    ['/admin/announcements','Anuncios','announcements'],
-    ['/admin/absences','Inasistencias','calendar'],
-    ['/admin/assistant','Asistente IA','sparkles'],
-    ['/admin/tasks','Tareas','tasks','tasks'],
-    ['/admin/sprints','Sprints','gantt'],
-    ['/admin/backlog','Backlog','archive'],
-    ['/admin/kanban','Kanban','kanban'],
-    ['/admin/gantt','Gantt','gantt'],
-    ['/admin/members','Integrantes','users'],
-    ['/admin/files','Archivos','folder'],
-    ['/admin/messages','Mensajes','messages','messages'],
-    ['/admin/relax','Relax 梵天','music'],
-    ['/admin/github','GitHub','github'],
-    ['/admin/github/commits','Commits','gitCommit'],
-    ['/admin/team-activity','Actividad del equipo','activity'],
-    ['/admin/billing','Facturación','creditCard'],
-    ['/admin/settings/github','Configuración','settings'],
-    ['/admin/settings/security','Seguridad','shield'],
-    ['/admin/profile','Perfil','user']
+  const isNavActive=href=>{
+    const h=location.hash||'';
+    return h===href || (href!=='/' && (h.startsWith(href+'/') || h.startsWith(href+'?')));
+  };
+  const sections=admin?[
+    {
+      title: 'Workspace',
+      links: [
+        ['/admin/dashboard','Dashboard','dashboard'],
+        ['/admin/tasks','Tareas','tasks','tasks'],
+        ['/admin/sprints','Sprints','progress'],
+        ['/admin/backlog','Backlog','archive'],
+        ['/admin/kanban','Kanban','kanban'],
+        ['/admin/gantt','Gantt','gantt'],
+      ]
+    },
+    {
+      title: 'Equipo & Comunicación',
+      links: [
+        ['/admin/messages','Mensajes','messages','messages'],
+        ['/admin/announcements','Anuncios','announcements'],
+        ['/admin/absences','Inasistencias','calendar'],
+        ['/admin/members','Integrantes','users'],
+        ['/admin/files','Archivos','folder'],
+      ]
+    },
+    {
+      title: 'Operaciones',
+      links: [
+        ['/admin/assistant','Asistente IA','sparkles'],
+        ['/admin/github','GitHub','github'],
+        ['/admin/github/commits','Commits','gitCommit'],
+        ['/admin/team-activity','Actividad del equipo','activity'],
+        ['/admin/relax','Relax 梵天','music'],
+      ]
+    },
+    {
+      title: 'Cuenta & Ajustes',
+      links: [
+        ['/admin/billing','Facturación','creditCard'],
+        ['/admin/settings/github','Configuración','settings'],
+        ['/admin/settings/security','Seguridad','shield'],
+        ['/admin/profile','Perfil','user'],
+      ]
+    }
   ]:[
-    ['/member/dashboard','Dashboard','dashboard'],
-    ['/member/announcements','Anuncios','announcements'],
-    ['/member/absences','Inasistencias','calendar'],
-    ['/member/tasks','Mis tareas','tasks','tasks'],
-    ['/member/sprints','Sprints','gantt'],
-    ['/member/backlog','Backlog','archive'],
-    ['/member/kanban','Kanban','kanban'],
-    ['/member/gantt','Gantt','gantt'],
-    ['/member/files','Archivos','folder'],
-    ['/member/members','Equipo','users'],
-    ['/member/messages','Mensajes','messages','messages'],
-    ['/member/relax','Relax 梵天','music'],
-    ['/member/github','GitHub','github'],
-    ['/member/profile','Perfil','user']
+    {
+      title: 'Workspace',
+      links: [
+        ['/member/dashboard','Dashboard','dashboard'],
+        ['/member/tasks','Mis tareas','tasks','tasks'],
+        ['/member/sprints','Sprints','progress'],
+        ['/member/backlog','Backlog','archive'],
+        ['/member/kanban','Kanban','kanban'],
+        ['/member/gantt','Gantt','gantt'],
+      ]
+    },
+    {
+      title: 'Equipo & Comunicación',
+      links: [
+        ['/member/messages','Mensajes','messages','messages'],
+        ['/member/announcements','Anuncios','announcements'],
+        ['/member/absences','Inasistencias','calendar'],
+        ['/member/members','Equipo','users'],
+        ['/member/files','Archivos','folder'],
+      ]
+    },
+    {
+      title: 'Herramientas & Cuenta',
+      links: [
+        ['/member/relax','Relax 梵天','music'],
+        ['/member/github','GitHub','github'],
+        ['/member/profile','Perfil','user'],
+      ]
+    }
   ];
-  return `<aside class="side" id="side"><div class="brand">${brandLogo()}</div><div class="project">${esc(state.user.organization_name||'Organización')}</div><div class="nav-title">Workspace</div>${links.map(([href,label,iconName,type])=>`<button class="nav ${location.hash===href?'active':''}" data-route="${href}">${icon(iconName)}<span class="nav-label">${label}</span>${type?notificationDot(type):''}</button>`).join('')}<div class="nav-title">Cuenta</div><button class="nav" id="logout">${icon('logout')}<span class="nav-label">Cerrar sesión</span></button></aside>`;
+
+  const markup = sections.map(sec => `
+    <div class="nav-title">${sec.title}</div>
+    ${sec.links.map(([href,label,iconName,type])=>`<button class="nav ${isNavActive(href)?'active':''}" data-route="${href}">${icon(iconName)}<span class="nav-label">${label}</span>${type?notificationDot(type):''}</button>`).join('')}
+  `).join('');
+
+  return `<aside class="side" id="side"><div class="brand">${brandLogo()}</div><div class="project">${esc(state.user.organization_name||'Organización')}</div>${markup}<div class="nav-title">Sesión</div><button class="nav" id="logout">${icon('logout')}<span class="nav-label">Cerrar sesión</span></button></aside>`;
 }
 function avatarMarkup(user,size='avatar'){return user.profile_photo?`<img class="${size}" src="${esc(user.profile_photo)}" alt="Foto de ${esc(user.name)}">`:`<span class="${size}">${esc(user.name?.[0]||'?')}</span>`}
 function layout(content){
-  app.innerHTML=`<div class="shell"><div class="sidebar-backdrop" id="side-backdrop"></div>${sidebar()}<section class="main"><header class="topbar"><button class="mobile-toggle" id="menu" aria-label="Abrir menú de navegación">${icon('menu')}</button><div class="topbar-role-badge"><span class="topbar-role-indicator"></span><span class="topbar-role-text">${state.user.role==='admin'?'Panel administrativo':'Espacio personal'}</span></div><div class="topbar-actions">${themeToggle()}<a class="user-chip" href="#/${state.user.role}/profile" data-route="/${state.user.role}/profile" title="Ver mi perfil" aria-label="Ver perfil de ${esc(state.user.name)}"><span>${esc(state.user.name)}</span>${avatarMarkup(state.user)}</a></div></div></header><main class="content">${content}</main></section></div>`;
+  app.innerHTML=`<div class="shell"><div class="sidebar-backdrop" id="side-backdrop"></div>${sidebar()}<section class="main"><header class="topbar"><button class="mobile-toggle" id="menu" aria-label="Abrir menú de navegación">${icon('menu')}</button><div class="topbar-role-badge"><span class="topbar-role-indicator"></span><span class="topbar-role-text">${state.user.role==='admin'?'Panel administrativo':'Espacio personal'}</span></div><div class="topbar-actions">${themeToggle()}<a class="user-chip" href="#/${state.user.role}/profile" data-route="/${state.user.role}/profile" title="Ver mi perfil" aria-label="Ver perfil de ${esc(state.user.name)}"><span>${esc(state.user.name)}</span>${avatarMarkup(state.user)}</a></div></header><main class="content">${content}</main></section></div>`;
   const side = document.querySelector('#side');
   const backdrop = document.querySelector('#side-backdrop');
   const closeSide = () => { side?.classList.remove('open'); backdrop?.classList.remove('active'); };
@@ -359,6 +404,7 @@ function layout(content){
   document.querySelector('#menu').onclick=()=>{ side?.classList.toggle('open'); backdrop?.classList.toggle('active'); };
   backdrop.onclick=closeSide;
   bindTheme();
+  bindPaginationControls();
 }
 function heading(title, subtitle, action=''){return `<div class="heading"><div><div class="eyebrow"><img class="brand-logo-inline" src="/static/img/ht.png" alt="Haitani"> / ${esc(state.user.organization_name||'Organización')}</div><h1>${title}</h1><p>${subtitle}</p></div>${action}</div>`}
 function projectEditor(project){if(state.user.role!=='admin')return '';const methods=[['AGILE','Agile'],['SCRUM','Scrum'],['KANBAN','Kanban'],['XP','XP'],['LEAN','Lean'],['WATERFALL','Waterfall'],['HYBRID','Híbrida']];return `<form id="project-form" class="form-grid mt-4"><input type="hidden" name="id" value="${project?.id||''}"><label>Nombre<input class="input" name="name" value="${esc(project?.name||'')}" required></label><label>Descripción<input class="input" name="description" value="${esc(project?.description||'')}"></label><label>Metodología<select class="select" name="methodology_id" required>${methods.map(([value,label])=>`<option value="${value}" ${project?.methodology_id===value||(!project&&value==='AGILE')?'selected':''}>${label}</option>`).join('')}</select></label><label class="full">Requerimientos<textarea class="textarea" name="requirements" rows="4" placeholder="Alcance, stack, restricciones y criterios de aceptación">${esc(project?.requirements||'')}</textarea></label><div class="actions full"><button class="btn">${icon('check')}${project?'Guardar proyecto':'Crear proyecto'}</button></div></form>`}
@@ -2971,6 +3017,7 @@ async function backlogView(){
   const sprintName=id=>sprints.find(s=>s.id===id)?.name||'—';
   const points=items.reduce((sum,item)=>sum+(item.storyPoints||0),0);
   const filtered=Object.values(backlogFilters).some(Boolean);
+  const {items: pagedItems, totalPages, currentPage, totalItems} = paginateItems(items, 'backlog', 10);
   const action=manage?`<div class="actions"><button class="btn" id="new-backlog-item">${icon('plus')}Nuevo ítem</button></div>`:'';
   return `
     ${heading('Backlog','Lista de todo lo que falta por hacer en el producto: historias, errores, tareas y mejoras.',action)}
@@ -2993,7 +3040,7 @@ async function backlogView(){
         <table class="table task-list-table">
           <thead><tr><th>Ítem</th><th>Prioridad</th><th style="text-align:center">Puntos</th><th>Sprint</th><th>Estado</th><th style="text-align:right">Acciones</th></tr></thead>
           <tbody>
-            ${items.map(item=>{
+            ${pagedItems.map(item=>{
               const [prioLabel,prioClass]=BACKLOG_PRIORITIES[item.priority]||[item.priority,''];
               const [statusLabel,statusClass]=BACKLOG_STATUSES[item.status]||[item.status,''];
               const step=BACKLOG_FLOW.indexOf(item.status);
@@ -3013,6 +3060,7 @@ async function backlogView(){
             }).join('')||`<tr><td colspan="6" class="empty">${filtered?'No hay ítems que coincidan con los filtros.':'El backlog está vacío. Agrega la primera historia.'}</td></tr>`}
           </tbody>
         </table>
+        ${paginationMarkup('backlog','renderBacklog',totalPages,currentPage,totalItems,10)}
       </div>`}
     </section>
     ${manage?backlogForm(sprints):''}`;
@@ -3021,9 +3069,9 @@ async function renderBacklog(){
   layout(await backlogView());
   const projectSelect=document.querySelector('#backlog-project');
   const projectId=()=>projectSelect?.value;
-  projectSelect?.addEventListener('change',()=>{localStorage.setItem('haitani-backlog-project',projectSelect.value);backlogFilters={type:'',status:'',priority:'',sprint:''};renderBacklog()});
-  [['#backlog-type','type'],['#backlog-status','status'],['#backlog-priority','priority'],['#backlog-sprint','sprint']].forEach(([selector,key])=>document.querySelector(selector)?.addEventListener('change',event=>{backlogFilters[key]=event.target.value;renderBacklog()}));
-  document.querySelector('#backlog-reset')?.addEventListener('click',()=>{backlogFilters={type:'',status:'',priority:'',sprint:''};renderBacklog()});
+  projectSelect?.addEventListener('change',()=>{localStorage.setItem('haitani-backlog-project',projectSelect.value);backlogFilters={type:'',status:'',priority:'',sprint:''};state.listPages.backlog=1;renderBacklog()});
+  [['#backlog-type','type'],['#backlog-status','status'],['#backlog-priority','priority'],['#backlog-sprint','sprint']].forEach(([selector,key])=>document.querySelector(selector)?.addEventListener('change',event=>{backlogFilters[key]=event.target.value;state.listPages.backlog=1;renderBacklog()}));
+  document.querySelector('#backlog-reset')?.addEventListener('click',()=>{backlogFilters={type:'',status:'',priority:'',sprint:''};state.listPages.backlog=1;renderBacklog()});
   const send=(path,method,body)=>api(path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify({project_id:projectId(),...body})});
   document.querySelectorAll('.backlog-move').forEach(button=>button.onclick=async()=>{
     button.disabled=true;

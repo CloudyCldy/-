@@ -956,8 +956,8 @@ label {
 }
 
 .content {
-  padding: 40px clamp(20px, 4vw, 48px) var(--spacing-80);
-  max-width: 1240px;
+  padding: 36px clamp(20px, 4vw, 44px) var(--spacing-80);
+  max-width: 1360px;
   margin: 0 auto;
 }
 
@@ -2020,9 +2020,10 @@ label {
   margin-left: auto;
 }
 
-.task-toolbar-filters .select {
+.task-list-toolbar .select {
   height: 38px;
-  min-width: 160px;
+  min-height: 38px;
+  min-width: 140px;
   border-radius: var(--radius-inputs, 14px);
   background-color: var(--surface-canvas, var(--color-paper-white));
   color: var(--color-ink-black);
@@ -2040,43 +2041,37 @@ label {
   transition: all .15s var(--ease);
 }
 
-.task-toolbar-filters .select:hover {
+.task-list-toolbar .select:hover {
   border-color: var(--color-slate-gray);
 }
 
-.task-toolbar-filters .select:focus {
+.task-list-toolbar .select:focus {
   border-color: var(--color-ink-black);
   outline: none;
   box-shadow: 0 0 0 3px rgba(23, 25, 28, 0.08);
 }
 
-.task-toolbar-filters .select.has-value {
+.task-list-toolbar .select.has-value {
   border-color: var(--color-ink-black);
   font-weight: 500;
 }
 
-:root[data-theme="ran"] .task-toolbar-filters .select {
+:root[data-theme="ran"] .task-list-toolbar .select {
   background-color: var(--ht-surface, #2A3541);
   color: #FEFCEA;
   border-color: rgba(255, 255, 255, 0.12);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%2394B2BA' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-}
-
-/* El tema oscuro redefine 'background' en .select y borraba estas propiedades:
-   la flecha se repetía en toda la caja y cada filtro ocupaba el 100% del ancho. */
-.task-toolbar-filters .select,
-:root[data-theme="ran"] .task-toolbar-filters .select {
   width: auto;
   background-repeat: no-repeat;
   background-position: right 8px center;
   background-size: 14px;
 }
 
-:root[data-theme="ran"] .task-toolbar-filters .select.has-value {
+:root[data-theme="ran"] .task-list-toolbar .select.has-value {
   border-color: var(--pink, #C4B5C8);
 }
 
-:root[data-theme="ran"] .task-toolbar-filters .select:focus {
+:root[data-theme="ran"] .task-list-toolbar .select:focus {
   border-color: var(--pink, #C4B5C8);
   box-shadow: 0 0 0 3px rgba(196, 181, 200, 0.18);
 }
@@ -5385,9 +5380,9 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
   .task-toolbar-filters { width: 100%; }
   .task-toolbar-filters .select { flex: 1 1 calc(50% - 4px); min-width: 130px; }
   .task-bulk-actions { flex-direction: row; align-items: center; flex-wrap: wrap; }
-  .task-bulk-actions .btn { width: auto; }
   .task-row-actions { flex-direction: row; align-items: center; flex-wrap: nowrap; }
-  .task-row-actions .btn { width: 30px; min-width: 30px; padding: 0; }
+  .task-row-actions .btn.task-icon-action { width: 30px; min-width: 30px; padding: 0; }
+  .task-row-actions .btn:not(.task-icon-action) { width: auto; min-width: unset; padding: 4px 10px; }
 }
 /* =========================================================
    WHATSAPP-STYLE: ESTADOS, BLOQUEO Y SILENCIO
@@ -5864,6 +5859,85 @@ a:focus-visible{outline:2px solid var(--pink);outline-offset:2px;border-radius:v
   background: #2A3541;
   border-color: #C4B5C8;
   outline-color: #C4B5C8;
+}
+:root[data-theme="ran"] .sprint-task-card {
+  background: #2A3541;
+  border-color: #627079;
+  color: #FEFCEA;
+}
+:root[data-theme="ran"] .sprint-task-card strong {
+  color: #FEFCEA;
+}
+:root[data-theme="ran"] .sprint-task-card .task-meta {
+  color: #7D9B9F;
+}
+:root[data-theme="ran"] .sprint-task-card .task-card-actions {
+  border-top-color: rgba(255, 255, 255, 0.12);
+}
+:root[data-theme="ran"] .sprint-task-card .change-task-status-select {
+  background-color: #1a232c;
+  border-color: #627079;
+  color: #FEFCEA;
+}
+:root[data-theme="ran"] .sprint-summary-stat {
+  background: #201B19;
+  border-color: #2A3541;
+}
+:root[data-theme="ran"] .sprint-summary-stat strong {
+  color: #FEFCEA;
+}
+:root[data-theme="ran"] .sprint-summary-stat span {
+  color: #7D9B9F;
+}
+:root[data-theme="ran"] .sprint-goal-box {
+  background: #201B19;
+  border-left-color: var(--pink, #C4B5C8);
+  color: #FEFCEA;
+}
+:root[data-theme="ran"] .sprint-progress-bar {
+  background: #2A3541;
+}
+:root[data-theme="ran"] .sprint-progress-fill {
+  background: var(--pink, #C4B5C8);
+}
+.points-pick {
+  min-width: 28px;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
+}
+:root[data-theme="ran"] .points-pick {
+  background: #2A3541;
+  border-color: #627079;
+  color: #FEFCEA;
+}
+:root[data-theme="ran"] .points-pick:hover {
+  background: #3a4857;
+  border-color: #94B2BA;
+  color: #FEFCEA;
+}
+#story-preview {
+  display: block;
+  font-size: 12.5px;
+  font-style: italic;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-fog-white);
+  border-left: 3px solid var(--color-ink-black);
+  margin-top: 4px;
+}
+:root[data-theme="ran"] #story-preview {
+  background: #181c22;
+  border-left-color: var(--pink, #C4B5C8);
+  color: #FEFCEA;
+}
+#points-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #d97706;
 }
 @media (max-width: 900px) {
   .sprint-board {
