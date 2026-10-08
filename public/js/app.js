@@ -3223,24 +3223,63 @@ async function renderSprintDetail(sprintId) {
       ${sprint.goal ? `<div class="sprint-goal-box mt-3"><strong>Objetivo:</strong>\n${esc(sprint.goal)}</div>` : ''}
     </section>
 
+    <!-- Bandeja rápida de Backlog para arrastrar tareas al Sprint -->
+    <section class="card mb-3 sprint-backlog-tray-wrapper" id="sprint-backlog-tray-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <strong>${icon('list')} Bandeja de Backlog (${backlog.length})</strong>
+          <span class="muted" style="font-size:12px">Arrastra tareas existentes a cualquier columna del tablero para incorporarlas al sprint.</span>
+        </div>
+        ${backlog.length > 0 ? `
+          <button type="button" class="btn secondary mini" id="toggle-backlog-tray-btn">
+            ${state.sprintBacklogTrayOpen === false ? 'Mostrar bandeja' : 'Ocultar bandeja'}
+          </button>
+        ` : ''}
+      </div>
+      ${backlog.length > 0 ? `
+        <div class="sprint-backlog-tray mt-2" id="sprint-backlog-tray" style="${state.sprintBacklogTrayOpen === false ? 'display:none;' : ''}">
+          ${backlog.map(t => {
+            const prioCls = t.priority === 'critica' ? 'pink' : t.priority === 'alta' ? 'yellow' : '';
+            return `
+              <div class="sprint-task-card sprint-backlog-card" draggable="true" data-id="${t.id}" data-source="backlog" data-status="${t.status}" data-title="${esc(t.title)}">
+                <div style="display:flex;align-items:flex-start;gap:6px">
+                  <span class="drag-handle-badge" title="Arrastrar al tablero">⋮⋮</span>
+                  <strong style="font-size:12px;line-height:1.2;flex:1">${esc(t.title)}</strong>
+                </div>
+                <div class="task-meta">
+                  <span class="badge mini ${prioCls}">${esc(t.priority)}</span>
+                  <span class="muted" style="font-size:11px">${esc(t.assignee_name || 'Sin asignar')}</span>
+                </div>
+                <div class="task-card-actions" style="margin-top:2px;padding-top:2px">
+                  <button type="button" class="btn secondary mini add-to-sprint-btn" data-id="${t.id}" style="font-size:11px;padding:2px 6px;width:100%">${icon('plus')} Añadir</button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      ` : `
+        <div class="muted mt-2" style="font-size:12px">No hay tareas pendientes en el backlog de este proyecto.</div>
+      `}
+    </section>
+
     <!-- Tablero del Sprint (SB-05.3) -->
     <div class="section-heading mb-3">
       <div>
         <h2>Tablero del Sprint</h2>
-        <p class="muted">Tareas del ciclo agrupadas por estado.</p>
+        <p class="muted">Tareas del ciclo agrupadas por estado. Arrastra tarjetas entre columnas o suéltalas en el Backlog para retirarlas.</p>
       </div>
     </div>
     <div class="sprint-board mb-4">
       ${statusColumns.map(col => {
         const colTasks = by_status[col.key] || [];
         return `
-          <div class="column">
+          <div class="column" data-status="${col.key}">
             <h3><span>${col.label}</span> <span class="badge mini">${colTasks.length}</span></h3>
             <div class="sprint-column-cards">
               ${colTasks.map(t => {
                 const prioCls = t.priority === 'critica' ? 'pink' : t.priority === 'alta' ? 'yellow' : '';
                 return `
-                  <div class="sprint-task-card">
+                  <div class="sprint-task-card" draggable="true" data-id="${t.id}" data-source="sprint" data-status="${t.status}" data-title="${esc(t.title)}">
                     <strong>${esc(t.title)}</strong>
                     <div class="task-meta">
                       <span class="badge mini ${prioCls}">${esc(t.priority)}</span>
@@ -3299,17 +3338,18 @@ async function renderSprintDetail(sprintId) {
     </section>
 
     <!-- Sección Backlog del Proyecto (SB-05.3) -->
-    <section class="card">
+    <section class="card sprint-backlog-drop-zone" id="sprint-backlog-section">
       <div class="section-heading">
         <div>
           <h2>Backlog del Proyecto (Sin Sprint)</h2>
-          <p class="muted">Tareas disponibles para incorporar a este sprint (${backlog.length}).</p>
+          <p class="muted">Tareas disponibles para incorporar a este sprint (${backlog.length}). Arrástralas al tablero o suelta aquí tareas del sprint para devolverlas al backlog.</p>
         </div>
       </div>
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr>
+              <th style="width:36px;text-align:center"></th>
               <th>Tarea</th>
               <th>Estado</th>
               <th>Prioridad</th>
@@ -3319,7 +3359,10 @@ async function renderSprintDetail(sprintId) {
           </thead>
           <tbody>
             ${backlog.map(t => `
-              <tr>
+              <tr class="backlog-task-row" draggable="true" data-id="${t.id}" data-source="backlog" data-status="${t.status}" data-title="${esc(t.title)}">
+                <td style="text-align:center;cursor:grab" class="drag-handle" title="Arrastrar tarea al tablero">
+                  <span style="user-select:none;font-size:16px;color:var(--muted)">⋮⋮</span>
+                </td>
                 <td><strong>${esc(t.title)}</strong></td>
                 <td><span class="badge">${esc(t.status.replace('_', ' '))}</span></td>
                 <td><span class="badge ${t.priority === 'critica' ? 'pink' : t.priority === 'alta' ? 'yellow' : ''}">${esc(t.priority)}</span></td>
@@ -3328,7 +3371,7 @@ async function renderSprintDetail(sprintId) {
                   <button type="button" class="btn secondary mini add-to-sprint-btn" data-id="${t.id}">${icon('plus')}Agregar al sprint</button>
                 </td>
               </tr>
-            `).join('') || '<tr><td colspan="5" class="empty">No hay tareas pendientes en el backlog.</td></tr>'}
+            `).join('') || '<tr><td colspan="6" class="empty">No hay tareas pendientes en el backlog.</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -3355,6 +3398,131 @@ async function renderSprintDetail(sprintId) {
   document.querySelector('#detail-new-task-btn')?.addEventListener('click', () => {
     sessionStorage.setItem('preselected_project_id', String(sprint.project_id));
     location.hash = `#/${state.user.role}/tasks`;
+  });
+
+  const toggleTrayBtn = document.querySelector('#toggle-backlog-tray-btn');
+  if (toggleTrayBtn) {
+    toggleTrayBtn.onclick = () => {
+      const tray = document.querySelector('#sprint-backlog-tray');
+      if (tray) {
+        const isHidden = tray.style.display === 'none';
+        tray.style.display = isHidden ? 'flex' : 'none';
+        state.sprintBacklogTrayOpen = isHidden;
+        toggleTrayBtn.textContent = isHidden ? 'Ocultar bandeja' : 'Mostrar bandeja';
+      }
+    };
+  }
+
+  // Soporte de Drag & Drop para tablero del sprint y backlog
+  let draggedItem = null;
+  document.querySelectorAll('.sprint-task-card[draggable="true"], .backlog-task-row[draggable="true"]').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      draggedItem = el;
+      el.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', el.dataset.id || '');
+      e.dataTransfer.setData('id', el.dataset.id || '');
+      e.dataTransfer.setData('source', el.dataset.source || 'sprint');
+      e.dataTransfer.setData('status', el.dataset.status || 'pendiente');
+      e.dataTransfer.setData('title', el.dataset.title || '');
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('is-dragging');
+      document.querySelectorAll('.is-drag-over').forEach(over => over.classList.remove('is-drag-over'));
+      draggedItem = null;
+    });
+  });
+
+  document.querySelectorAll('.sprint-board .column').forEach(col => {
+    col.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      col.classList.add('is-drag-over');
+    });
+    col.addEventListener('dragleave', e => {
+      if (!col.contains(e.relatedTarget)) {
+        col.classList.remove('is-drag-over');
+      }
+    });
+    col.addEventListener('drop', async e => {
+      e.preventDefault();
+      col.classList.remove('is-drag-over');
+      const taskId = e.dataTransfer.getData('id') || (draggedItem && draggedItem.dataset.id);
+      const source = e.dataTransfer.getData('source') || (draggedItem && draggedItem.dataset.source) || 'sprint';
+      const originalStatus = e.dataTransfer.getData('status') || (draggedItem && draggedItem.dataset.status);
+      const targetStatus = col.dataset.status;
+
+      if (!taskId || !targetStatus) return;
+
+      if (source === 'backlog') {
+        try {
+          await api(`/tasks/${taskId}/sprint`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sprint_id: sprintId })
+          });
+          if (targetStatus !== originalStatus) {
+            await api(`/tasks/${taskId}/status`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: targetStatus })
+            });
+          }
+          notify('Tarea añadida al sprint correctamente');
+          renderSprintDetail(sprintId);
+        } catch (err) {
+          notify(err.message);
+        }
+      } else if (source === 'sprint') {
+        if (originalStatus === targetStatus) return;
+        try {
+          await api(`/tasks/${taskId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: targetStatus })
+          });
+          notify('Estado de la tarea actualizado');
+          renderSprintDetail(sprintId);
+        } catch (err) {
+          notify(err.message);
+        }
+      }
+    });
+  });
+
+  const backlogDropZones = document.querySelectorAll('.sprint-backlog-drop-zone, .sprint-backlog-tray-wrapper');
+  backlogDropZones.forEach(zone => {
+    zone.addEventListener('dragover', e => {
+      const source = (draggedItem && draggedItem.dataset.source) || e.dataTransfer.getData('source');
+      if (source === 'sprint') {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        zone.classList.add('is-drag-over');
+      }
+    });
+    zone.addEventListener('dragleave', e => {
+      if (!zone.contains(e.relatedTarget)) {
+        zone.classList.remove('is-drag-over');
+      }
+    });
+    zone.addEventListener('drop', async e => {
+      zone.classList.remove('is-drag-over');
+      const taskId = e.dataTransfer.getData('id') || (draggedItem && draggedItem.dataset.id);
+      const source = e.dataTransfer.getData('source') || (draggedItem && draggedItem.dataset.source);
+      if (!taskId || source !== 'sprint') return;
+      e.preventDefault();
+      try {
+        await api(`/tasks/${taskId}/sprint`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sprint_id: null })
+        });
+        notify('Tarea devuelta al backlog');
+        renderSprintDetail(sprintId);
+      } catch (err) {
+        notify(err.message);
+      }
+    });
   });
 
   document.querySelectorAll('.change-task-status-select').forEach(sel => {

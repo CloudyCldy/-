@@ -5762,6 +5762,92 @@ a:focus-visible{outline:2px solid var(--pink);outline-offset:2px;border-radius:v
   padding-top: 4px;
   border-top: 1px dashed var(--line);
 }
+.sprint-task-card[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+}
+.sprint-task-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+.sprint-task-card.is-dragging {
+  opacity: 0.45;
+  transform: scale(0.98);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.12));
+}
+.sprint-backlog-tray-wrapper {
+  border: 1px dashed var(--line);
+  background: var(--color-fog-white, #f8f9fa);
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.sprint-backlog-tray-wrapper.is-drag-over,
+.sprint-backlog-drop-zone.is-drag-over {
+  border-color: var(--color-ink-black);
+  background: var(--color-mist-gray, #eef0f4);
+  outline: 2px dashed var(--color-ink-black);
+  outline-offset: -2px;
+}
+.sprint-backlog-tray {
+  display: flex;
+  gap: var(--sp-2, 8px);
+  overflow-x: auto;
+  padding: 4px 2px 8px 2px;
+  scroll-snap-type: x mandatory;
+}
+.sprint-backlog-card {
+  min-width: 220px;
+  max-width: 240px;
+  flex: 0 0 220px;
+  scroll-snap-align: start;
+  background: var(--color-pure-white, #fff);
+  border: 1px solid var(--line);
+  margin-bottom: 0;
+}
+.drag-handle-badge {
+  font-size: 14px;
+  color: var(--muted);
+  cursor: grab;
+  user-select: none;
+  line-height: 1;
+}
+.backlog-task-row[draggable="true"] {
+  cursor: grab;
+  transition: background 0.12s var(--ease);
+}
+.backlog-task-row[draggable="true"]:hover {
+  background: var(--color-fog-white, #f9fafb);
+}
+.backlog-task-row.is-dragging {
+  opacity: 0.45;
+  background: var(--color-mist-gray, #e5e7eb);
+}
+.sprint-board .column.is-drag-over {
+  border-color: var(--color-ink-black);
+  background: var(--color-mist-gray);
+  outline: 2px dashed var(--color-ink-black);
+  outline-offset: -2px;
+}
+:root[data-theme="ran"] .sprint-backlog-tray-wrapper {
+  background: #181c22;
+  border-color: #2A3541;
+}
+:root[data-theme="ran"] .sprint-backlog-tray-wrapper.is-drag-over,
+:root[data-theme="ran"] .sprint-backlog-drop-zone.is-drag-over {
+  background: #2A3541;
+  border-color: #C4B5C8;
+  outline-color: #C4B5C8;
+}
+:root[data-theme="ran"] .sprint-backlog-card {
+  background: #201B19;
+  border-color: #2A3541;
+}
+:root[data-theme="ran"] .backlog-task-row[draggable="true"]:hover {
+  background: #201B19;
+}
+:root[data-theme="ran"] .sprint-board .column.is-drag-over {
+  background: #2A3541;
+  border-color: #C4B5C8;
+  outline-color: #C4B5C8;
+}
 @media (max-width: 900px) {
   .sprint-board {
     display: flex;
