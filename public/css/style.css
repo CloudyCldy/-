@@ -2062,6 +2062,16 @@ label {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%2394B2BA' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
+/* El tema oscuro redefine 'background' en .select y borraba estas propiedades:
+   la flecha se repetía en toda la caja y cada filtro ocupaba el 100% del ancho. */
+.task-toolbar-filters .select,
+:root[data-theme="ran"] .task-toolbar-filters .select {
+  width: auto;
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 14px;
+}
+
 :root[data-theme="ran"] .task-toolbar-filters .select.has-value {
   border-color: var(--pink, #C4B5C8);
 }

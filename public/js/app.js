@@ -316,6 +316,7 @@ function sidebar(){
     ['/admin/assistant','Asistente IA','sparkles'],
     ['/admin/tasks','Tareas','tasks','tasks'],
     ['/admin/sprints','Sprints','gantt'],
+    ['/admin/backlog','Backlog','archive'],
     ['/admin/kanban','Kanban','kanban'],
     ['/admin/gantt','Gantt','gantt'],
     ['/admin/members','Integrantes','users'],
@@ -335,6 +336,7 @@ function sidebar(){
     ['/member/absences','Inasistencias','calendar'],
     ['/member/tasks','Mis tareas','tasks','tasks'],
     ['/member/sprints','Sprints','gantt'],
+    ['/member/backlog','Backlog','archive'],
     ['/member/kanban','Kanban','kanban'],
     ['/member/gantt','Gantt','gantt'],
     ['/member/files','Archivos','folder'],
@@ -1293,7 +1295,7 @@ async function renderKanban(){
     };
   });
   state.kanbanTimer=setInterval(()=>{
-    if(document.visibilityState==='visible'&&location.hash==='#/kanban'){
+    if(document.visibilityState==='visible'&&location.hash.includes('kanban')){
       renderKanban().catch(error=>notify(error.message));
     }
   },30000);
@@ -2881,6 +2883,216 @@ async function landingView() {
   }
 }
 
+// ===================== Backlog del producto (SB-04, se guarda en Haitani) =====================
+const BACKLOG_TYPES={USER_STORY:'Historia de usuario',BUG:'Error',TASK:'Tarea',FEATURE:'Funcionalidad',IMPROVEMENT:'Mejora'};
+const BACKLOG_PRIORITIES={CRITICAL:['Crítica','pink'],HIGH:['Alta','yellow'],MEDIUM:['Media',''],LOW:['Baja','']};
+const BACKLOG_STATUSES={BACKLOGGED:['Por hacer',''],READY:['Lista','yellow'],IN_PROGRESS:['En proceso','pink'],DONE:['Terminada','green']};
+const BACKLOG_FLOW=['BACKLOGGED','READY','IN_PROGRESS','DONE'];
+// Plantillas que ayudan a escribir cada ítem con el formato correcto
+const BUG_TEMPLATE='Pasos para reproducir:\n1. \n2. \n\nResultado esperado:\n\nResultado actual:\n';
+const CRITERIA_TEMPLATE='Dado que \nCuando \nEntonces ';
+const STORY_PATTERN=/^Como\s+(.+?),\s*quiero\s+(.+?),\s*para\s+(.+?)\.?$/i;
+let backlogFilters={type:'',status:'',priority:'',sprint:''};
+let backlogData=null;
+function backlogProjectId(projects){const saved=localStorage.getItem('haitani-backlog-project');return projects.some(p=>String(p.id)===saved)?saved:String(projects[0]?.id||'')}
+function backlogOptions(map,selected,empty){return `<option value="">${empty}</option>`+Object.entries(map).map(([value,label])=>`<option value="${value}" ${selected===value?'selected':''}>${esc(Array.isArray(label)?label[0]:label)}</option>`).join('')}
+const SPRINT_STATUS_LABELS={planificado:'Planificado',activo:'Activo',cerrado:'Cerrado'};
+function sprintLabel(s){return SPRINT_STATUS_LABELS[s.status]?`${s.name} (${SPRINT_STATUS_LABELS[s.status]})`:s.name}
+function storyTitle(role,want,benefit){return `Como ${role.trim()}, quiero ${want.trim()}, para ${benefit.trim()}`}
+function backlogForm(sprints){
+  return `
+    <div class="status-overlay" id="backlog-modal" style="display:none" role="dialog" aria-modal="true">
+      <div class="status-viewer admin-modal-panel">
+        <div class="status-viewer-head">
+          <strong id="backlog-form-title">Nuevo ítem del backlog</strong>
+          <button type="button" class="icon-btn" id="close-backlog-modal" aria-label="Cerrar">${icon('close')}</button>
+        </div>
+        <form class="admin-modal-form" id="backlog-form">
+          <input type="hidden" name="id">
+          <div class="form-grid">
+            <label>Tipo
+              <select class="select" name="type" required>${Object.entries(BACKLOG_TYPES).map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>
+            </label>
+            <label>Prioridad
+              <select class="select" name="priority">${Object.entries(BACKLOG_PRIORITIES).map(([v,[l]])=>`<option value="${v}" ${v==='MEDIUM'?'selected':''}>${l}</option>`).join('')}</select>
+            </label>
+            <div class="full" id="story-builder" style="display:grid;gap:12px">
+              <label>Como… <small class="muted">(¿quién lo necesita?)</small>
+                <input class="input" name="storyRole" maxlength="80" placeholder="Ej. integrante del equipo">
+              </label>
+              <label>quiero… <small class="muted">(¿qué quiere poder hacer?)</small>
+                <input class="input" name="storyWant" maxlength="120" placeholder="Ej. ver solo las tareas de mi sprint">
+              </label>
+              <label>para… <small class="muted">(¿para qué le sirve?)</small>
+                <input class="input" name="storyBenefit" maxlength="120" placeholder="Ej. saber qué me toca hacer esta semana">
+              </label>
+              <small class="muted" id="story-preview"></small>
+            </div>
+            <label class="full" id="title-field">Título
+              <input class="input" name="title" maxlength="200" placeholder="Ej. El login tarda más de 5 segundos">
+            </label>
+            <label>Story points
+              <input class="input" name="storyPoints" type="number" min="0" max="100" step="1" placeholder="Ej. 3">
+              <span class="actions" style="gap:6px;margin-top:6px">${[1,2,3,5,8].map(n=>`<button type="button" class="btn secondary mini points-pick" data-points="${n}">${n}</button>`).join('')}</span>
+              <small class="muted" id="points-hint"></small>
+            </label>
+            <label>Sprint
+              <select class="select" name="sprintId"><option value="">Sin sprint</option>${sprints.map(s=>`<option value="${esc(s.id)}">${esc(sprintLabel(s))}</option>`).join('')}</select>
+              <small class="muted">${sprints.length?'Son los sprints de la vista Sprints.':'Este proyecto no tiene sprints; créalos en la vista <a href="#/'+state.user.role+'/sprints">Sprints</a>.'}</small>
+            </label>
+            <label class="full">Descripción
+              <textarea class="input" name="description" rows="4" placeholder="Qué se necesita y por qué"></textarea>
+            </label>
+            <label class="full">Criterios de aceptación <small class="muted">(cuándo se considera terminado)</small>
+              <textarea class="input" name="acceptanceCriteria" rows="4" placeholder="Dado que… cuando… entonces…"></textarea>
+              <span class="actions" style="margin-top:6px"><button type="button" class="btn secondary mini" id="insert-criteria">Insertar formato Dado / Cuando / Entonces</button></span>
+            </label>
+          </div>
+          <div class="actions mt-4">
+            <button class="btn" type="submit">Guardar</button>
+            <button class="btn secondary" type="button" id="cancel-backlog">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+}
+async function backlogView(){
+  const projects=await api('/projects');
+  const intro=heading('Backlog','Lista de todo lo que falta por hacer en el producto: historias, errores, tareas y mejoras.');
+  if(!projects.length)return `${intro}<section class="card"><p class="empty">Primero crea un proyecto para empezar su backlog.</p></section>`;
+  const projectId=backlogProjectId(projects);
+  const query=new URLSearchParams({project_id:projectId});
+  Object.entries(backlogFilters).forEach(([key,value])=>{if(value)query.set(key,value)});
+  let error='';
+  try{backlogData=await api(`/backlog?${query}`)}catch(e){backlogData=null;error=e.message}
+  const items=backlogData?.items||[];
+  const sprints=backlogData?.sprints||[];
+  const manage=Boolean(backlogData?.canManage);
+  const sprintName=id=>sprints.find(s=>s.id===id)?.name||'—';
+  const points=items.reduce((sum,item)=>sum+(item.storyPoints||0),0);
+  const filtered=Object.values(backlogFilters).some(Boolean);
+  const action=manage?`<div class="actions"><button class="btn" id="new-backlog-item">${icon('plus')}Nuevo ítem</button></div>`:'';
+  return `
+    ${heading('Backlog','Lista de todo lo que falta por hacer en el producto: historias, errores, tareas y mejoras.',action)}
+    <section class="card admin-table-card">
+      <div class="task-list-toolbar">
+        <div class="task-toolbar-main">
+          <select id="backlog-project" class="select has-value" aria-label="Proyecto" style="max-width:360px">${projects.map(p=>`<option value="${p.id}" ${String(p.id)===projectId?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
+          <span class="task-count-tag">${items.length} ${items.length===1?'ítem':'ítems'} · ${points} story points</span>
+        </div>
+        <div class="task-toolbar-filters">
+          <select id="backlog-type" class="select ${backlogFilters.type?'has-value':''}" aria-label="Filtrar por tipo">${backlogOptions(BACKLOG_TYPES,backlogFilters.type,'Todos los tipos')}</select>
+          <select id="backlog-status" class="select ${backlogFilters.status?'has-value':''}" aria-label="Filtrar por estado">${backlogOptions(BACKLOG_STATUSES,backlogFilters.status,'Todos los estados')}</select>
+          <select id="backlog-priority" class="select ${backlogFilters.priority?'has-value':''}" aria-label="Filtrar por prioridad">${backlogOptions(BACKLOG_PRIORITIES,backlogFilters.priority,'Todas las prioridades')}</select>
+          <select id="backlog-sprint" class="select ${backlogFilters.sprint?'has-value':''}" aria-label="Filtrar por sprint"><option value="">Todos los sprints</option><option value="none" ${backlogFilters.sprint==='none'?'selected':''}>Sin sprint</option>${sprints.map(s=>`<option value="${esc(s.id)}" ${backlogFilters.sprint===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+          ${filtered?`<button type="button" class="task-reset-btn" id="backlog-reset">${icon('close')}<span>Limpiar</span></button>`:''}
+        </div>
+      </div>
+      ${error?`<div class="alert">${esc(error)}</div>`:`
+      <div class="table-wrap">
+        <table class="table task-list-table">
+          <thead><tr><th>Ítem</th><th>Prioridad</th><th style="text-align:center">Puntos</th><th>Sprint</th><th>Estado</th><th style="text-align:right">Acciones</th></tr></thead>
+          <tbody>
+            ${items.map(item=>{
+              const [prioLabel,prioClass]=BACKLOG_PRIORITIES[item.priority]||[item.priority,''];
+              const [statusLabel,statusClass]=BACKLOG_STATUSES[item.status]||[item.status,''];
+              const step=BACKLOG_FLOW.indexOf(item.status);
+              const next=BACKLOG_FLOW[step+1], prev=BACKLOG_FLOW[step-1];
+              return `<tr>
+                <td><strong class="task-title-cell">${esc(item.title)}</strong><br><small class="muted">${esc(BACKLOG_TYPES[item.type]||item.type)}</small></td>
+                <td><span class="badge ${prioClass}">${esc(prioLabel)}</span></td>
+                <td style="text-align:center">${item.storyPoints??'—'}</td>
+                <td>${esc(item.sprintId?sprintName(item.sprintId):'Sin sprint')}</td>
+                <td><span class="badge ${statusClass}">${esc(statusLabel)}</span></td>
+                <td><div class="actions task-row-actions" style="justify-content:flex-end">
+                  ${prev?`<button type="button" class="btn secondary mini backlog-move" data-id="${esc(item.id)}" data-status="${prev}" title="Regresar a ${esc(BACKLOG_STATUSES[prev][0])}">Regresar</button>`:''}
+                  ${next?`<button type="button" class="btn mini backlog-move" data-id="${esc(item.id)}" data-status="${next}" title="Avanzar a ${esc(BACKLOG_STATUSES[next][0])}">Avanzar</button>`:''}
+                  ${manage?`<button type="button" class="btn secondary mini task-icon-action backlog-edit" data-id="${esc(item.id)}" title="Editar" aria-label="Editar">${icon('edit')}</button><button type="button" class="btn danger mini task-icon-action backlog-delete" data-id="${esc(item.id)}" title="Eliminar" aria-label="Eliminar">${icon('trash')}</button>`:''}
+                </div></td>
+              </tr>`;
+            }).join('')||`<tr><td colspan="6" class="empty">${filtered?'No hay ítems que coincidan con los filtros.':'El backlog está vacío. Agrega la primera historia.'}</td></tr>`}
+          </tbody>
+        </table>
+      </div>`}
+    </section>
+    ${manage?backlogForm(sprints):''}`;
+}
+async function renderBacklog(){
+  layout(await backlogView());
+  const projectSelect=document.querySelector('#backlog-project');
+  const projectId=()=>projectSelect?.value;
+  projectSelect?.addEventListener('change',()=>{localStorage.setItem('haitani-backlog-project',projectSelect.value);backlogFilters={type:'',status:'',priority:'',sprint:''};renderBacklog()});
+  [['#backlog-type','type'],['#backlog-status','status'],['#backlog-priority','priority'],['#backlog-sprint','sprint']].forEach(([selector,key])=>document.querySelector(selector)?.addEventListener('change',event=>{backlogFilters[key]=event.target.value;renderBacklog()}));
+  document.querySelector('#backlog-reset')?.addEventListener('click',()=>{backlogFilters={type:'',status:'',priority:'',sprint:''};renderBacklog()});
+  const send=(path,method,body)=>api(path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify({project_id:projectId(),...body})});
+  document.querySelectorAll('.backlog-move').forEach(button=>button.onclick=async()=>{
+    button.disabled=true;
+    try{await send(`/backlog/${button.dataset.id}`,'PUT',{status:button.dataset.status});notify(`Movido a ${BACKLOG_STATUSES[button.dataset.status][0]}`);renderBacklog()}catch(error){button.disabled=false;notify(error.message)}
+  });
+  document.querySelectorAll('.backlog-delete').forEach(button=>button.onclick=async()=>{
+    if(!confirm('¿Eliminar este ítem del backlog?'))return;
+    try{await api(`/backlog/${button.dataset.id}?project_id=${encodeURIComponent(projectId())}`,{method:'DELETE'});notify('Ítem eliminado');renderBacklog()}catch(error){notify(error.message)}
+  });
+  const modal=document.querySelector('#backlog-modal');
+  const form=document.querySelector('#backlog-form');
+  if(!modal||!form)return;
+  const f=form.elements;
+  const isStory=()=>f.type.value==='USER_STORY';
+  // Muestra "Como / quiero / para" solo en historias de usuario y una vista previa del título
+  const refreshStory=()=>{
+    document.querySelector('#story-builder').style.display=isStory()?'grid':'none';
+    document.querySelector('#title-field').style.display=isStory()?'none':'';
+    const parts=[f.storyRole.value,f.storyWant.value,f.storyBenefit.value];
+    document.querySelector('#story-preview').textContent=parts.every(v=>v.trim())?`Así quedará: “${storyTitle(...parts)}”`:'';
+  };
+  const refreshPoints=()=>{
+    const value=Number(f.storyPoints.value);
+    document.querySelector('#points-hint').textContent=value>5?'Es una historia grande: conviene dividirla en historias más pequeñas.':'';
+  };
+  // Plantilla de error: solo se pone si la descripción está vacía, para no borrar lo que ya escribieron
+  const applyTypeTemplate=()=>{if(f.type.value==='BUG'&&!f.description.value.trim())f.description.value=BUG_TEMPLATE;if(f.type.value!=='BUG'&&f.description.value===BUG_TEMPLATE)f.description.value=''};
+  f.type.addEventListener('change',()=>{applyTypeTemplate();refreshStory()});
+  [f.storyRole,f.storyWant,f.storyBenefit].forEach(input=>input.addEventListener('input',refreshStory));
+  f.storyPoints.addEventListener('input',refreshPoints);
+  document.querySelectorAll('.points-pick').forEach(button=>button.onclick=()=>{f.storyPoints.value=button.dataset.points;refreshPoints()});
+  document.querySelector('#insert-criteria').onclick=()=>{f.acceptanceCriteria.value=(f.acceptanceCriteria.value.trim()?f.acceptanceCriteria.value.trimEnd()+'\n\n':'')+CRITERIA_TEMPLATE;f.acceptanceCriteria.focus()};
+  const close=()=>{modal.style.display='none'};
+  const open=item=>{
+    form.reset();
+    f.id.value=item?.id||'';
+    document.querySelector('#backlog-form-title').textContent=item?'Editar ítem del backlog':'Nuevo ítem del backlog';
+    f.type.value=item?.type||'USER_STORY';
+    if(item){
+      ['title','priority','storyPoints','sprintId','description','acceptanceCriteria'].forEach(name=>{f[name].value=item[name]??''});
+      const match=item.type==='USER_STORY'&&String(item.title).match(STORY_PATTERN);
+      if(match){[f.storyRole.value,f.storyWant.value,f.storyBenefit.value]=match.slice(1)}
+      else if(item.type==='USER_STORY'){f.type.value='USER_STORY';f.storyWant.value=item.title}
+    }
+    refreshStory();refreshPoints();
+    modal.style.display='grid';
+    (isStory()?f.storyRole:f.title).focus();
+  };
+  document.querySelector('#new-backlog-item')?.addEventListener('click',()=>open(null));
+  document.querySelectorAll('.backlog-edit').forEach(button=>button.onclick=()=>open(backlogData.items.find(item=>item.id===button.dataset.id)));
+  document.querySelector('#close-backlog-modal').onclick=close;
+  document.querySelector('#cancel-backlog').onclick=close;
+  form.onsubmit=async event=>{
+    event.preventDefault();
+    const values=Object.fromEntries(new FormData(form));
+    const id=values.id;
+    if(values.type==='USER_STORY'){
+      if(![values.storyRole,values.storyWant,values.storyBenefit].every(v=>v&&v.trim()))return notify('Completa “Como”, “quiero” y “para”.');
+      values.title=storyTitle(values.storyRole,values.storyWant,values.storyBenefit);
+    }else if(!values.title.trim())return notify('Escribe un título.');
+    ['id','storyRole','storyWant','storyBenefit'].forEach(key=>delete values[key]);
+    values.sprintId=values.sprintId||null;
+    if(values.storyPoints==='')values.storyPoints=null;
+    try{
+      if(id)await send(`/backlog/${id}`,'PUT',values);else await send('/backlog','POST',values);
+      close();notify(id?'Ítem actualizado':'Ítem agregado al backlog');renderBacklog();
+    }catch(error){notify(error.message)}
+  };
+}
 async function render(){
   if(!state.user){
     try{
@@ -2903,6 +3115,7 @@ async function render(){
     if(route.includes('announcements'))return renderAnnouncements();
     if(route.includes('absences'))return renderAbsences();
     if(route.includes('assistant'))return state.user.role==='admin'?renderAssistant():renderDashboard();
+    if(route.includes('backlog'))return renderBacklog();
     if(route.includes('sprints'))return renderSprints();
     if(route.includes('kanban'))return renderKanban();
     if(route.includes('gantt'))return renderGantt();
