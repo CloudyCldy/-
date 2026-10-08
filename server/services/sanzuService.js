@@ -1,6 +1,11 @@
 const DEFAULT_BASE_URL = 'https://sanzu.onrender.com';
-const PARTNER_PROJECTS_PATH = '/api/partner/projects';
-const CHAT_PATH = '/api/chatbot/message';
+// Contrato Haitani ↔ Sanzu v1 (ver docs/CONTRATO_HAITANI_SANZU.md en Sanzu).
+const API_PREFIX = '/api/v1';
+const PARTNER_PROJECTS_PATH = `${API_PREFIX}/partner/projects`;
+// El chatbot para integraciones usa API key; /api/chatbot/message requiere JWT de usuario.
+const CHAT_PATH = `${API_PREFIX}/partner/chatbot/message`;
+const contextPath = externalRef => `${API_PREFIX}/projects/${encodeURIComponent(externalRef)}/context`;
+const REQUEST_TIMEOUT_MS = Number(process.env.SANZU_TIMEOUT_MS || 8000);
 
 function readableError(value) {
   if (typeof value === 'string' && value.trim()) return value;
@@ -19,14 +24,27 @@ function baseUrl() {
 async function request(path, options = {}) {
   const apiKey = process.env.SANZU_API_KEY;
   if (!apiKey) throw new Error('SANZU_API_KEY no está configurada.');
-  const response = await fetch(`${baseUrl()}${path}`, {
-    ...options,
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Api-Key': apiKey, ...(options.headers || {}) }
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(`${baseUrl()}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Api-Key': apiKey, ...(options.headers || {}) }
+    });
+  } catch (cause) {
+    const error = new Error(cause?.name === 'AbortError' ? `Sanzu no respondió en ${REQUEST_TIMEOUT_MS} ms.` : `No se pudo conectar con Sanzu: ${cause?.message || cause}`);
+    error.code = 'NETWORK_ERROR';
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(readableError(data.error || data.message) || `Sanzu respondió con ${response.status}.`);
     error.status = response.status;
+    error.code = data?.error?.code;
     throw error;
   }
   return data;
@@ -47,10 +65,49 @@ async function askSanzu(project, message, conversationId, context = {}) {
   const body = {
     externalRef: project.sanzu_external_ref,
     message,
-    context: { methodology_id: project.methodology_id, requirements: project.requirements, ...context }
+    requirements: context.requirements ?? project.requirements ?? undefined
   };
   if (conversationId) body.conversationId = conversationId;
   return (await request(CHAT_PATH, { method: 'POST', body: JSON.stringify(body) })).data;
 }
 
-module.exports = { syncProject, askSanzu };
+const dateOnly = value => (value ? new Date(value).toISOString().slice(0, 10) : undefined);
+
+/**
+ * Arma el payload de contexto (INT-01-ST043) a partir de filas de Haitani.
+ * tasks: filas de `tasks`; members: [{ id, name, role }]; documentation: [{ id, original_name }].
+ */
+function buildContextPayload(project, { tasks = [], members = [], risks = [], milestones = [], sprint = null, incidences = [], documentation = [] } = {}) {
+  return {
+    project: {
+      name: project.name,
+      description: project.description || undefined,
+      methodology: project.methodology_id || undefined,
+      status: project.status || undefined,
+      startDate: dateOnly(project.start_date),
+      endDate: dateOnly(project.end_date)
+    },
+    tasks: tasks.map(task => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+      assignedTo: task.assigned_to ?? null,
+      estimatedHours: task.estimated_hours ?? undefined,
+      dueDate: dateOnly(task.due_date) ?? null
+    })),
+    team: members.map(member => ({ userId: member.id ?? member.user_id, name: member.name, role: member.role })),
+    risks,
+    milestones,
+    sprint: sprint || undefined,
+    issues: incidences.map(item => ({ id: item.id, title: item.title, status: item.status, priority: item.priority })),
+    documentation: documentation.map(file => ({ id: file.id, title: file.original_name || file.title, type: file.mime_type }))
+  };
+}
+
+/** INT-01: envía el contexto real del proyecto y recibe health, riesgos, problemas, recomendaciones y documentos requeridos. */
+async function analyzeContext(project, payload) {
+  return (await request(contextPath(project.sanzu_external_ref), { method: 'POST', body: JSON.stringify(payload) })).data;
+}
+
+module.exports = { syncProject, askSanzu, analyzeContext, buildContextPayload };
