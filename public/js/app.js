@@ -141,6 +141,9 @@ document.documentElement.dataset.theme = currentTheme;
 let taskSearch = '';
 let taskStatusFilter = '';
 let taskAssigneeFilter = '';
+let fileSearch = '';
+let fileTypeFilter = '';
+let fileUploaderFilter = '';
 let ganttStatusFilter = '';
 let ganttAssigneeFilter = '';
 let ganttCalendarMonth = (() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d })();
@@ -1346,50 +1349,205 @@ async function renderKanban(){
     }
   },30000);
 }
+function fileTypeInfo(mimeType = '', originalName = '') {
+  const mime = String(mimeType || '').toLowerCase();
+  const ext = (String(originalName || '').split('.').pop() || '').toLowerCase();
+
+  if (mime.includes('pdf') || ext === 'pdf') {
+    return { label: 'PDF', badgeClass: 'pink', category: 'pdf' };
+  }
+  if (mime.includes('spreadsheetml') || ext === 'xlsx') {
+    return { label: 'XLSX', badgeClass: 'green', category: 'spreadsheet' };
+  }
+  if (mime.includes('excel') || ext === 'xls') {
+    return { label: 'XLS', badgeClass: 'green', category: 'spreadsheet' };
+  }
+  if (mime.includes('csv') || ext === 'csv') {
+    return { label: 'CSV', badgeClass: 'green', category: 'spreadsheet' };
+  }
+  if (mime.includes('wordprocessingml') || ext === 'docx') {
+    return { label: 'DOCX', badgeClass: 'blue', category: 'document' };
+  }
+  if (mime.includes('msword') || ext === 'doc') {
+    return { label: 'DOC', badgeClass: 'blue', category: 'document' };
+  }
+  if (mime.includes('presentationml') || ext === 'pptx') {
+    return { label: 'PPTX', badgeClass: 'yellow', category: 'document' };
+  }
+  if (mime.includes('ms-powerpoint') || ext === 'ppt') {
+    return { label: 'PPT', badgeClass: 'yellow', category: 'document' };
+  }
+  if (mime.includes('text/plain') || ext === 'txt') {
+    return { label: 'TXT', badgeClass: 'blue', category: 'document' };
+  }
+  if (mime.includes('png') || ext === 'png') {
+    return { label: 'PNG', badgeClass: 'yellow', category: 'image' };
+  }
+  if (mime.includes('jpeg') || mime.includes('jpg') || ext === 'jpg' || ext === 'jpeg') {
+    return { label: 'JPG', badgeClass: 'yellow', category: 'image' };
+  }
+  if (mime.includes('webp') || ext === 'webp') {
+    return { label: 'WEBP', badgeClass: 'yellow', category: 'image' };
+  }
+  if (mime.includes('gif') || ext === 'gif') {
+    return { label: 'GIF', badgeClass: 'yellow', category: 'image' };
+  }
+  if (mime.includes('svg') || ext === 'svg') {
+    return { label: 'SVG', badgeClass: 'yellow', category: 'image' };
+  }
+  if (mime.startsWith('image/')) {
+    return { label: 'IMG', badgeClass: 'yellow', category: 'image' };
+  }
+  if (mime.includes('zip') || ext === 'zip') {
+    return { label: 'ZIP', badgeClass: 'pink', category: 'archive' };
+  }
+  if (mime.includes('rar') || ext === 'rar') {
+    return { label: 'RAR', badgeClass: 'pink', category: 'archive' };
+  }
+  if (mime.includes('7z') || ext === '7z') {
+    return { label: '7Z', badgeClass: 'pink', category: 'archive' };
+  }
+  if (mime.includes('tar') || ext === 'tar' || ext === 'gz') {
+    return { label: 'TAR', badgeClass: 'pink', category: 'archive' };
+  }
+  if (mime.startsWith('audio/') || ['mp3', 'wav', 'ogg'].includes(ext)) {
+    return { label: 'AUDIO', badgeClass: 'green', category: 'other' };
+  }
+  if (mime.startsWith('video/') || ['mp4', 'mov', 'webm', 'mkv'].includes(ext)) {
+    return { label: 'VIDEO', badgeClass: 'pink', category: 'other' };
+  }
+  if (mime.includes('json') || ext === 'json') {
+    return { label: 'JSON', badgeClass: 'green', category: 'other' };
+  }
+
+  const shortExt = (ext && ext.length <= 4 && ext !== originalName) ? ext.toUpperCase() : 'DOC';
+  return { label: shortExt, badgeClass: '', category: 'other' };
+}
+
+function fileDateShort(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return String(dateStr).slice(0, 10);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+
 async function filesView(){
   const files=await api('/files');
-  const {items,totalPages,currentPage,totalItems}=paginateItems(files,'files');
+  const normalizedSearch = fileSearch.trim().toLowerCase();
+
+  const filteredFiles = files.filter(f => {
+    const info = fileTypeInfo(f.mime_type, f.original_name);
+    const matchesSearch = !normalizedSearch || [
+      f.original_name,
+      f.uploader_name,
+      f.mime_type,
+      info.label
+    ].filter(Boolean).some(val => String(val).toLowerCase().includes(normalizedSearch));
+
+    let matchesType = true;
+    if (fileTypeFilter) {
+      if (fileTypeFilter === 'pdf') matchesType = info.label === 'PDF' || info.category === 'pdf';
+      else if (fileTypeFilter === 'image') matchesType = info.category === 'image';
+      else if (fileTypeFilter === 'document') matchesType = info.category === 'document' || info.category === 'pdf';
+      else if (fileTypeFilter === 'spreadsheet') matchesType = info.category === 'spreadsheet';
+      else if (fileTypeFilter === 'archive') matchesType = info.category === 'archive';
+      else if (fileTypeFilter === 'other') matchesType = !['pdf', 'image', 'document', 'spreadsheet', 'archive'].includes(info.category);
+    }
+
+    const matchesUploader = !fileUploaderFilter || String(f.uploaded_by ?? '') === String(fileUploaderFilter);
+
+    return matchesSearch && matchesType && matchesUploader;
+  });
+
+  const {items,totalPages,currentPage,totalItems}=paginateItems(filteredFiles,'files');
+
+  const uploaderOptions = [...new Map(
+    files
+      .filter(f => f.uploader_name)
+      .map(f => [String(f.uploaded_by ?? ''), { id: String(f.uploaded_by ?? ''), name: f.uploader_name }])
+  ).values()];
+
+  const hasActiveFilters = Boolean(fileSearch || fileTypeFilter || fileUploaderFilter);
+
   return `
     ${heading('Archivos y Documentos','Documentos compartidos, entregables y evidencias del equipo.',`
-      <form id="upload-form" class="actions">
+      <form id="upload-form" class="actions files-upload-form">
         <label class="btn secondary" style="cursor:pointer">
           ${icon('upload')}Seleccionar archivo
           <input class="input" type="file" name="file" style="display:none" required onchange="this.form.querySelector('#upload-filename').textContent=this.files[0]?.name||''">
         </label>
-        <span id="upload-filename" class="muted" style="font-size:13px"></span>
+        <span id="upload-filename" class="muted files-upload-filename"></span>
         <button class="btn">${icon('check')}Subir evidencia</button>
       </form>
     `)}
-    <section class="card admin-table-card">
-      <div class="table-wrap">
-        <table class="table">
+    <section class="card admin-table-card files-card">
+      <div class="task-list-toolbar files-toolbar">
+        <div class="task-toolbar-main">
+          <div class="task-toolbar-search">
+            <span class="task-toolbar-icon">${icon('search')}</span>
+            <input id="file-search-input" class="input task-search-field" type="search" value="${esc(fileSearch)}" placeholder="Buscar por nombre, autor o tipo..." aria-label="Buscar archivos">
+            ${fileSearch ? `<button type="button" class="task-search-clear" id="file-search-clear" aria-label="Limpiar búsqueda" title="Limpiar búsqueda">${icon('close')}</button>` : `<kbd class="task-search-kbd" title="Presiona / para buscar">/</kbd>`}
+          </div>
+          <span class="task-count-tag">${filteredFiles.length} ${filteredFiles.length === 1 ? 'archivo' : 'archivos'}${filteredFiles.length !== files.length ? ` de ${files.length}` : ''}</span>
+        </div>
+        <div class="task-toolbar-filters">
+          <select id="file-type-filter" class="select ${fileTypeFilter ? 'has-value' : ''}" aria-label="Filtrar por tipo">
+            <option value="">Todos los tipos</option>
+            <option value="pdf" ${fileTypeFilter === 'pdf' ? 'selected' : ''}>PDF</option>
+            <option value="image" ${fileTypeFilter === 'image' ? 'selected' : ''}>Imágenes</option>
+            <option value="document" ${fileTypeFilter === 'document' ? 'selected' : ''}>Documentos</option>
+            <option value="spreadsheet" ${fileTypeFilter === 'spreadsheet' ? 'selected' : ''}>Hojas de cálculo</option>
+            <option value="archive" ${fileTypeFilter === 'archive' ? 'selected' : ''}>Comprimidos</option>
+            <option value="other" ${fileTypeFilter === 'other' ? 'selected' : ''}>Otros</option>
+          </select>
+          ${uploaderOptions.length > 1 ? `
+            <select id="file-uploader-filter" class="select ${fileUploaderFilter ? 'has-value' : ''}" aria-label="Filtrar por autor">
+              <option value="">Todos los autores</option>
+              ${uploaderOptions.map(u => `<option value="${esc(u.id)}" ${fileUploaderFilter === String(u.id) ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}
+            </select>
+          ` : ''}
+          ${hasActiveFilters ? `<button type="button" class="task-reset-btn" id="file-reset-filters" title="Limpiar todos los filtros">${icon('close')}<span>Limpiar</span></button>` : ''}
+        </div>
+      </div>
+      <div class="table-wrap files-table-wrap">
+        <table class="table files-table">
           <thead>
             <tr>
               <th>Archivo</th>
-              <th>Tipo</th>
-              <th>Tamaño</th>
+              <th style="width:70px;text-align:center">Tipo</th>
               <th>Subido por</th>
-              <th>Fecha</th>
-              <th>Acción</th>
+              <th style="width:85px;text-align:center">Fecha</th>
+              <th style="width:140px;text-align:right">Acción</th>
             </tr>
           </thead>
           <tbody>
-            ${items.map(f=>`
-              <tr>
-                <td><strong>${esc(f.original_name)}</strong></td>
-                <td><span class="badge ${f.mime_type.includes('pdf')?'pink':f.mime_type.includes('image')?'yellow':''}">${esc(f.mime_type)}</span></td>
-                <td class="muted">${Math.ceil(f.size/1024)} KB</td>
-                <td>${esc(f.uploader_name || 'Desconocido')}</td>
-                <td class="muted">${esc(f.created_at)}</td>
-                <td>
-                  <div class="actions">
-                    <button class="btn secondary mini view-file" data-id="${f.id}" data-name="${esc(f.original_name)}" data-type="${esc(f.mime_type)}">${icon('eye')}Ver</button>
-                    <a class="btn secondary mini" href="/api/files/${f.id}/download" download>${icon('download')}Descargar</a>
-                    ${state.user.role==='admin'?`<button class="btn danger mini delete-file" data-id="${f.id}">${icon('trash')}Eliminar</button>`:''}
-                  </div>
-                </td>
-              </tr>
-            `).join('')||'<tr><td colspan="6" class="empty">Aún no hay archivos compartidos.</td></tr>'}
+            ${items.map(f => {
+              const info = fileTypeInfo(f.mime_type, f.original_name);
+              return `
+                <tr>
+                  <td class="file-name-cell">
+                    <strong class="file-title" title="${esc(f.original_name)}">${esc(f.original_name)}</strong>
+                  </td>
+                  <td style="text-align:center">
+                    <span class="badge ${info.badgeClass}" title="${esc(f.mime_type)}">${info.label}</span>
+                  </td>
+                  <td>${esc(f.uploader_name || 'Desconocido')}</td>
+                  <td class="muted file-date-cell" style="text-align:center">
+                    <span title="${new Date(f.created_at).toLocaleString('es')}">${fileDateShort(f.created_at)}</span>
+                  </td>
+                  <td>
+                    <div class="actions file-actions">
+                      <button class="btn secondary mini view-file" data-id="${f.id}" data-name="${esc(f.original_name)}" data-type="${esc(f.mime_type)}">${icon('eye')}Ver</button>
+                      <a class="btn secondary mini" href="/api/files/${f.id}/download" download>${icon('download')}Descargar</a>
+                      ${state.user.role === 'admin' ? `<button class="btn danger mini delete-file" data-id="${f.id}">${icon('trash')}Eliminar</button>` : ''}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('') || `<tr><td colspan="5" class="empty">${hasActiveFilters ? 'No se encontraron archivos que coincidan con la búsqueda o filtros.' : 'Aún no hay archivos compartidos.'}</td></tr>`}
           </tbody>
         </table>
         ${paginationMarkup('files','renderFiles',totalPages,currentPage,totalItems)}
@@ -1406,9 +1564,72 @@ async function filesView(){
     </div>
   `;
 }
-async function renderFiles(){
+async function renderFiles(focusSearchCursor = null){
   layout(await filesView());
   bindPaginationControls();
+
+  const fileSearchInput = document.querySelector('#file-search-input');
+  const fileSearchClear = document.querySelector('#file-search-clear');
+  const fileTypeSelect = document.querySelector('#file-type-filter');
+  const fileUploaderSelect = document.querySelector('#file-uploader-filter');
+  const fileResetFilters = document.querySelector('#file-reset-filters');
+
+  if (focusSearchCursor !== null && fileSearchInput) {
+    fileSearchInput.focus();
+    const pos = Math.min(focusSearchCursor, fileSearchInput.value.length);
+    fileSearchInput.setSelectionRange(pos, pos);
+  }
+
+  fileSearchInput?.addEventListener('input', event => {
+    fileSearch = event.target.value;
+    state.listPages.files = 1;
+    const cursor = event.target.selectionStart;
+    renderFiles(cursor);
+  });
+
+  fileSearchClear?.addEventListener('click', () => {
+    fileSearch = '';
+    state.listPages.files = 1;
+    renderFiles(0);
+  });
+
+  fileTypeSelect?.addEventListener('change', event => {
+    fileTypeFilter = event.target.value;
+    state.listPages.files = 1;
+    renderFiles();
+  });
+
+  fileUploaderSelect?.addEventListener('change', event => {
+    fileUploaderFilter = event.target.value;
+    state.listPages.files = 1;
+    renderFiles();
+  });
+
+  fileResetFilters?.addEventListener('click', () => {
+    fileSearch = '';
+    fileTypeFilter = '';
+    fileUploaderFilter = '';
+    state.listPages.files = 1;
+    renderFiles();
+  });
+
+  const handleFileKeydown = (e) => {
+    if (e.key === '/' && document.activeElement !== fileSearchInput && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+      e.preventDefault();
+      fileSearchInput?.focus();
+      fileSearchInput?.select();
+    } else if (e.key === 'Escape' && document.activeElement === fileSearchInput) {
+      if (fileSearch) {
+        fileSearch = '';
+        state.listPages.files = 1;
+        renderFiles(0);
+      } else {
+        fileSearchInput.blur();
+      }
+    }
+  };
+  window.addEventListener('keydown', handleFileKeydown, { once: true });
+
   document.querySelector('#upload-form')?.addEventListener('submit',async e=>{
     e.preventDefault();
     const fileInput=e.target.querySelector('input[type="file"]');

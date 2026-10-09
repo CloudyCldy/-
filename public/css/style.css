@@ -1762,6 +1762,7 @@ label {
 .badge.green { background: #eaf5ec; color: #164e28; }
 .badge.yellow { background: var(--color-blush-peach); color: var(--color-sienna-brown); }
 .badge.pink { background: var(--color-blush-peach); color: var(--color-sienna-brown); }
+.badge.blue { background: #e8edf5; color: #1e3a5f; }
 .empty {
   padding: 48px var(--sp-5);
   text-align: center;
@@ -1845,6 +1846,21 @@ label {
 .task-list-table th, .task-list-table td { padding: 8px 12px; }
 .task-list-table td:first-child { white-space: normal; }
 .task-list-table .task-title-cell { white-space: normal; overflow-wrap: anywhere; }
+/* Files module styles — Compact, Screen-fitted, Clean */
+.files-card { width: 100%; box-sizing: border-box; }
+.files-upload-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.files-upload-filename { font-size: 12.5px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.files-table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.files-table { width: 100%; min-width: 520px; table-layout: auto; border-collapse: collapse; }
+.files-table th, .files-table td { padding: 9px 12px; font-size: 13px; vertical-align: middle; }
+.files-table th { padding-top: 11px; padding-bottom: 11px; }
+.files-table td.file-name-cell { max-width: 280px; white-space: normal; }
+.files-table .file-title { display: block; max-width: 100%; word-break: break-word; overflow-wrap: anywhere; color: var(--color-ink-black); font-weight: 600; line-height: 1.35; }
+.files-table .badge { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; padding: 2px 7px; border-radius: 4px; display: inline-block; min-width: 38px; text-align: center; }
+.files-table .file-date-cell { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.files-table .file-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: nowrap; }
+.files-table .file-actions .btn { padding: 4px 8px; font-size: 11.5px; gap: 4px; white-space: nowrap; }
+.files-table .file-actions .btn svg { width: 13px; height: 13px; }
 /* Steep Task Toolbar — Compact, Visible, Editorial */
 .task-list-toolbar {
   display: flex;
@@ -5027,6 +5043,7 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 :root[data-theme="ran"] .status-select-styled{background:#2A3541;border-color:#627079;color:#FEFCEA}
 :root[data-theme="ran"] .table-wrap{background:#201B19;border-color:#2A3541}
 :root[data-theme="ran"] .table td:first-child{color:#FEFCEA}
+:root[data-theme="ran"] .files-table .file-title{color:#FEFCEA}
 :root[data-theme="ran"] .table th{color:#767E99;border-color:#2A3541;background:#13202B}
 :root[data-theme="ran"] .table td{border-color:#2A3541;color:#FEFCEA}
 :root[data-theme="ran"] .table tbody tr:hover td{background:#2A3541}
@@ -5388,6 +5405,11 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
   .task-row-actions { flex-direction: row; align-items: center; flex-wrap: nowrap; }
   .task-row-actions .btn.task-icon-action { width: 30px; min-width: 30px; padding: 0; }
   .task-row-actions .btn:not(.task-icon-action) { width: auto; min-width: unset; padding: 4px 10px; }
+  .files-upload-form { width: 100%; flex-direction: column; align-items: stretch; }
+  .files-upload-form .btn { width: 100%; justify-content: center; }
+  .files-table { min-width: 460px; }
+  .files-table th, .files-table td { padding: 8px 10px; font-size: 12px; }
+  .files-table .file-actions .btn { padding: 4px 6px; font-size: 11px; }
 }
 /* =========================================================
    WHATSAPP-STYLE: ESTADOS, BLOQUEO Y SILENCIO
