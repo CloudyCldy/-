@@ -1701,8 +1701,13 @@ function clearMyStatus(){ localStorage.removeItem(myStatusKey()) }
 function fileToDataUrl(file){ return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file) }) }
 function statusStripMarkup(users){
   const mine = getMyStatus();
-  const others = users.slice(0, 12).map(u => `<button type="button" class="status-item" data-status-user="${u.id}" data-status-name="${esc(u.name)}"><span class="status-ring no-status">${avatarMarkup(u,'message-avatar')}</span><small>${esc((u.name||'').split(' ')[0])}</small></button>`).join('');
-  return `<div class="status-strip"><button type="button" class="status-item my-status" id="open-my-status"><span class="status-ring ${mine?'has-status':'no-status'}">${avatarMarkup(state.user,'message-avatar')}${mine?'':'<span class="status-add">+</span>'}</span><small>Mi estado</small></button>${others}</div>`;
+  const list = (users || []).filter(u => u && Number(u.id) !== Number(state.user?.id)).slice(0, 15);
+  const others = list.map(u => {
+    const rawName = (u.name || u.username || 'Usuario').trim();
+    const displayName = rawName.split(/\s+/)[0] || rawName;
+    return `<button type="button" class="status-item" data-status-user="${u.id}" data-status-name="${esc(rawName)}"><span class="status-ring no-status"><span class="status-avatar">${avatarMarkup(u,'message-avatar')}</span></span><small title="${esc(rawName)}">${esc(displayName)}</small></button>`;
+  }).join('');
+  return `<div class="status-strip"><button type="button" class="status-item my-status" id="open-my-status"><span class="status-ring ${mine?'has-status':'no-status'}"><span class="status-avatar">${avatarMarkup(state.user,'message-avatar')}</span>${mine?'':'<span class="status-add">+</span>'}</span><small>Mi estado</small></button>${others}</div>`;
 }
 function statusViewerMarkup(name, data){
   return `<div class="status-overlay" id="status-overlay" role="dialog" aria-modal="true"><div class="status-viewer"><div class="status-viewer-head"><strong>${esc(name)}</strong><button class="icon-btn" id="close-status-viewer" aria-label="Cerrar">${icon('close')}</button></div><div class="status-viewer-body">${data.image?`<img src="${esc(data.image)}" alt="Estado de ${esc(name)}">`:''}${data.content?`<p>${esc(data.content)}</p>`:''}${!data.image&&!data.content?'<p class="muted">Sin contenido.</p>':''}</div><small class="muted status-viewer-time">${new Date(data.createdAt).toLocaleString('es')}</small></div></div>`;

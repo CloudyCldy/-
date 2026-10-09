@@ -5069,10 +5069,14 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 :root[data-theme="ran"] .gantt-dot{background:#2A3541}
 :root[data-theme="ran"] .gantt-dot.completada{background:#344252}
 :root[data-theme="ran"] .status-item{color:#FEFCEA}
+:root[data-theme="ran"] .status-item small{color:#94A3B8}
 :root[data-theme="ran"] .status-ring.no-status{background:#2A3541}
+:root[data-theme="ran"] .status-avatar{background:#2A3541;border-color:#201B19}
+:root[data-theme="ran"] .status-avatar span.message-avatar,
+:root[data-theme="ran"] .status-ring span.message-avatar{background:#2A3541;color:#FEFCEA;border-color:#201B19}
+:root[data-theme="ran"] .status-avatar img,
 :root[data-theme="ran"] .status-ring .message-avatar,
-:root[data-theme="ran"] .status-ring img,
-:root[data-theme="ran"] .status-ring span.message-avatar{border-color:#201B19}
+:root[data-theme="ran"] .status-ring img{border-color:#201B19}
 :root[data-theme="ran"] .status-add{border-color:#201B19}
 :root[data-theme="ran"] .file-viewer-panel{background:#201B19;border-color:#2A3541}
 :root[data-theme="ran"] .file-viewer-head{border-color:#2A3541}
@@ -5366,8 +5370,9 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
   .btn-with-icon { width: 100%; justify-content: center; }
   .project-health-head h2 { font-size: 18px; }
   .health-score strong { font-size: 24px; }
-  .status-item { width: 46px; }
-  .status-ring { width: 40px; height: 40px; }
+  .status-item { width: 56px; min-width: 56px; max-width: 56px; flex: 0 0 56px; }
+  .status-item small { max-width: 56px; font-size: 10px; }
+  .status-ring { width: 52px; height: 52px; min-width: 52px; min-height: 52px; max-width: 52px; max-height: 52px; }
   .team-card { grid-template-columns: 1fr; justify-items: start; }
   .profile-summary { gap: var(--sp-3); }
   .profile-photo { width: 60px; height: 60px; }
@@ -5387,14 +5392,16 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 /* =========================================================
    WHATSAPP-STYLE: ESTADOS, BLOQUEO Y SILENCIO
    ========================================================= */
-.status-strip{display:flex;gap:14px;overflow-x:auto;padding:10px 6px 14px;margin-bottom:6px;border-bottom:1px solid var(--line)}
-.status-item{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;background:none;border:0;color:var(--color-ink-black);width:58px}
-.status-item small{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58px}
-.status-ring{position:relative;display:grid;place-items:center;width:52px;height:52px;border-radius:50%;padding:2px}
+.status-strip{display:flex;align-items:flex-start;gap:16px;overflow-x:auto;padding:12px 14px 14px;margin-bottom:8px;border-bottom:1px solid var(--line);scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
+.status-item{display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;min-width:68px;max-width:68px;flex:0 0 68px;flex-shrink:0;background:none;border:0;padding:0;color:var(--color-ink-black);cursor:pointer;text-align:center}
+.status-item small{font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:68px;width:100%;text-align:center;display:block;line-height:1.25}
+.status-ring{position:relative;display:flex;align-items:center;justify-content:center;width:64px;height:64px;min-width:64px;min-height:64px;max-width:64px;max-height:64px;aspect-ratio:1 / 1;border-radius:50%;padding:2.5px;box-sizing:border-box;flex-shrink:0}
 .status-ring.has-status{background:conic-gradient(var(--pink),var(--lilac),var(--green),var(--pink))}
 .status-ring.no-status{background:var(--line)}
-.status-ring .message-avatar,.status-ring img,.status-ring span.message-avatar{width:100%;height:100%;border:2px solid var(--panel)}
-.status-add{position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;display:grid;place-items:center;background:var(--pink);color:var(--ink);border:2px solid var(--panel);border-radius:50%;font-size:12px;font-weight:800}
+.status-avatar{position:relative;width:100%;height:100%;min-width:100%;min-height:100%;aspect-ratio:1 / 1;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--color-mist-gray);box-sizing:border-box;border:2px solid var(--panel);flex-shrink:0}
+.status-avatar img,.status-ring img,.status-avatar .message-avatar,.status-ring .message-avatar{width:100%;height:100%;max-width:100%;max-height:100%;aspect-ratio:1 / 1;border-radius:50%;object-fit:cover;object-position:center;display:block;flex-shrink:0;box-sizing:border-box}
+.status-avatar span.message-avatar,.status-ring span.message-avatar{width:100%;height:100%;aspect-ratio:1 / 1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:19px;line-height:1;background:var(--color-mist-gray);color:var(--color-ink-black);box-sizing:border-box;border:none}
+.status-add{position:absolute;right:-1px;bottom:-1px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:var(--pink);color:var(--ink);border:2px solid var(--panel);border-radius:50%;font-size:13px;font-weight:800;line-height:1;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
 
 .status-overlay{
   position: fixed;
@@ -5450,9 +5457,10 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .group-member-item small{color:var(--muted);display:block}
 
 @media(max-width:850px){
-  .status-strip{gap:10px}
-  .status-item{width:50px}
-  .status-ring{width:46px;height:46px}
+  .status-strip{gap:12px}
+  .status-item{width:60px;min-width:60px;max-width:60px;flex:0 0 60px}
+  .status-item small{max-width:60px;font-size:10px}
+  .status-ring{width:56px;height:56px;min-width:56px;min-height:56px;max-width:56px;max-height:56px}
 }
 /* =========================================================
    UI ENHANCEMENTS — ANIMACIONES, TARJETAS Y RESPONSIVE
@@ -5626,8 +5634,9 @@ a:focus-visible{outline:2px solid var(--pink);outline-offset:2px;border-radius:v
   .heading h1{font-size:22px}
   .team-avatar,.avatar{width:44px;height:44px}
   .message{max-width:92%}
-  .status-item{width:44px}
-  .status-ring{width:40px;height:40px}
+  .status-item{width:50px;min-width:50px;max-width:50px;flex:0 0 50px}
+  .status-item small{max-width:50px;font-size:10px}
+  .status-ring{width:46px;height:46px;min-width:46px;min-height:46px;max-width:46px;max-height:46px}
 }
 
 /* Pantallas muy anchas: evita que las tarjetas se vean perdidas */
