@@ -17,12 +17,22 @@ const SVG_ICONS = {
   wallpaper: '<rect x="2.6" y="4" width="14.8" height="11.2" rx="1.4" stroke="currentColor" stroke-width="1.3"/><circle cx="6.9" cy="8" r="1.2" stroke="currentColor" stroke-width="1.1"/><path d="M3.4 13.6l3.6-3.5a1 1 0 0 1 1.4 0l2.1 2.1M9.6 10.4l1.6-1.6a1 1 0 0 1 1.4 0l3.1 3.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>',
   file: '<path d="M6.2 2.6h5.1L14.8 6v10.5a1 1 0 0 1-1 1H6.2a1 1 0 0 1-1-1V3.6a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M11.3 2.7v3.2a1 1 0 0 0 1 1h3" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
   paperclip: '<path d="M13.2 4.6c1.4 1.4 1.4 3.7 0 5.1L8.4 14.5a3.1 3.1 0 0 1-4.4-4.4l5.6-5.6a1.9 1.9 0 0 1 2.7 2.7l-5.3 5.3a.7.7 0 1 1-1-1l4.9-4.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+  info: '<circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.3"/><circle cx="10" cy="7" r="0.9" fill="currentColor"/><path d="M10 9.2v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+  copy: '<rect x="5" y="5" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M7 5V4.5A1 1 0 0 1 8 3.5h6a1 1 0 0 1 1 1V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  clipboard: '<path d="M7.2 4.4h5.6a1.2 1.2 0 0 1 1.2 1.2v9.8a1.2 1.2 0 0 1-1.2 1.2H7.2A1.2 1.2 0 0 1 6 15.4V5.6a1.2 1.2 0 0 1 1.2-1.2ZM8 4.4V3.2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.2" stroke="currentColor" stroke-width="1.3"/><line x1="8" y1="9.2" x2="12" y2="9.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="8" y1="12" x2="11.2" y2="12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  undo: '<path d="M6.2 7.5H11a4 4 0 1 1 0 8H8.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.2 7.5L8.7 5M6.2 7.5L8.7 10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  redo: '<path d="M13.8 7.5H9a4 4 0 1 0 0 8h2.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.8 7.5L11.3 5M13.8 7.5L11.3 10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
   roller: '<rect x="3" y="3" width="10.4" height="3.4" rx="1.2" stroke="currentColor" stroke-width="1.3"/><line x1="8.2" y1="6.6" x2="8.2" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="6.3" y="10" width="3.8" height="5.4" rx="1" stroke="currentColor" stroke-width="1.3"/>',
   arrowUp: '<path d="M10 15V5m0 0L5.5 9.5M10 5l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
   menu: '<line x1="3.5" y1="5.5" x2="16.5" y2="5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="3.5" y1="10" x2="16.5" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="3.5" y1="14.5" x2="16.5" y2="14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
   dashboard: '<rect x="3" y="3" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="11.5" y="3" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="11.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/>',
   announcements: '<path d="M14 5.5l-6 2H4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h4l6 2V5.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M16 8a3 3 0 0 1 0 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M6 12.5v3.2a.8.8 0 0 0 .8.8h.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
   calendar: '<rect x="3" y="4" width="14" height="13" rx="1.5" stroke="currentColor" stroke-width="1.3"/><line x1="3" y1="8" x2="17" y2="8" stroke="currentColor" stroke-width="1.3"/><line x1="6.8" y1="2.5" x2="6.8" y2="4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="13.2" y1="2.5" x2="13.2" y2="4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+  flag: '<path d="M5 3.5v13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M5 4h7.5l-1.1 2.3L12.5 9H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+  chevronLeft: '<path d="M12.5 4.5L7 10l5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  chevronRight: '<path d="M7.5 4.5L13 10l-5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  chevronUp: '<path d="M4.5 12.5L10 7l5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  chevronDown: '<path d="M4.5 7.5L10 13l5.5-5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
   sparkles: '<path d="M10 2.8l1.6 4.3 4.4 1.4-4.4 1.4L10 14.2l-1.6-4.3-4.4-1.4 4.4-1.4L10 2.8Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M15.5 13.5l.8 2 2 .7-2 .7-.8 2-.7-2-2-.7 2-.7.7-2Z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>',
   tasks: '<path d="M3.5 5.5h2m-2 4.5h2m-2 4.5h2m3.5-9h7.5m-7.5 4.5h7.5m-7.5 4.5h7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
   kanban: '<rect x="3" y="3.5" width="3.8" height="13" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="8.1" y="3.5" width="3.8" height="8.5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="13.2" y="3.5" width="3.8" height="11" rx="1" stroke="currentColor" stroke-width="1.3"/>',
@@ -2618,7 +2628,7 @@ function renderGanttCalendarHtml(scheduledTasks, monthDate, today) {
 
     const barsHtml = bars.map(bar => {
       const prog = bar.task.progress ?? (bar.task.status === 'completada' ? 100 : (bar.task.status === 'en_proceso' ? 50 : 0));
-      const milestoneIcon = bar.task.is_milestone ? '♦ ' : '';
+      const milestoneIcon = bar.task.is_milestone ? `${icon('flag')} ` : '';
       const critClass = bar.task.isCritical ? 'is-critical' : '';
       return `
         <div class="gantt-cal-bar ${bar.task.status} ${critClass}"
@@ -2668,7 +2678,7 @@ function renderGanttCalendarHtml(scheduledTasks, monthDate, today) {
         </div>
         <div class="actions" style="align-items:center">
           <button type="button" class="btn secondary" id="gantt-cal-toggle" title="${ganttCalendarCollapsed ? 'Mostrar calendario mensual' : 'Colapsar calendario mensual'}">
-            ${ganttCalendarCollapsed ? '📅 Mostrar Calendario ▼' : '📅 Ocultar Calendario ▲'}
+            ${ganttCalendarCollapsed ? `${icon('calendar')} Mostrar Calendario` : `${icon('calendar')} Ocultar Calendario`}
           </button>
         </div>
       </div>
@@ -2683,7 +2693,7 @@ function renderGanttCalendarHtml(scheduledTasks, monthDate, today) {
           <span><i class="gantt-dot pendiente"></i>Pendiente</span>
           <span><i class="gantt-dot en_proceso"></i>En proceso</span>
           <span><i class="gantt-dot completada"></i>Completada</span>
-          <span class="muted" style="margin-left:auto;font-size:11px">💡 Haz clic en cualquier día para centrar el diagrama Gantt en esa fecha</span>
+          <span class="muted" style="margin-left:auto;font-size:11px">${icon('sparkles')} Haz clic en cualquier día para centrar el diagrama Gantt en esa fecha</span>
         </div>
       ` : ''}
     </section>
@@ -2768,7 +2778,7 @@ async function gantt() {
       <div class="grid stats">
         ${unscheduledTasks.map(t => `
           <div class="gantt-unscheduled-item" data-id="${t.id}" style="cursor:pointer" onclick="openGanttQuickEdit(${t.id})">
-            <strong>${t.is_milestone ? '♦ ' : ''}${esc(t.title)}</strong>
+                <strong>${t.is_milestone ? `${icon('flag')} ` : ''}${esc(t.title)}</strong>
             <small class="muted">${esc(t.assignee_name || 'Sin asignar')} · ${esc(t.priority)}</small>
           </div>
         `).join('')}
@@ -2843,7 +2853,7 @@ async function outdentSelectedGanttTask() {
         parent_id: newParentId
       })
     });
-    notify('Nivel WBS promovido (Outdent ⬅)');
+    notify('Nivel WBS promovido (Outdent)');
     renderGantt();
   } catch (e) { notify(e.message); }
 }
@@ -2875,7 +2885,7 @@ async function indentSelectedGanttTask() {
         parent_id: prevTask.id
       })
     });
-    notify('Subtarea creada (Indent ➡)');
+    notify('Subtarea creada (Indent)');
     renderGantt();
   } catch (e) { notify(e.message); }
 }
@@ -3020,7 +3030,7 @@ function moveSelectedGanttTask(direction) {
   tasks[idx] = tasks[targetIdx];
   tasks[targetIdx] = temp;
   renderGantt();
-  notify(`Tarea movida ${direction < 0 ? 'hacia arriba ⬆' : 'hacia abajo ⬇'}`);
+  notify(`Tarea movida ${direction < 0 ? 'hacia arriba' : 'hacia abajo'}`);
 }
 
 function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], criticalTaskIds = new Set(), users = [], activeProjectName = 'Todos los Proyectos', projectOptions = '', assigneeOptions = '', criticalCount = 0) {
@@ -3104,9 +3114,9 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
 
     const indents = '<span class="gtc-tree-indent"></span>'.repeat(t.depth || 0);
     const treeToggle = t.has_children
-      ? `<button type="button" class="gtc-tree-btn" data-collapse-id="${t.id}" title="${t.is_collapsed ? 'Expandir subtareas' : 'Colapsar subtareas'}">${t.is_collapsed ? '▶' : '▼'}</button>`
+      ? `<button type="button" class="gtc-tree-btn" data-collapse-id="${t.id}" title="${t.is_collapsed ? 'Expandir subtareas' : 'Colapsar subtareas'}">${t.is_collapsed ? icon('chevronRight') : icon('chevronDown')}</button>`
       : '';
-    const milestoneSymbol = t.is_milestone ? `<span class="gtc-milestone-icon" title="Hito">♦</span>` : '';
+    const milestoneSymbol = t.is_milestone ? `<span class="gtc-milestone-icon" title="Hito">${icon('flag')}</span>` : '';
 
     return `
       <div class="gp-row-table gtc-row-table ${t.is_summary ? 'is-summary' : ''} ${isCrit ? 'is-critical' : ''} ${isSelected ? 'is-selected' : ''}"
@@ -3296,7 +3306,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
                style="left:${offset * dayWidth}px;width:${Math.max(dayWidth - 4, span * dayWidth - 4)}px"
                onclick="openGanttQuickEdit(${t.id})"
                title="${esc(t.title)} (${formatGanttDate(t.start_date)} - ${formatGanttDate(t.due_date)}) · ${t.status}">
-            ${t.is_milestone ? '♦ ' : ''}${esc(t.title)}
+            ${t.is_milestone ? `${icon('flag')} ` : ''}${esc(t.title)}
           </div>
         `;
       }).join('');
@@ -3311,13 +3321,13 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
       <!-- 1. Barra de Título de Aplicación -->
       <div class="gp-titlebar">
         <div class="gp-titlebar-title">
-          <span class="gp-titlebar-icon">⊞</span>
+          <span class="gp-titlebar-icon">${icon('calendar')}</span>
           <span>Gantt Haitani - [${esc(activeProjectName)}]</span>
         </div>
         <div class="gp-titlebar-controls">
-          <span class="gp-win-btn" title="Minimizar">−</span>
-          <span class="gp-win-btn" title="Maximizar">□</span>
-          <span class="gp-win-btn" title="Cerrar">✕</span>
+          <span class="gp-win-btn" title="Minimizar">${icon('chevronDown')}</span>
+          <span class="gp-win-btn" title="Maximizar">${icon('calendar')}</span>
+          <span class="gp-win-btn" title="Cerrar">${icon('close')}</span>
         </div>
       </div>
 
@@ -3327,14 +3337,14 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
           Proyecto
           <div class="gp-menu-dropdown">
             <div class="gp-menu-entry" onclick="openGanttCreateModal(false)"><span>+ Nueva Tarea</span><kbd>Ctrl+N</kbd></div>
-            <div class="gp-menu-entry" onclick="openGanttCreateModal(true)"><span>+ Nuevo Hito ♦</span><kbd>Ctrl+H</kbd></div>
+            <div class="gp-menu-entry" onclick="openGanttCreateModal(true)"><span>${icon('plus')} Nuevo Hito</span><kbd>Ctrl+H</kbd></div>
             <div class="gp-menu-divider"></div>
-            <div class="gp-menu-entry" onclick="document.querySelector('#gtc-save-baseline')?.click()"><span>📐 Fijar Línea Base</span></div>
-            <div class="gp-menu-entry" onclick="document.querySelector('#gtc-auto-schedule')?.click()"><span>🔄 Auto-Alinear Cronograma</span></div>
+            <div class="gp-menu-entry" onclick="document.querySelector('#gtc-save-baseline')?.click()"><span>${icon('clock')} Fijar Línea Base</span></div>
+            <div class="gp-menu-entry" onclick="document.querySelector('#gtc-auto-schedule')?.click()"><span>${icon('calendar')} Auto-Alinear Cronograma</span></div>
             <div class="gp-menu-divider"></div>
-            <a class="gp-menu-entry" href="/api/gantt/export/gan${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}" download><span>📥 Exportar .GAN (Gantt Haitani)</span></a>
-            <a class="gp-menu-entry" href="/api/gantt/export/csv${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}" download><span>📊 Exportar a CSV</span></a>
-            <div class="gp-menu-entry" onclick="openGanttImportModal()"><span>📤 Importar .GAN...</span></div>
+            <a class="gp-menu-entry" href="/api/gantt/export/gan${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}" download><span>${icon('download')} Exportar .GAN (Gantt Haitani)</span></a>
+            <a class="gp-menu-entry" href="/api/gantt/export/csv${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}" download><span>${icon('download')} Exportar a CSV</span></a>
+            <div class="gp-menu-entry" onclick="openGanttImportModal()"><span>${icon('upload')} Importar .GAN...</span></div>
           </div>
         </div>
         <div class="gp-menu-item" tabindex="0">
@@ -3352,21 +3362,21 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
             <div class="gp-menu-entry" onclick="document.querySelector('#gtc-zoom-out')?.click()"><span>Alejar zoom</span><kbd>−</kbd></div>
             <div class="gp-menu-entry" onclick="scrollToGanttDate(new Date())"><span>Ir a Hoy</span><kbd>H</kbd></div>
             <div class="gp-menu-divider"></div>
-            <div class="gp-menu-entry" onclick="toggleGanttCriticalPath()"><span>⚡ Ruta Crítica (CPM)</span></div>
-            <div class="gp-menu-entry" onclick="toggleGanttBaselines()"><span>📐 Líneas de Base</span></div>
-            <div class="gp-menu-entry" onclick="toggleGanttCalendar()"><span>📅 Calendario Mensual</span></div>
+            <div class="gp-menu-entry" onclick="toggleGanttCriticalPath()"><span>${icon('activity')} Ruta Crítica (CPM)</span></div>
+            <div class="gp-menu-entry" onclick="toggleGanttBaselines()"><span>${icon('clock')} Líneas de Base</span></div>
+            <div class="gp-menu-entry" onclick="toggleGanttCalendar()"><span>${icon('calendar')} Calendario Mensual</span></div>
           </div>
         </div>
         <div class="gp-menu-item" tabindex="0">
           Tarea
           <div class="gp-menu-dropdown">
-            <div class="gp-menu-entry" onclick="outdentSelectedGanttTask()"><span>Promover nivel (Outdent ⬅)</span></div>
-            <div class="gp-menu-entry" onclick="indentSelectedGanttTask()"><span>Hacer subtarea (Indent ➡)</span></div>
-            <div class="gp-menu-entry" onclick="moveSelectedGanttTask(-1)"><span>Mover arriba ⬆</span></div>
-            <div class="gp-menu-entry" onclick="moveSelectedGanttTask(1)"><span>Mover abajo ⬇</span></div>
+            <div class="gp-menu-entry" onclick="outdentSelectedGanttTask()"><span>${icon('chevronLeft')} Promover nivel</span></div>
+            <div class="gp-menu-entry" onclick="indentSelectedGanttTask()"><span>${icon('chevronRight')} Hacer subtarea</span></div>
+            <div class="gp-menu-entry" onclick="moveSelectedGanttTask(-1)"><span>${icon('chevronUp')} Mover arriba</span></div>
+            <div class="gp-menu-entry" onclick="moveSelectedGanttTask(1)"><span>${icon('chevronDown')} Mover abajo</span></div>
             <div class="gp-menu-divider"></div>
-            <div class="gp-menu-entry" onclick="linkSelectedGanttTask()"><span>Vincular dependencia (🔗)</span></div>
-            <div class="gp-menu-entry" onclick="unlinkSelectedGanttTask()"><span>Desvincular dependencias (✂️)</span></div>
+            <div class="gp-menu-entry" onclick="linkSelectedGanttTask()"><span>${icon('paperclip')} Vincular dependencia</span></div>
+            <div class="gp-menu-entry" onclick="unlinkSelectedGanttTask()"><span>${icon('trash')} Desvincular dependencias</span></div>
           </div>
         </div>
         <div class="gp-menu-item" tabindex="0">
@@ -3387,33 +3397,33 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
       <!-- 3. Barra Principal de Iconos (Herramientas & Búsqueda) -->
       <div class="gp-toolbar-main">
         <div class="gp-toolbar-tools">
-          <button type="button" class="gp-tool-btn" id="gp-tool-open" title="Importar proyecto (.gan / .csv)">📁</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-save" title="Exportar a Gantt Haitani (.gan)">💾</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-baseline" title="Fijar Línea Base actual">⏱️</button>
-          <button type="button" class="gp-tool-btn ${ganttActiveTab === 'resources' ? 'active' : ''}" id="gp-tool-resources" title="Ver Diagrama de Recursos">👤</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-delete" title="Eliminar tarea seleccionada">❌</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-props" title="Propiedades de tarea">ℹ️</button>
+          <button type="button" class="gp-tool-btn" id="gp-tool-open" title="Importar proyecto (.gan / .csv)">${icon('folder')}</button>
+          <button type="button" class="gp-tool-btn" id="gp-tool-save" title="Exportar a Gantt Haitani (.gan)">${icon('download')}</button>
+          <button type="button" class="gp-tool-btn" id="gp-tool-baseline" title="Fijar Línea Base actual">${icon('clock')}</button>
+          <button type="button" class="gp-tool-btn ${ganttActiveTab === 'resources' ? 'active' : ''}" id="gp-tool-resources" title="Ver Diagrama de Recursos">${icon('users')}</button>
+          <button type="button" class="gp-tool-btn" id="gp-tool-delete" title="Eliminar tarea seleccionada">${icon('trash')}</button>
+          <button type="button" class="gp-tool-btn" id="gp-tool-props" title="Propiedades de tarea">${icon('info')}</button>
           <span class="gp-tool-sep"></span>
-          <button type="button" class="gp-tool-btn" id="gp-tool-cut" title="Cortar">✂️</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-copy" title="Copiar">📄</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-paste" title="Pegar">📋</button>
+          <button type="button" class="gp-tool-btn" id="gp-tool-cut" title="Cortar">${icon('trash')}</button>
+          <button type="button" class="gp-tool-btn" id="gp-tool-copy" title="Copiar">${icon('copy')}</button>
+          <button type="button" class="gp-tool-btn" id="gp-tool-paste" title="Pegar">${icon('clipboard')}</button>
           <span class="gp-tool-sep"></span>
-          <button type="button" class="gp-tool-btn" id="gp-tool-undo" title="Deshacer">↩️</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-redo" title="Rehacer">↪️</button>
+          <button type="button" class="gp-tool-btn" id="gp-tool-undo" title="Deshacer">${icon('undo')}</button>
+          <button type="button" class="gp-tool-btn" id="gp-tool-redo" title="Rehacer">${icon('redo')}</button>
         </div>
         <div class="gp-search-wrap">
           <input type="text" class="gp-search-input" id="gp-search-input" placeholder="Ctrl + F" value="${esc(ganttSearchFilter)}">
-          <span class="gp-search-icon">🔍</span>
+          <span class="gp-search-icon">${icon('search')}</span>
         </div>
       </div>
 
       <!-- 4. Pestañas de Navegación con Franja Amarilla y Azul -->
       <div class="gp-tabs-bar">
         <button type="button" class="gp-tab ${ganttActiveTab === 'gantt' ? 'active' : ''}" id="gp-tab-gantt">
-          <span class="gp-tab-icon">⊞</span> Gantt
+          <span class="gp-tab-icon">${icon('calendar')}</span> Gantt
         </button>
         <button type="button" class="gp-tab ${ganttActiveTab === 'resources' ? 'active' : ''}" id="gp-tab-resources">
-          <span class="gp-tab-icon">👥</span> Diagrama de recursos
+          <span class="gp-tab-icon">${icon('users')}</span> Diagrama de recursos
         </button>
       </div>
       <div class="gp-accent-lines">
@@ -3424,12 +3434,12 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
       <!-- 5. Sub-barra de Herramientas (WBS & Navegación Temporal) -->
       <div class="gp-subtoolbar gantt-gp-toolbar">
         <div class="gp-subtoolbar-left" style="width:${ganttTableWidth}px">
-          <button type="button" class="gp-sub-btn" id="gp-btn-outdent" title="Promover nivel (Outdent ⬅)">⬅</button>
-          <button type="button" class="gp-sub-btn" id="gp-btn-indent" title="Hacer subtarea (Indent ➡)">➡</button>
-          <button type="button" class="gp-sub-btn" id="gp-btn-moveup" title="Mover arriba ⬆">⬆</button>
-          <button type="button" class="gp-sub-btn" id="gp-btn-movedown" title="Mover abajo ⬇">⬇</button>
-          <button type="button" class="gp-sub-btn" id="gp-btn-link" title="Vincular dependencias (🔗)">🔗</button>
-          <button type="button" class="gp-sub-btn" id="gp-btn-unlink" title="Desvincular dependencias (✂️)">✂️</button>
+          <button type="button" class="gp-sub-btn" id="gp-btn-outdent" title="Promover nivel">${icon('chevronLeft')}</button>
+          <button type="button" class="gp-sub-btn" id="gp-btn-indent" title="Hacer subtarea">${icon('chevronRight')}</button>
+          <button type="button" class="gp-sub-btn" id="gp-btn-moveup" title="Mover arriba">${icon('chevronUp')}</button>
+          <button type="button" class="gp-sub-btn" id="gp-btn-movedown" title="Mover abajo">${icon('chevronDown')}</button>
+          <button type="button" class="gp-sub-btn" id="gp-btn-link" title="Vincular dependencias">${icon('paperclip')}</button>
+          <button type="button" class="gp-sub-btn" id="gp-btn-unlink" title="Desvincular dependencias">${icon('trash')}</button>
           <div style="margin-left:auto;display:flex;align-items:center;gap:3px">
             <select class="select" id="gantt-project-filter" style="font-size:11px;padding:1px 4px;height:24px;max-width:115px">
               <option value="">Proyectos</option>
@@ -3446,13 +3456,13 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
         <div class="gp-subtoolbar-right">
           <!-- Navegador de Meses en la Barra de Tareas para mover entre fechas -->
           <div class="gp-month-nav" title="Navegar entre meses del proyecto">
-            <button type="button" class="gp-month-nav-btn" id="gp-nav-prev-month" title="Mes anterior (◀)">◀</button>
+            <button type="button" class="gp-month-nav-btn" id="gp-nav-prev-month" title="Mes anterior">${icon('chevronLeft')}</button>
             <div class="gp-month-pills" id="gp-month-pills">
               ${months.map(m => `
                 <button type="button" class="gp-month-pill" data-date="${m.isoDate}" title="Ir a ${esc(m.label)}">${esc(m.shortLabel)}</button>
               `).join('')}
             </div>
-            <button type="button" class="gp-month-nav-btn" id="gp-nav-next-month" title="Mes siguiente (▶)">▶</button>
+            <button type="button" class="gp-month-nav-btn" id="gp-nav-next-month" title="Mes siguiente">${icon('chevronRight')}</button>
             <select class="select gp-month-dropdown" id="gp-month-quick-select" title="Saltar rápidamente a un mes">
               <option value="">Meses...</option>
               ${months.map(m => `<option value="${m.isoDate}">${esc(m.label)}</option>`).join('')}
@@ -3460,8 +3470,8 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
           </div>
 
           <div class="gp-sub-group">
-            <button type="button" class="gp-sub-btn" id="gtc-zoom-in" title="Acercar">🔍 Acercar</button>
-            <button type="button" class="gp-sub-btn" id="gtc-zoom-out" title="Alejar">🔍 Alejar</button>
+            <button type="button" class="gp-sub-btn" id="gtc-zoom-in" title="Acercar">${icon('search')} Acercar</button>
+            <button type="button" class="gp-sub-btn" id="gtc-zoom-out" title="Alejar">${icon('search')} Alejar</button>
             <select class="select" id="gp-select-nav" style="font-size:11px;padding:1px 4px;height:24px">
               <option value="project-start">Inicio del proyecto ▾</option>
               <option value="today">Hoy</option>
@@ -4083,8 +4093,8 @@ function openGanttCreateModal(isMilestone = false) {
   overlay.innerHTML = `
     <div class="file-viewer-panel" style="max-width:540px;height:auto;padding:var(--sp-4)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
-        <h2 style="margin:0">${isMilestone ? '♦ Nuevo Hito de Proyecto' : '+ Nueva Tarea en Cronograma'}</h2>
-        <button type="button" class="btn secondary" id="gantt-modal-close" style="width:32px;height:32px;padding:0">✕</button>
+        <h2 style="margin:0">${isMilestone ? `${icon('clock')} Nuevo Hito de Proyecto` : `${icon('plus')} Nueva Tarea en Cronograma`}</h2>
+        <button type="button" class="btn secondary" id="gantt-modal-close" style="width:32px;height:32px;padding:0">${icon('close')}</button>
       </div>
       <form id="gantt-quick-create-form" style="display:grid;gap:var(--sp-3)">
         <label>Proyecto
@@ -4173,8 +4183,8 @@ function openGanttImportModal() {
   overlay.innerHTML = `
     <div class="file-viewer-panel" style="max-width:540px;height:auto;padding:var(--sp-4)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
-        <h2 style="margin:0">📤 Importar Archivo Gantt Haitani</h2>
-        <button type="button" class="btn secondary" id="gantt-import-close" style="width:32px;height:32px;padding:0">✕</button>
+        <h2 style="margin:0">${icon('upload')} Importar Archivo Gantt Haitani</h2>
+        <button type="button" class="btn secondary" id="gantt-import-close" style="width:32px;height:32px;padding:0">${icon('close')}</button>
       </div>
       <p class="muted" style="margin-bottom:var(--sp-3)">
         Selecciona un archivo <strong>.gan</strong> exportado desde <strong>Gantt Haitani</strong> (o archivo .csv). Se importarán las tareas, duraciones, dependencias e hitos automáticamente.
@@ -4248,14 +4258,14 @@ async function openGanttQuickEdit(id) {
   const depsListHtml = currentDeps.length ? currentDeps.map(d => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line);font-size:11px">
       <span><strong>${esc(d.predecessor_title || 'Tarea #' + d.predecessor_id)}</strong> (${d.dependency_type || 'FS'})</span>
-      <button type="button" class="btn secondary btn-dep-delete" data-dep-id="${d.id}" style="padding:2px 6px;font-size:10px">✕</button>
+      <button type="button" class="btn secondary btn-dep-delete" data-dep-id="${d.id}" style="padding:2px 6px;font-size:10px">${icon('close')}</button>
     </div>
   `).join('') : '<small class="muted">Sin dependencias predecesoras</small>';
 
   popover.innerHTML = `
     <div style="margin-bottom:var(--sp-2)">
       <strong style="font-size:14px">${esc(task.title)}</strong>
-      ${task.is_milestone ? '<span class="badge" style="background:#e5484d;color:#fff;margin-left:6px">Hito ♦</span>' : ''}
+      ${task.is_milestone ? '<span class="badge" style="background:#e5484d;color:#fff;margin-left:6px">Hito</span>' : ''}
     </div>
     <label>Título
       <input class="input" id="gp-title" value="${esc(task.title)}" required>
@@ -4289,7 +4299,7 @@ async function openGanttQuickEdit(id) {
       </label>
       <label style="display:flex;align-items:center;gap:6px;margin-top:20px;font-size:12px">
         <input type="checkbox" id="gp-milestone" ${task.is_milestone ? 'checked' : ''}>
-        Es Hito (♦)
+        Es Hito
       </label>
     </div>
 
