@@ -149,6 +149,12 @@ let fileTypeFilter = '';
 let fileUploaderFilter = '';
 let ganttStatusFilter = '';
 let ganttAssigneeFilter = '';
+let ganttProjectId = '';
+let ganttTimeScale = 'day';
+let ganttShowCriticalPath = false;
+let ganttShowBaselines = false;
+let ganttCollapsedTasks = new Set();
+let ganttDataCache = null;
 let ganttCalendarMonth = (() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d })();
 let ganttChartZoom = 32;
 let ganttChartMinDate = null;
@@ -2412,95 +2418,227 @@ async function renderMessages(){
     }catch(error){notify(error.message)}
   });
 }
-async function gantt(){
-  const allTasksRaw = await api('/tasks');
-  const users = state.user.role === 'admin' ? await api('/users') : [];
-  const dayMs = 86400000;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const monthDate = ganttCalendarMonth;
-  const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-  const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
-  const gridStart = startOfWeekMonday(monthStart);
-  const gridEndOffset = 6 - ((monthEnd.getDay() + 6) % 7);
-  const gridEnd = new Date(monthEnd); gridEnd.setDate(gridEnd.getDate() + gridEndOffset);
-  const totalGridDays = Math.round((gridEnd - gridStart) / dayMs) + 1;
-  const weeksCount = totalGridDays / 7;
+// =========================================================================
+// GANTTPROJECT ADVANCED SUITE (bardsoftware/ganttproject)
+// =========================================================================
 
-  const progress = { pendiente: 0, en_proceso: 50, completada: 100 };
-  const parsedTasks = allTasksRaw
-    .filter(t => (!ganttStatusFilter || t.status === ganttStatusFilter) && (!ganttAssigneeFilter || String(t.assigned_to || '') === ganttAssigneeFilter))
-    .map(t => {
-      const start = t.start_date ? new Date(`${t.start_date}T00:00:00`) : (t.due_date ? new Date(`${t.due_date}T00:00:00`) : null);
-      const due = t.due_date ? new Date(`${t.due_date}T00:00:00`) : start;
-      return { ...t, startDate: start, dueDate: due };
-    });
-  const scheduledTasks = parsedTasks.filter(t => t.startDate);
-  const unscheduledTasks = parsedTasks.filter(t => !t.startDate);
-
-  const MAX_LANES = 4;
-  const weeksHtml = [];
-  for (let w = 0; w < weeksCount; w++) {
-    const weekStart = new Date(gridStart.getTime() + w * 7 * dayMs);
-    const weekEnd = new Date(weekStart.getTime() + 6 * dayMs);
-    const weekTasks = scheduledTasks.filter(t => t.startDate <= weekEnd && t.dueDate >= weekStart)
-      .sort((a, b) => (a.startDate - b.startDate) || ((b.dueDate - b.startDate) - (a.dueDate - a.startDate)));
-    const lanesOccupied = [];
-    const bars = []; let overflow = 0;
-    weekTasks.forEach(task => {
-      const segStart = task.startDate < weekStart ? weekStart : task.startDate;
-      const segEnd = task.dueDate > weekEnd ? weekEnd : task.dueDate;
-      const colStart = Math.round((segStart - weekStart) / dayMs);
-      const colSpan = Math.round((segEnd - segStart) / dayMs) + 1;
-      let lane = 0;
-      while (lane < MAX_LANES) {
-        const occ = lanesOccupied[lane] || (lanesOccupied[lane] = []);
-        const clash = occ.some(range => colStart < range.end && (colStart + colSpan) > range.start);
-        if (!clash) { occ.push({ start: colStart, end: colStart + colSpan }); break }
-        lane++;
-      }
-      if (lane >= MAX_LANES) { overflow++; return }
-      bars.push({ task, colStart, colSpan, lane, continuesLeft: task.startDate < weekStart, continuesRight: task.dueDate > weekEnd });
-    });
-    const lanesUsed = Math.min(MAX_LANES, Math.max(1, bars.reduce((m, b) => Math.max(m, b.lane + 1), 0)));
-    const dayBoxes = [];
-    for (let d = 0; d < 7; d++) {
-      const date = new Date(weekStart.getTime() + d * dayMs);
-      const outside = date.getMonth() !== monthDate.getMonth();
-      const isToday = date.getTime() === today.getTime();
-      dayBoxes.push(`<div class="gantt-cal-day ${outside ? 'is-out' : ''} ${isToday ? 'is-today' : ''}" data-date="${toISODate(date)}"><span class="gantt-cal-daynum">${date.getDate()}</span></div>`);
+function buildGanttWbsTree(tasks) {
+  const taskMap = new Map();
+  const childrenMap = new Map();
+  tasks.forEach(t => {
+    taskMap.set(t.id, t);
+    childrenMap.set(t.id, []);
+  });
+  const roots = [];
+  tasks.forEach(t => {
+    if (t.parent_id && taskMap.has(t.parent_id)) {
+      childrenMap.get(t.parent_id).push(t);
+    } else {
+      roots.push(t);
     }
-    const barsHtml = bars.map(bar => {
-      const percent = progress[bar.task.status] ?? 0;
-      return `<div class="gantt-cal-bar ${bar.task.status}" draggable="true" data-id="${bar.task.id}" data-start="${bar.task.start_date || ''}" data-due="${bar.task.due_date || ''}" style="--col-start:${bar.colStart};--col-span:${bar.colSpan};--lane:${bar.lane}" title="${esc(bar.task.title)} · ${esc(bar.task.assignee_name || 'Sin asignar')} · ${percent}%">${bar.continuesLeft ? '<span class="gantt-cal-bar-arrow">‹</span>' : ''}<span class="gantt-cal-bar-label">${esc(bar.task.title)}</span>${bar.continuesRight ? '<span class="gantt-cal-bar-arrow">›</span>' : ''}</div>`;
-    }).join('');
-    const overflowHtml = overflow ? `<div class="gantt-cal-more" style="--lane:${MAX_LANES}">+${overflow} más</div>` : '';
-    weeksHtml.push(`<div class="gantt-cal-week"><div class="gantt-cal-days" style="--lanes:${lanesUsed + (overflow ? 1 : 0)}">${dayBoxes.join('')}</div><div class="gantt-cal-bars">${barsHtml}${overflowHtml}</div></div>`);
+  });
+
+  const flatList = [];
+  function walk(list, prefix = '', depth = 0) {
+    list.forEach((task, idx) => {
+      const wbs = prefix ? `${prefix}.${idx + 1}` : `${idx + 1}`;
+      const children = childrenMap.get(task.id) || [];
+      const isParent = children.length > 0;
+      const isCollapsed = ganttCollapsedTasks.has(task.id);
+      flatList.push({
+        ...task,
+        wbs,
+        depth,
+        is_summary: isParent,
+        has_children: isParent,
+        is_collapsed: isCollapsed
+      });
+      if (isParent && !isCollapsed) {
+        walk(children, wbs, depth + 1);
+      }
+    });
   }
-
-  const monthLabel = monthDate.toLocaleDateString('es', { month: 'long', year: 'numeric' });
-  const assigneeOptions = users.filter(u => u.role === 'member').map(u => `<option value="${u.id}" ${ganttAssigneeFilter === String(u.id) ? 'selected' : ''}>${esc(u.name)}</option>`).join('');
-  const unscheduledHtml = unscheduledTasks.length ? `<section class="card mt-4"><h3>Tareas sin fecha</h3><div class="grid stats">${unscheduledTasks.map(t => `<div class="gantt-unscheduled-item"><strong>${esc(t.title)}</strong><small class="muted">${esc(t.assignee_name || 'Sin asignar')}</small></div>`).join('')}</div></section>` : '';
-
-  return `${heading('Gantt', 'Calendario del proyecto. Cambia de mes, arrastra una tarea a otro día para moverla y haz clic sobre ella para editar su estado o sus fechas.')}<section class="card gantt-card"><div class="gantt-controls"><div class="actions"><button class="btn secondary" id="gantt-prev-month" aria-label="Mes anterior">‹</button><strong class="gantt-month-label">${monthLabel}</strong><button class="btn secondary" id="gantt-next-month" aria-label="Mes siguiente">›</button><button class="btn secondary" id="gantt-today-btn">Hoy</button></div><div class="actions"><label class="inline"><span class="muted gantt-controls-label">Fecha</span><input class="input gantt-date-picker" id="gantt-date-picker" type="date" value="${toISODate(monthStart)}"></label><label class="inline"><span class="muted gantt-controls-label">Estado</span><select class="select" id="gantt-status-filter"><option value="">Todos</option><option value="pendiente" ${ganttStatusFilter === 'pendiente' ? 'selected' : ''}>Pendiente</option><option value="en_proceso" ${ganttStatusFilter === 'en_proceso' ? 'selected' : ''}>En proceso</option><option value="completada" ${ganttStatusFilter === 'completada' ? 'selected' : ''}>Completada</option></select></label>${assigneeOptions ? `<label class="inline"><span class="muted gantt-controls-label">Integrante</span><select class="select" id="gantt-assignee-filter"><option value="">Todos</option>${assigneeOptions}</select></label>` : ''}</div></div><div class="gantt-cal-weekdays">${GANTT_WEEKDAY_LABELS.map(l => `<span>${l}</span>`).join('')}</div><div class="gantt-cal-grid">${weeksHtml.join('')}</div><div class="gantt-legend"><span><i class="gantt-dot pendiente"></i>Pendiente 0%</span><span><i class="gantt-dot en_proceso"></i>En proceso 50%</span><span><i class="gantt-dot completada"></i>Completada 100%</span></div></section>${unscheduledHtml}${ganttChartMarkup(scheduledTasks, unscheduledTasks)}`
+  walk(roots);
+  return flatList;
 }
-function ganttChartMarkup(scheduledTasks, unscheduledTasks) {
+
+async function gantt() {
+  let ganttData;
+  try {
+    const url = `/gantt${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}`;
+    ganttData = await api(url);
+  } catch (err) {
+    const rawTasks = await api('/tasks');
+    ganttData = {
+      projects: [],
+      tasks: rawTasks,
+      dependencies: [],
+      criticalPathTaskIds: []
+    };
+  }
+  ganttDataCache = ganttData;
+
+  const projects = ganttData.projects || [];
+  const allTasksRaw = ganttData.tasks || [];
+  const dependencies = ganttData.dependencies || [];
+  const criticalTaskIds = new Set(ganttData.criticalPathTaskIds || []);
+  const users = state.user.role === 'admin' ? await api('/users').catch(() => []) : [];
+
   const dayMs = 86400000;
   const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  // Filtrado de tareas
+  const filteredTasks = allTasksRaw.filter(t => {
+    if (ganttStatusFilter && t.status !== ganttStatusFilter) return false;
+    if (ganttAssigneeFilter && String(t.assigned_to || '') !== ganttAssigneeFilter) return false;
+    return true;
+  });
+
+  // Estructura jerárquica WBS
+  const wbsOrderedTasks = buildGanttWbsTree(filteredTasks);
+
+  // Mapeo con fechas parseadas
+  const scheduledTasks = [];
+  const unscheduledTasks = [];
+
+  wbsOrderedTasks.forEach(t => {
+    const start = t.start_date ? new Date(`${t.start_date}T00:00:00`) : (t.due_date ? new Date(`${t.due_date}T00:00:00`) : null);
+    const due = t.due_date ? new Date(`${t.due_date}T00:00:00`) : start;
+    const isCritical = criticalTaskIds.has(t.id);
+
+    if (start) {
+      scheduledTasks.push({ ...t, startDate: start, dueDate: due, isCritical });
+    } else {
+      unscheduledTasks.push({ ...t, isCritical });
+    }
+  });
+
+  // Opciones de integrantes y proyectos
+  const projectOptions = projects.map(p =>
+    `<option value="${p.id}" ${ganttProjectId === String(p.id) ? 'selected' : ''}>${esc(p.name)}</option>`
+  ).join('');
+
+  const assigneeOptions = users.filter(u => u.role === 'member').map(u =>
+    `<option value="${u.id}" ${ganttAssigneeFilter === String(u.id) ? 'selected' : ''}>${esc(u.name)}</option>`
+  ).join('');
+
+  const criticalCount = criticalTaskIds.size;
+
+  // Barra de herramientas GanttProject
+  const toolbarHtml = `
+    <div class="gantt-gp-toolbar">
+      <div class="gantt-gp-group">
+        <label class="inline">
+          <span class="muted gantt-controls-label">Proyecto</span>
+          <select class="select" id="gantt-project-filter">
+            <option value="">Todos los Proyectos</option>
+            ${projectOptions}
+          </select>
+        </label>
+        <label class="inline">
+          <span class="muted gantt-controls-label">Estado</span>
+          <select class="select" id="gantt-status-filter">
+            <option value="">Todos</option>
+            <option value="pendiente" ${ganttStatusFilter === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+            <option value="en_proceso" ${ganttStatusFilter === 'en_proceso' ? 'selected' : ''}>En proceso</option>
+            <option value="completada" ${ganttStatusFilter === 'completada' ? 'selected' : ''}>Completada</option>
+          </select>
+        </label>
+        ${assigneeOptions ? `
+          <label class="inline">
+            <span class="muted gantt-controls-label">Integrante</span>
+            <select class="select" id="gantt-assignee-filter">
+              <option value="">Todos</option>
+              ${assigneeOptions}
+            </select>
+          </label>
+        ` : ''}
+      </div>
+
+      <div class="gantt-gp-group">
+        <div class="actions" role="group" aria-label="Escala temporal">
+          <button type="button" class="btn secondary ${ganttTimeScale === 'day' ? 'active' : ''}" id="gtc-scale-day" title="Vista por días">Días</button>
+          <button type="button" class="btn secondary ${ganttTimeScale === 'week' ? 'active' : ''}" id="gtc-scale-week" title="Vista por semanas">Semanas</button>
+          <button type="button" class="btn secondary ${ganttTimeScale === 'month' ? 'active' : ''}" id="gtc-scale-month" title="Vista por meses">Meses</button>
+        </div>
+        <div class="actions">
+          <button class="btn secondary" id="gtc-zoom-out" aria-label="Alejar">−</button>
+          <button class="btn secondary" id="gtc-zoom-in" aria-label="Acercar">+</button>
+          <button class="btn secondary" id="gtc-today-btn" title="Desplazar a la fecha de hoy">Hoy</button>
+        </div>
+      </div>
+
+      <div class="gantt-gp-group">
+        <button type="button" class="gantt-gp-toggle ${ganttShowCriticalPath ? 'is-critical-active' : ''}" id="gtc-toggle-critical" title="Calcular y resaltar Ruta Crítica (CPM)">
+          ⚡ Ruta Crítica ${criticalCount > 0 ? `<span class="gtc-critical-badge">${criticalCount}</span>` : ''}
+        </button>
+        <button type="button" class="gantt-gp-toggle ${ganttShowBaselines ? 'is-baseline-active' : ''}" id="gtc-toggle-baseline" title="Mostrar/ocultar comparativa con Línea Base original">
+          📐 Línea Base
+        </button>
+        <button type="button" class="btn secondary" id="gtc-save-baseline" title="Capturar fechas actuales como Línea Base planificada">Fijar Base</button>
+        <button type="button" class="btn secondary" id="gtc-auto-schedule" title="Auto-alinear tareas sucesoras según dependencias Fin-a-Inicio">🔄 Auto-Alinear</button>
+      </div>
+
+      <div class="gantt-gp-group">
+        <button type="button" class="btn" id="gtc-new-task">+ Nueva Tarea</button>
+        <button type="button" class="btn secondary" id="gtc-new-milestone">+ Nuevo Hito ♦</button>
+        <a class="btn secondary" id="gtc-export-gan" href="/api/gantt/export/gan${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}" download title="Exportar proyecto a archivo nativo GanttProject (.gan)">📥 .GAN (GanttProject)</a>
+        <a class="btn secondary" id="gtc-export-csv" href="/api/gantt/export/csv${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}" download title="Exportar datos a CSV">📊 CSV</a>
+        <button type="button" class="btn secondary" id="gtc-import-btn" title="Importar archivo .gan de GanttProject">📤 Importar .GAN</button>
+      </div>
+    </div>
+  `;
+
+  const unscheduledHtml = unscheduledTasks.length ? `
+    <section class="card mt-4">
+      <h3>Tareas sin fecha (${unscheduledTasks.length})</h3>
+      <p class="muted">Asígnales fecha inicial y límite para incluirlas en la línea de tiempo:</p>
+      <div class="grid stats">
+        ${unscheduledTasks.map(t => `
+          <div class="gantt-unscheduled-item" data-id="${t.id}" style="cursor:pointer" onclick="openGanttQuickEdit(${t.id})">
+            <strong>${t.is_milestone ? '♦ ' : ''}${esc(t.title)}</strong>
+            <small class="muted">${esc(t.assignee_name || 'Sin asignar')} · ${esc(t.priority)}</small>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  ` : '';
+
+  return `
+    ${heading('GanttProject Suite', 'Gestión avanzada de cronogramas: estructura WBS, dependencias, ruta crítica CPM, hitos y líneas base.')}
+    ${toolbarHtml}
+    ${ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies, criticalTaskIds)}
+    ${unscheduledHtml}
+  `;
+}
+
+function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], criticalTaskIds = new Set()) {
+  const dayMs = 86400000;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
   let min = null, max = null;
   scheduledTasks.forEach(t => {
     if (!min || t.startDate < min) min = t.startDate;
     if (!max || t.dueDate > max) max = t.dueDate;
   });
-  if (!min) { min = new Date(today); max = new Date(today) }
-  min = new Date(min); min.setDate(min.getDate() - 2);
-  max = new Date(max); max.setDate(max.getDate() + 5);
-  if (max < today) { max = new Date(today); max.setDate(max.getDate() + 14) }
-  if (min > today) { min = new Date(today); min.setDate(min.getDate() - 2) }
+
+  if (!min) { min = new Date(today); max = new Date(today); }
+  min = new Date(min); min.setDate(min.getDate() - 3);
+  max = new Date(max); max.setDate(max.getDate() + 7);
+  if (max < today) { max = new Date(today); max.setDate(max.getDate() + 14); }
+  if (min > today) { min = new Date(today); min.setDate(min.getDate() - 3); }
+
   ganttChartMinDate = min;
   const totalDays = Math.round((max - min) / dayMs) + 1;
-  const dayWidth = ganttChartZoom;
+
+  // Configurar ancho de día según escala
+  let dayWidth = ganttChartZoom;
+  if (ganttTimeScale === 'week') dayWidth = Math.max(14, Math.round(ganttChartZoom * 0.55));
+  if (ganttTimeScale === 'month') dayWidth = Math.max(8, Math.round(ganttChartZoom * 0.3));
+
   const todayOffset = Math.round((today - min) / dayMs);
 
+  // Cabecera de meses
   const months = [];
   let cursor = new Date(min);
   while (cursor <= max) {
@@ -2511,43 +2649,346 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks) {
     months.push({ label: cursor.toLocaleDateString('es', { month: 'long', year: 'numeric' }), days });
     cursor = nextMonth;
   }
+
+  // Celdas de días
   const dayCells = [];
   for (let i = 0; i < totalDays; i++) {
     const date = new Date(min.getTime() + i * dayMs);
     const isToday = date.getTime() === today.getTime();
     const isWeekend = [0, 6].includes(date.getDay());
-    dayCells.push(`<div class="gtc-day ${isToday ? 'is-today' : ''} ${isWeekend ? 'is-weekend' : ''}" style="width:${dayWidth}px">${date.getDate()}</div>`);
+    const label = ganttTimeScale === 'month' ? (date.getDate() === 1 ? '1' : '') : date.getDate();
+    dayCells.push(`<div class="gtc-day ${isToday ? 'is-today' : ''} ${isWeekend ? 'is-weekend' : ''}" style="width:${dayWidth}px">${label}</div>`);
   }
 
-  const progress = { pendiente: 0, en_proceso: 50, completada: 100 };
-  const rows = [...scheduledTasks].sort((a, b) => a.startDate - b.startDate);
-  const labelsHtml = rows.map(t => `<div class="gtc-row-label-fixed"><span title="${esc(t.title)}">${esc(t.title)}</span><small class="muted">${esc(t.assignee_name || 'Sin asignar')}</small></div>`).join('');
-  const tracksHtml = rows.map(t => {
+  const rows = scheduledTasks;
+
+  // Mapeo de índices para conectores SVG de dependencias
+  const taskRowIndexMap = new Map();
+  rows.forEach((t, idx) => taskRowIndexMap.set(t.id, idx));
+
+  // Lado Izquierdo: Tabla WBS jerárquica
+  const labelsHtml = rows.map(t => {
+    const startStr = t.start_date || '';
+    const dueStr = t.due_date || '';
+    const durDays = t.is_milestone ? 0 : Math.max(1, Math.round((t.dueDate - t.startDate) / dayMs) + 1);
+    const prog = t.progress ?? (t.status === 'completada' ? 100 : (t.status === 'en_proceso' ? 50 : 0));
+    const isCrit = ganttShowCriticalPath && t.isCritical;
+
+    const indents = '<span class="gtc-tree-indent"></span>'.repeat(t.depth || 0);
+    const treeToggle = t.has_children
+      ? `<button type="button" class="gtc-tree-btn" data-collapse-id="${t.id}" title="${t.is_collapsed ? 'Expandir subtareas' : 'Colapsar subtareas'}">${t.is_collapsed ? '▶' : '▼'}</button>`
+      : '';
+    const milestoneSymbol = t.is_milestone ? `<span class="gtc-milestone-icon" title="Hito">♦</span>` : '';
+
+    return `
+      <div class="gtc-row-table ${t.is_summary ? 'is-summary' : ''} ${isCrit ? 'is-critical' : ''}" data-id="${t.id}" onclick="openGanttQuickEdit(${t.id})">
+        <div class="gtc-col-wbs" title="Código WBS">${t.wbs || ''}</div>
+        <div class="gtc-col-title" title="${esc(t.title)}">
+          ${indents}${treeToggle}${milestoneSymbol}
+          <span>${esc(t.title)}</span>
+        </div>
+        <div class="gtc-col-dates" title="Inicio">${startStr ? startStr.slice(5) : '-'}</div>
+        <div class="gtc-col-dates" title="Fin">${dueStr ? dueStr.slice(5) : '-'}</div>
+        <div class="gtc-col-dur" title="Duración">${durDays}d</div>
+        <div class="gtc-col-prog" title="Avance">${prog}%</div>
+      </div>
+    `;
+  }).join('');
+
+  // Lado Derecho: Tracks y Barras
+  const tracksHtml = rows.map((t, idx) => {
     const offset = Math.round((t.startDate - min) / dayMs);
     const span = Math.max(1, Math.round((t.dueDate - t.startDate) / dayMs) + 1);
-    const percent = progress[t.status] ?? 0;
-    return `<div class="gtc-row"><div class="gtc-bar ${t.status}" data-id="${t.id}" data-start="${t.start_date || ''}" data-due="${t.due_date || ''}" style="left:${offset * dayWidth}px;width:${Math.max(dayWidth - 4, span * dayWidth - 4)}px" title="${esc(t.title)} · ${esc(t.assignee_name || 'Sin asignar')} · ${percent}%"><span class="gtc-bar-fill" style="width:${percent}%"></span><button type="button" class="gtc-bar-handle left" data-edge="start" aria-label="Ajustar inicio"></button><span class="gtc-bar-label">${esc(t.title)}</span><button type="button" class="gtc-bar-handle right" data-edge="due" aria-label="Ajustar fin"></button></div></div>`;
+    const prog = t.progress ?? (t.status === 'completada' ? 100 : (t.status === 'en_proceso' ? 50 : 0));
+    const isCrit = ganttShowCriticalPath && t.isCritical;
+    const barWidth = Math.max(dayWidth - 4, span * dayWidth - 4);
+    const leftPx = offset * dayWidth;
+
+    // Barra de línea base (si existe y toggle activo)
+    let baselineHtml = '';
+    if (ganttShowBaselines && t.baseline_start_date) {
+      const baseStart = new Date(`${t.baseline_start_date}T00:00:00`);
+      const baseDue = t.baseline_due_date ? new Date(`${t.baseline_due_date}T00:00:00`) : baseStart;
+      const baseOffset = Math.round((baseStart - min) / dayMs);
+      const baseSpan = Math.max(1, Math.round((baseDue - baseStart) / dayMs) + 1);
+      const baseLeft = baseOffset * dayWidth;
+      const baseWidth = Math.max(dayWidth - 4, baseSpan * dayWidth - 4);
+      baselineHtml = `<div class="gtc-baseline-track" style="left:${baseLeft}px;width:${baseWidth}px" title="Línea Base: ${t.baseline_start_date} a ${t.baseline_due_date || t.baseline_start_date}"></div>`;
+    }
+
+    // Tarea Hito (Rombo diamante)
+    if (t.is_milestone) {
+      return `
+        <div class="gtc-row" data-row-id="${t.id}" data-row-idx="${idx}">
+          ${baselineHtml}
+          <div class="gtc-milestone-diamond ${isCrit ? 'is-critical' : ''}"
+               data-id="${t.id}"
+               style="left:${leftPx + Math.round(dayWidth / 2) - 8}px"
+               title="${esc(t.title)} (Hito) · ${t.start_date || ''} · ${prog}%">
+          </div>
+          <span class="gtc-bar-label" style="position:absolute;left:${leftPx + dayWidth + 4}px;top:14px;font-size:11px;font-weight:600;pointer-events:none">
+            ${esc(t.title)}
+          </span>
+        </div>
+      `;
+    }
+
+    // Tarea Padre de Resumen (Summary bracket)
+    if (t.is_summary) {
+      return `
+        <div class="gtc-row" data-row-id="${t.id}" data-row-idx="${idx}">
+          ${baselineHtml}
+          <div class="gtc-summary-bar ${isCrit ? 'is-critical' : ''}"
+               data-id="${t.id}"
+               style="left:${leftPx}px;width:${barWidth}px"
+               title="Resumen: ${esc(t.title)} · ${prog}%">
+          </div>
+          <span class="gtc-bar-label" style="position:absolute;left:${leftPx + barWidth + 6}px;top:13px;font-size:11px;font-weight:600;pointer-events:none">
+            ${esc(t.title)} (${prog}%)
+          </span>
+        </div>
+      `;
+    }
+
+    // Barra estándar de tarea
+    return `
+      <div class="gtc-row" data-row-id="${t.id}" data-row-idx="${idx}">
+        ${baselineHtml}
+        <div class="gtc-bar ${t.status} ${isCrit ? 'is-critical' : ''}"
+             data-id="${t.id}"
+             data-start="${t.start_date || ''}"
+             data-due="${t.due_date || ''}"
+             style="left:${leftPx}px;width:${barWidth}px"
+             title="${esc(t.title)} · ${esc(t.assignee_name || 'Sin asignar')} · ${prog}%">
+          <span class="gtc-bar-fill" style="width:${prog}%"></span>
+          <button type="button" class="gtc-bar-handle left" data-edge="start" aria-label="Ajustar inicio"></button>
+          <span class="gtc-bar-label">${esc(t.title)} (${prog}%)</span>
+          <button type="button" class="gtc-bar-handle right" data-edge="due" aria-label="Ajustar fin"></button>
+        </div>
+      </div>
+    `;
   }).join('');
-  const emptyState = rows.length ? '' : '<div class="empty">No hay tareas programadas para mostrar en el diagrama.</div>';
-  const unscheduledNote = unscheduledTasks.length ? `<p class="muted gtc-note">${unscheduledTasks.length} tarea(s) sin fecha no se muestran aquí; asígnales fecha inicial y límite para incluirlas.</p>` : '';
 
-  return `<section class="card gantt-chart-card mt-4">
-    <div class="gantt-chart-head">
-      <div><h2>Diagrama de Gantt</h2><p class="muted">Arrastra una barra para mover la tarea, o sus extremos para ajustar la duración. Haz clic sin arrastrar para editar.</p></div>
-      <div class="actions"><button class="btn secondary" id="gtc-zoom-out" aria-label="Alejar">−</button><button class="btn secondary" id="gtc-zoom-in" aria-label="Acercar">+</button></div>
-    </div>
-    ${rows.length ? `<div class="gtc-wrap"><div class="gtc-labels"><div class="gtc-labels-head">Tarea</div>${labelsHtml}</div><div class="gtc-scroll" id="gtc-scroll"><div class="gtc-timeline" style="width:${totalDays * dayWidth}px"><div class="gtc-months">${months.map(m => `<div class="gtc-month" style="width:${m.days * dayWidth}px">${esc(m.label)}</div>`).join('')}</div><div class="gtc-days">${dayCells.join('')}</div><div class="gtc-rows-area" style="height:${rows.length * 46}px">${todayOffset >= 0 && todayOffset < totalDays ? `<div class="gtc-today-line" style="left:${todayOffset * dayWidth}px"></div>` : ''}${tracksHtml}</div></div></div></div>` : emptyState}
-    ${unscheduledNote}
-    <div class="gantt-legend"><span><i class="gantt-dot pendiente"></i>Pendiente 0%</span><span><i class="gantt-dot en_proceso"></i>En proceso 50%</span><span><i class="gantt-dot completada"></i>Completada 100%</span></div>
-  </section>`;
+  // Conectores SVG de Dependencias
+  const svgWidth = totalDays * dayWidth;
+  const svgHeight = rows.length * 46;
+  const depPaths = [];
+
+  dependencies.forEach(dep => {
+    const predIdx = taskRowIndexMap.get(dep.predecessor_id);
+    const succIdx = taskRowIndexMap.get(dep.task_id);
+    if (predIdx === undefined || succIdx === undefined) return;
+
+    const predTask = rows[predIdx];
+    const succTask = rows[succIdx];
+    if (!predTask || !succTask) return;
+
+    const predOffset = Math.round((predTask.startDate - min) / dayMs);
+    const predSpan = Math.max(1, Math.round((predTask.dueDate - predTask.startDate) / dayMs) + 1);
+    const predX = (predOffset + predSpan) * dayWidth - 2;
+    const predY = predIdx * 46 + 23;
+
+    const succOffset = Math.round((succTask.startDate - min) / dayMs);
+    const succX = succOffset * dayWidth;
+    const succY = succIdx * 46 + 23;
+
+    const isDepCrit = ganttShowCriticalPath && predTask.isCritical && succTask.isCritical;
+    const markerId = isDepCrit ? 'url(#gtc-arrow-crit)' : 'url(#gtc-arrow)';
+
+    let pathD = '';
+    if (succX >= predX + 10) {
+      const midX = Math.round((predX + succX) / 2);
+      pathD = `M ${predX} ${predY} H ${midX} V ${succY} H ${succX}`;
+    } else {
+      const loopOutX = predX + 12;
+      const loopInX = succX - 12;
+      const midY = Math.round((predY + succY) / 2);
+      pathD = `M ${predX} ${predY} H ${loopOutX} V ${midY} H ${loopInX} V ${succY} H ${succX}`;
+    }
+
+    depPaths.push(`
+      <path d="${pathD}"
+            class="gtc-dep-path ${isDepCrit ? 'is-critical' : ''}"
+            marker-end="${markerId}"
+            data-dep-id="${dep.id}"
+            title="Dependencia: ${esc(predTask.title)} ➔ ${esc(succTask.title)} (${dep.dependency_type || 'FS'})">
+      </path>
+    `);
+  });
+
+  const svgLayerHtml = `
+    <svg class="gtc-dep-svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
+      <defs>
+        <marker id="gtc-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" class="gtc-dep-marker" />
+        </marker>
+        <marker id="gtc-arrow-crit" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" class="gtc-dep-marker is-critical" />
+        </marker>
+      </defs>
+      ${depPaths.join('')}
+    </svg>
+  `;
+
+  const emptyState = rows.length ? '' : '<div class="empty">No hay tareas programadas para los filtros seleccionados.</div>';
+
+  return `
+    <section class="card gantt-chart-card mt-4">
+      <div class="gantt-chart-head">
+        <div>
+          <h2>Cronograma Gantt & WBS</h2>
+          <p class="muted">Arrastra las barras para mover fechas, extremos para duración. Haz clic en una fila o barra para gestionar dependencias e hitos.</p>
+        </div>
+        <div class="gantt-legend">
+          <span><i class="gantt-dot pendiente"></i>Pendiente</span>
+          <span><i class="gantt-dot en_proceso"></i>En proceso</span>
+          <span><i class="gantt-dot completada"></i>Completada</span>
+          ${ganttShowCriticalPath ? '<span><i class="gantt-dot" style="background:#e5484d"></i>Ruta Crítica (CPM)</span>' : ''}
+          ${ganttShowBaselines ? '<span><i class="gantt-dot" style="background:#64748b"></i>Línea Base</span>' : ''}
+        </div>
+      </div>
+
+      ${rows.length ? `
+        <div class="gtc-wrap">
+          <div class="gtc-labels">
+            <div class="gtc-labels-head">
+              <div class="gtc-col-wbs">WBS</div>
+              <div class="gtc-col-title">Tarea / Hito</div>
+              <div class="gtc-col-dates">Inicio</div>
+              <div class="gtc-col-dates">Fin</div>
+              <div class="gtc-col-dur">Días</div>
+              <div class="gtc-col-prog">%</div>
+            </div>
+            ${labelsHtml}
+          </div>
+          <div class="gtc-scroll" id="gtc-scroll">
+            <div class="gtc-timeline" style="width:${totalDays * dayWidth}px">
+              <div class="gtc-months">
+                ${months.map(m => `<div class="gtc-month" style="width:${m.days * dayWidth}px">${esc(m.label)}</div>`).join('')}
+              </div>
+              <div class="gtc-days">
+                ${dayCells.join('')}
+              </div>
+              <div class="gtc-rows-area" style="height:${rows.length * 46}px">
+                ${todayOffset >= 0 && todayOffset < totalDays ? `<div class="gtc-today-line" style="left:${todayOffset * dayWidth}px"></div>` : ''}
+                ${svgLayerHtml}
+                ${tracksHtml}
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : emptyState}
+    </section>
+  `;
 }
-async function renderGantt(){layout(await gantt());bindGanttEvents();bindGanttChartEvents()}
-function bindGanttChartEvents() {
-  const dayWidth = ganttChartZoom;
-  const dayMs = 86400000;
-  document.querySelector('#gtc-zoom-in')?.addEventListener('click', () => { ganttChartZoom = Math.min(64, ganttChartZoom + 8); renderGantt() });
-  document.querySelector('#gtc-zoom-out')?.addEventListener('click', () => { ganttChartZoom = Math.max(12, ganttChartZoom - 8); renderGantt() });
 
+async function renderGantt() {
+  layout(await gantt());
+  bindGanttEvents();
+  bindGanttChartEvents();
+}
+
+function bindGanttChartEvents() {
+  const dayWidth = ganttTimeScale === 'week'
+    ? Math.max(14, Math.round(ganttChartZoom * 0.55))
+    : (ganttTimeScale === 'month' ? Math.max(8, Math.round(ganttChartZoom * 0.3)) : ganttChartZoom);
+  const dayMs = 86400000;
+
+  // Zoom
+  document.querySelector('#gtc-zoom-in')?.addEventListener('click', () => {
+    ganttChartZoom = Math.min(64, ganttChartZoom + 8);
+    renderGantt();
+  });
+  document.querySelector('#gtc-zoom-out')?.addEventListener('click', () => {
+    ganttChartZoom = Math.max(12, ganttChartZoom - 8);
+    renderGantt();
+  });
+
+  // Escalas de tiempo GanttProject
+  document.querySelector('#gtc-scale-day')?.addEventListener('click', () => {
+    ganttTimeScale = 'day';
+    renderGantt();
+  });
+  document.querySelector('#gtc-scale-week')?.addEventListener('click', () => {
+    ganttTimeScale = 'week';
+    renderGantt();
+  });
+  document.querySelector('#gtc-scale-month')?.addEventListener('click', () => {
+    ganttTimeScale = 'month';
+    renderGantt();
+  });
+
+  // Toggle Ruta Crítica
+  document.querySelector('#gtc-toggle-critical')?.addEventListener('click', () => {
+    ganttShowCriticalPath = !ganttShowCriticalPath;
+    renderGantt();
+  });
+
+  // Toggle Línea Base
+  document.querySelector('#gtc-toggle-baseline')?.addEventListener('click', () => {
+    ganttShowBaselines = !ganttShowBaselines;
+    renderGantt();
+  });
+
+  // Fijar Línea Base
+  document.querySelector('#gtc-save-baseline')?.addEventListener('click', async () => {
+    if (!confirm('¿Deseas capturar las fechas actuales como la nueva Línea Base planificada del proyecto?')) return;
+    try {
+      const res = await api('/gantt/baseline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: ganttProjectId ? Number(ganttProjectId) : null })
+      });
+      notify(res.message || 'Línea Base fijada');
+      ganttShowBaselines = true;
+      renderGantt();
+    } catch (e) { notify(e.message) }
+  });
+
+  // Auto-Alinear (Forward Scheduling)
+  document.querySelector('#gtc-auto-schedule')?.addEventListener('click', async () => {
+    if (!ganttProjectId) {
+      notify('Selecciona un proyecto específico en el filtro para auto-alinear sus dependencias.');
+      return;
+    }
+    try {
+      const res = await api('/gantt/auto-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: Number(ganttProjectId) })
+      });
+      notify(res.message || 'Cronograma alineado');
+      renderGantt();
+    } catch (e) { notify(e.message) }
+  });
+
+  // Crear Tarea / Hito
+  document.querySelector('#gtc-new-task')?.addEventListener('click', () => openGanttCreateModal(false));
+  document.querySelector('#gtc-new-milestone')?.addEventListener('click', () => openGanttCreateModal(true));
+
+  // Importar GanttProject
+  document.querySelector('#gtc-import-btn')?.addEventListener('click', () => openGanttImportModal());
+
+  // Expandir / Colapsar WBS
+  document.querySelectorAll('.gtc-tree-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = Number(btn.dataset.collapseId);
+      if (ganttCollapsedTasks.has(id)) {
+        ganttCollapsedTasks.delete(id);
+      } else {
+        ganttCollapsedTasks.add(id);
+      }
+      renderGantt();
+    });
+  });
+
+  // Hitos clic
+  document.querySelectorAll('.gtc-milestone-diamond, .gtc-summary-bar').forEach(el => {
+    el.addEventListener('click', () => openGanttQuickEdit(el.dataset.id));
+  });
+
+  // Arrastre y Redimensionamiento de Barras
   document.querySelectorAll('.gtc-bar').forEach(bar => {
     let drag = null;
     const startDrag = (event, mode) => {
@@ -2557,6 +2998,7 @@ function bindGanttChartEvents() {
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp, { once: true });
     };
+
     const onMove = event => {
       if (!drag) return;
       const deltaX = event.clientX - drag.startX;
@@ -2573,18 +3015,21 @@ function bindGanttChartEvents() {
         bar.style.width = `${newWidth}px`;
       }
     };
+
     const onUp = async () => {
       document.removeEventListener('pointermove', onMove);
       bar.classList.remove('is-dragging');
       if (!drag) return;
       const { mode, moved } = drag;
       drag = null;
-      if (!moved) { openGanttQuickEdit(bar.dataset.id); return }
+      if (!moved) { openGanttQuickEdit(bar.dataset.id); return; }
+
       const leftPx = parseFloat(bar.style.left);
       const widthPx = parseFloat(bar.style.width);
       const offsetDays = Math.round(leftPx / dayWidth);
       const spanDays = Math.max(1, Math.round((widthPx + 4) / dayWidth));
       const newStart = new Date(ganttChartMinDate.getTime() + offsetDays * dayMs);
+
       let start_date = bar.dataset.start || toISODate(newStart);
       let due_date = bar.dataset.due || start_date;
       if (mode === 'move') {
@@ -2595,84 +3040,405 @@ function bindGanttChartEvents() {
       } else if (mode === 'resize-due') {
         due_date = toISODate(new Date(newStart.getTime() + (spanDays - 1) * dayMs));
       }
+
       try {
         const task = await api(`/tasks/${bar.dataset.id}`);
-        await api(`/tasks/${bar.dataset.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: task.title, description: task.description || '', assigned_to: task.assigned_to || '', priority: task.priority, status: task.status, start_date, due_date }) });
+        await api(`/tasks/${bar.dataset.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: task.title,
+            description: task.description || '',
+            assigned_to: task.assigned_to || '',
+            priority: task.priority,
+            status: task.status,
+            start_date,
+            due_date
+          })
+        });
         notify('Fechas actualizadas');
-      } catch (error) { notify(error.message) }
+      } catch (error) { notify(error.message); }
       renderGantt();
     };
+
     bar.addEventListener('pointerdown', event => {
       if (event.target.closest('.gtc-bar-handle')) return;
       startDrag(event, 'move');
     });
-    bar.querySelector('.gtc-bar-handle.left')?.addEventListener('pointerdown', event => { event.stopPropagation(); startDrag(event, 'resize-start') });
-    bar.querySelector('.gtc-bar-handle.right')?.addEventListener('pointerdown', event => { event.stopPropagation(); startDrag(event, 'resize-due') });
-  });
-}
-function bindGanttEvents(){
-  document.querySelector('#gantt-prev-month')?.addEventListener('click',()=>{ganttCalendarMonth=new Date(ganttCalendarMonth.getFullYear(),ganttCalendarMonth.getMonth()-1,1);renderGantt()});
-  document.querySelector('#gantt-next-month')?.addEventListener('click',()=>{ganttCalendarMonth=new Date(ganttCalendarMonth.getFullYear(),ganttCalendarMonth.getMonth()+1,1);renderGantt()});
-  document.querySelector('#gantt-today-btn')?.addEventListener('click',()=>{const d=new Date();ganttCalendarMonth=new Date(d.getFullYear(),d.getMonth(),1);renderGantt()});
-  document.querySelector('#gantt-date-picker')?.addEventListener('input', e => {
-    const picked = e.target.value;
-    if (!picked) return;
-    const date = new Date(`${picked}T00:00:00`);
-    ganttCalendarMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-    renderGantt();
-  });
-  document.querySelector('#gantt-status-filter')?.addEventListener('change',e=>{ganttStatusFilter=e.target.value;renderGantt()});
-  document.querySelector('#gantt-assignee-filter')?.addEventListener('change',e=>{ganttAssigneeFilter=e.target.value;renderGantt()});
-  document.querySelectorAll('.gantt-cal-bar').forEach(bar=>{
-    bar.addEventListener('click',()=>{if(bar.dataset.dragging==='1')return;openGanttQuickEdit(bar.dataset.id)});
-    bar.addEventListener('dragstart',event=>{bar.dataset.dragging='1';event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('id',bar.dataset.id);event.dataTransfer.setData('start',bar.dataset.start);event.dataTransfer.setData('due',bar.dataset.due)});
-    bar.addEventListener('dragend',()=>{setTimeout(()=>{bar.dataset.dragging='0'},0)});
-  });
-  document.querySelectorAll('.gantt-cal-day').forEach(day=>{
-    day.addEventListener('dragover',event=>{event.preventDefault();day.classList.add('drop-target')});
-    day.addEventListener('dragleave',()=>day.classList.remove('drop-target'));
-    day.addEventListener('drop',async event=>{
-      event.preventDefault();day.classList.remove('drop-target');
-      const id=event.dataTransfer.getData('id');const originalStart=event.dataTransfer.getData('start');const originalDue=event.dataTransfer.getData('due');
-      if(!id||!originalStart)return;
-      const targetDate=day.dataset.date;
-      const deltaDays=Math.round((new Date(`${targetDate}T00:00:00`)-new Date(`${originalStart}T00:00:00`))/86400000);
-      if(!deltaDays)return;
-      const newStart=addDays(originalStart,deltaDays);
-      const newDue=originalDue?addDays(originalDue,deltaDays):newStart;
-      try{
-        const task=await api(`/tasks/${id}`);
-        await api(`/tasks/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:task.title,description:task.description||'',assigned_to:task.assigned_to||'',priority:task.priority,status:task.status,start_date:newStart,due_date:newDue})});
-        notify('Fechas actualizadas');
-      }catch(error){notify(error.message)}
-      renderGantt();
+
+    bar.querySelector('.gtc-bar-handle.left')?.addEventListener('pointerdown', event => {
+      event.stopPropagation();
+      startDrag(event, 'resize-start');
+    });
+
+    bar.querySelector('.gtc-bar-handle.right')?.addEventListener('pointerdown', event => {
+      event.stopPropagation();
+      startDrag(event, 'resize-due');
     });
   });
-  document.querySelectorAll('.gantt-cal-more').forEach(more=>more.addEventListener('click',()=>notify('Hay más tareas esta semana de las que caben. Filtra por integrante o estado para verlas todas.')));
 }
-async function openGanttQuickEdit(id){
-  let task;try{task=await api(`/tasks/${id}`)}catch(error){notify(error.message);return}
-  document.querySelectorAll('.gantt-popover').forEach(node=>node.remove());
-  const popover=document.createElement('div');
-  popover.className='gantt-popover';
-  popover.innerHTML=`<strong>${esc(task.title)}</strong><label>Estado<select class="select" id="gp-status"><option value="pendiente" ${task.status==='pendiente'?'selected':''}>Pendiente</option><option value="en_proceso" ${task.status==='en_proceso'?'selected':''}>En proceso</option><option value="completada" ${task.status==='completada'?'selected':''}>Completada</option></select></label><label>Fecha inicial<input class="input" type="date" id="gp-start" value="${task.start_date||''}"></label><label>Fecha límite<input class="input" type="date" id="gp-due" value="${task.due_date||''}"></label><div class="actions"><button class="btn" id="gp-save">Guardar</button><button type="button" class="btn secondary" id="gp-close">Cerrar</button></div>`;
+
+function bindGanttEvents() {
+  // Filtros
+  document.querySelector('#gantt-project-filter')?.addEventListener('change', e => {
+    ganttProjectId = e.target.value;
+    renderGantt();
+  });
+  document.querySelector('#gantt-status-filter')?.addEventListener('change', e => {
+    ganttStatusFilter = e.target.value;
+    renderGantt();
+  });
+  document.querySelector('#gantt-assignee-filter')?.addEventListener('change', e => {
+    ganttAssigneeFilter = e.target.value;
+    renderGantt();
+  });
+
+  // Botón Hoy
+  document.querySelector('#gtc-today-btn')?.addEventListener('click', () => {
+    const todayEl = document.querySelector('.gtc-today-line');
+    const scrollEl = document.querySelector('#gtc-scroll');
+    if (todayEl && scrollEl) {
+      scrollEl.scrollTo({ left: todayEl.offsetLeft - 200, behavior: 'smooth' });
+    }
+  });
+}
+
+// Modal de Creación rápida de Tarea o Hito
+function openGanttCreateModal(isMilestone = false) {
+  document.querySelectorAll('.gantt-modal-overlay').forEach(n => n.remove());
+  const overlay = document.createElement('div');
+  overlay.className = 'file-viewer gantt-modal-overlay';
+
+  const projects = ganttDataCache?.projects || [];
+  const projectOptions = projects.map(p =>
+    `<option value="${p.id}" ${ganttProjectId === String(p.id) ? 'selected' : ''}>${esc(p.name)}</option>`
+  ).join('');
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  overlay.innerHTML = `
+    <div class="file-viewer-panel" style="max-width:540px;height:auto;padding:var(--sp-4)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <h2 style="margin:0">${isMilestone ? '♦ Nuevo Hito de Proyecto' : '+ Nueva Tarea en Cronograma'}</h2>
+        <button type="button" class="btn secondary" id="gantt-modal-close" style="width:32px;height:32px;padding:0">✕</button>
+      </div>
+      <form id="gantt-quick-create-form" style="display:grid;gap:var(--sp-3)">
+        <label>Proyecto
+          <select class="select" name="project_id" required>
+            ${projectOptions || '<option value="1">Proyecto Predeterminado</option>'}
+          </select>
+        </label>
+        <label>Título
+          <input class="input" name="title" placeholder="${isMilestone ? 'Ej: Entrega Fase 1 / Demo con Cliente' : 'Ej: Diseño de Arquitectura'}" required>
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)">
+          <label>Fecha Inicio
+            <input class="input" type="date" name="start_date" value="${todayStr}">
+          </label>
+          <label>Fecha Fin
+            <input class="input" type="date" name="due_date" value="${todayStr}">
+          </label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)">
+          <label>Prioridad
+            <select class="select" name="priority">
+              <option value="baja">Baja</option>
+              <option value="media" selected>Media</option>
+              <option value="alta">Alta</option>
+              <option value="critica">Crítica</option>
+            </select>
+          </label>
+          <label>Estado
+            <select class="select" name="status">
+              <option value="pendiente" selected>Pendiente</option>
+              <option value="en_proceso">En proceso</option>
+              <option value="completada">Completada</option>
+            </select>
+          </label>
+        </div>
+        <input type="hidden" name="is_milestone" value="${isMilestone ? 'true' : 'false'}">
+        <div class="actions" style="margin-top:var(--sp-2)">
+          <button type="submit" class="btn">${isMilestone ? 'Crear Hito' : 'Crear Tarea'}</button>
+          <button type="button" class="btn secondary" id="gantt-modal-cancel">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.append(overlay);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('#gantt-modal-close').onclick = close;
+  overlay.querySelector('#gantt-modal-cancel').onclick = close;
+
+  overlay.querySelector('#gantt-quick-create-form').onsubmit = async event => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.target));
+    try {
+      await api('/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: Number(data.project_id),
+          title: data.title,
+          start_date: data.start_date || null,
+          due_date: data.due_date || null,
+          priority: data.priority,
+          status: data.status,
+          is_milestone: isMilestone,
+          progress: data.status === 'completada' ? 100 : (data.status === 'en_proceso' ? 50 : 0)
+        })
+      });
+      notify(isMilestone ? 'Hito creado' : 'Tarea creada');
+      close();
+      renderGantt();
+    } catch (err) { notify(err.message); }
+  };
+}
+
+// Modal de Importación de GanttProject
+function openGanttImportModal() {
+  document.querySelectorAll('.gantt-modal-overlay').forEach(n => n.remove());
+  const overlay = document.createElement('div');
+  overlay.className = 'file-viewer gantt-modal-overlay';
+
+  const projects = ganttDataCache?.projects || [];
+  const projectOptions = projects.map(p =>
+    `<option value="${p.id}" ${ganttProjectId === String(p.id) ? 'selected' : ''}>${esc(p.name)}</option>`
+  ).join('');
+
+  overlay.innerHTML = `
+    <div class="file-viewer-panel" style="max-width:540px;height:auto;padding:var(--sp-4)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <h2 style="margin:0">📤 Importar Archivo GanttProject</h2>
+        <button type="button" class="btn secondary" id="gantt-import-close" style="width:32px;height:32px;padding:0">✕</button>
+      </div>
+      <p class="muted" style="margin-bottom:var(--sp-3)">
+        Selecciona un archivo <strong>.gan</strong> exportado desde <strong>GanttProject</strong> (o archivo .csv). Se importarán las tareas, duraciones, dependencias e hitos automáticamente.
+      </p>
+      <form id="gantt-import-form" style="display:grid;gap:var(--sp-3)">
+        <label>Proyecto de Destino
+          <select class="select" name="project_id">
+            <option value="">Crear nuevo proyecto con el nombre del archivo</option>
+            ${projectOptions}
+          </select>
+        </label>
+        <label>Archivo (.gan o .csv)
+          <input class="input" type="file" name="file" accept=".gan,.xml,.csv" required>
+        </label>
+        <div class="actions" style="margin-top:var(--sp-2)">
+          <button type="submit" class="btn">Importar a Haitani</button>
+          <button type="button" class="btn secondary" id="gantt-import-cancel">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.append(overlay);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('#gantt-import-close').onclick = close;
+  overlay.querySelector('#gantt-import-cancel').onclick = close;
+
+  overlay.querySelector('#gantt-import-form').onsubmit = async event => {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    try {
+      const res = await api('/gantt/import/gan', {
+        method: 'POST',
+        body: formData
+      });
+      notify(res.message || 'Proyecto importado exitosamente');
+      if (res.projectId) ganttProjectId = String(res.projectId);
+      close();
+      renderGantt();
+    } catch (err) { notify(err.message); }
+  };
+}
+
+// Edición Rápida con Dependencias & WBS
+async function openGanttQuickEdit(id) {
+  let task;
+  try { task = await api(`/tasks/${id}`); }
+  catch (error) { notify(error.message); return; }
+
+  const allTasks = ganttDataCache?.tasks || [];
+  const allDeps = ganttDataCache?.dependencies || [];
+  const projectTasks = allTasks.filter(t => t.project_id === task.project_id && t.id !== task.id);
+
+  // Predecesoras de esta tarea
+  const currentDeps = allDeps.filter(d => d.task_id === task.id);
+
+  document.querySelectorAll('.gantt-popover').forEach(node => node.remove());
+  const popover = document.createElement('div');
+  popover.className = 'gantt-popover';
+  popover.style.maxWidth = '360px';
+  popover.style.zIndex = '100';
+
+  const potentialParents = projectTasks.map(t =>
+    `<option value="${t.id}" ${task.parent_id === t.id ? 'selected' : ''}>${esc(t.title)}</option>`
+  ).join('');
+
+  const potentialPreds = projectTasks.map(t =>
+    `<option value="${t.id}">${esc(t.title)}</option>`
+  ).join('');
+
+  const depsListHtml = currentDeps.length ? currentDeps.map(d => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line);font-size:11px">
+      <span><strong>${esc(d.predecessor_title || 'Tarea #' + d.predecessor_id)}</strong> (${d.dependency_type || 'FS'})</span>
+      <button type="button" class="btn secondary btn-dep-delete" data-dep-id="${d.id}" style="padding:2px 6px;font-size:10px">✕</button>
+    </div>
+  `).join('') : '<small class="muted">Sin dependencias predecesoras</small>';
+
+  popover.innerHTML = `
+    <div style="margin-bottom:var(--sp-2)">
+      <strong style="font-size:14px">${esc(task.title)}</strong>
+      ${task.is_milestone ? '<span class="badge" style="background:#e5484d;color:#fff;margin-left:6px">Hito ♦</span>' : ''}
+    </div>
+    <label>Título
+      <input class="input" id="gp-title" value="${esc(task.title)}" required>
+    </label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2)">
+      <label>Fecha inicial
+        <input class="input" type="date" id="gp-start" value="${task.start_date || ''}">
+      </label>
+      <label>Fecha límite
+        <input class="input" type="date" id="gp-due" value="${task.due_date || ''}">
+      </label>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2)">
+      <label>Estado
+        <select class="select" id="gp-status">
+          <option value="pendiente" ${task.status === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+          <option value="en_proceso" ${task.status === 'en_proceso' ? 'selected' : ''}>En proceso</option>
+          <option value="completada" ${task.status === 'completada' ? 'selected' : ''}>Completada</option>
+        </select>
+      </label>
+      <label>Progreso (%)
+        <input class="input" type="number" id="gp-progress" min="0" max="100" value="${task.progress ?? (task.status === 'completada' ? 100 : (task.status === 'en_proceso' ? 50 : 0))}">
+      </label>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2)">
+      <label>Tarea Padre (WBS)
+        <select class="select" id="gp-parent">
+          <option value="">(Ninguna / Raíz)</option>
+          ${potentialParents}
+        </select>
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:20px;font-size:12px">
+        <input type="checkbox" id="gp-milestone" ${task.is_milestone ? 'checked' : ''}>
+        Es Hito (♦)
+      </label>
+    </div>
+
+    <div style="margin-top:var(--sp-3);padding-top:var(--sp-2);border-top:1px solid var(--line)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <strong style="font-size:11px;text-transform:uppercase;color:var(--color-slate-gray)">Predecesoras (GanttProject)</strong>
+      </div>
+      <div id="gp-dep-list" style="margin-bottom:var(--sp-2)">
+        ${depsListHtml}
+      </div>
+      ${potentialPreds ? `
+        <div style="display:flex;gap:4px">
+          <select class="select" id="gp-new-pred" style="font-size:11px;flex:1">
+            <option value="">+ Vincular predecesora...</option>
+            ${potentialPreds}
+          </select>
+          <button type="button" class="btn secondary" id="gp-add-pred" style="padding:4px 8px;font-size:11px">Vincular</button>
+        </div>
+      ` : ''}
+    </div>
+
+    <div class="actions" style="margin-top:var(--sp-3)">
+      <button class="btn" id="gp-save">Guardar Cambios</button>
+      <button type="button" class="btn secondary" id="gp-close">Cerrar</button>
+    </div>
+  `;
   document.body.append(popover);
-  const anchor=document.querySelector(`.gantt-cal-bar[data-id="${id}"]`)||document.querySelector(`.gtc-bar[data-id="${id}"]`)||document.body;
-  const rect=anchor.getBoundingClientRect();
-  popover.style.left=`${Math.max(8,Math.min(rect.left,window.innerWidth-280))}px`;
-  popover.style.top=`${Math.min(rect.bottom+8,window.innerHeight-260)}px`;
-  const close=()=>{popover.remove();document.removeEventListener('pointerdown',onOutside)};
-  const onOutside=e=>{if(!popover.contains(e.target))close()};
-  setTimeout(()=>document.addEventListener('pointerdown',onOutside),0);
-  document.querySelector('#gp-close').onclick=close;
-  document.querySelector('#gp-save').onclick=async()=>{
-    try{
-      const start=document.querySelector('#gp-start').value;
-      const due=document.querySelector('#gp-due').value;
-      await api(`/tasks/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:task.title,description:task.description||'',assigned_to:task.assigned_to||'',priority:task.priority,status:document.querySelector('#gp-status').value,start_date:start,due_date:due})});
-      notify('Tarea actualizada');close();renderGantt()
-    }catch(error){notify(error.message)}
-  }
+
+  // Posicionamiento dinámico
+  const anchor = document.querySelector(`.gtc-bar[data-id="${id}"]`) ||
+                 document.querySelector(`.gtc-row-table[data-id="${id}"]`) ||
+                 document.body;
+  const rect = anchor.getBoundingClientRect();
+  popover.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 380))}px`;
+  popover.style.top = `${Math.min(rect.bottom + 8, window.innerHeight - 380)}px`;
+
+  const close = () => {
+    popover.remove();
+    document.removeEventListener('pointerdown', onOutside);
+  };
+  const onOutside = e => {
+    if (!popover.contains(e.target)) close();
+  };
+  setTimeout(() => document.addEventListener('pointerdown', onOutside), 0);
+
+  document.querySelector('#gp-close').onclick = close;
+
+  // Añadir dependencia
+  document.querySelector('#gp-add-pred')?.addEventListener('click', async () => {
+    const predId = document.querySelector('#gp-new-pred')?.value;
+    if (!predId) return;
+    try {
+      await api('/gantt/dependencies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          task_id: task.id,
+          predecessor_id: Number(predId),
+          dependency_type: 'FS',
+          lag_days: 0
+        })
+      });
+      notify('Dependencia vinculada');
+      close();
+      renderGantt();
+    } catch (err) { notify(err.message); }
+  });
+
+  // Eliminar dependencia
+  popover.querySelectorAll('.btn-dep-delete').forEach(btn => {
+    btn.onclick = async () => {
+      try {
+        await api(`/gantt/dependencies/${btn.dataset.depId}`, { method: 'DELETE' });
+        notify('Dependencia eliminada');
+        close();
+        renderGantt();
+      } catch (err) { notify(err.message); }
+    };
+  });
+
+  // Guardar cambios en la tarea
+  document.querySelector('#gp-save').onclick = async () => {
+    try {
+      const title = document.querySelector('#gp-title').value;
+      const start = document.querySelector('#gp-start').value;
+      const due = document.querySelector('#gp-due').value;
+      const status = document.querySelector('#gp-status').value;
+      const progress = Number(document.querySelector('#gp-progress').value || 0);
+      const parent_id = document.querySelector('#gp-parent').value || null;
+      const is_milestone = document.querySelector('#gp-milestone').checked;
+
+      await api(`/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description: task.description || '',
+          assigned_to: task.assigned_to || '',
+          priority: task.priority,
+          status,
+          start_date: start,
+          due_date: due,
+          progress,
+          parent_id,
+          is_milestone
+        })
+      });
+
+      notify('Tarea actualizada');
+      close();
+      renderGantt();
+    } catch (error) { notify(error.message); }
+  };
 }
 const renderMessagesLegacy=renderMessages;
 renderMessages=async function(){await renderMessagesLegacy();const callHead=document.querySelector('.call-head');if(callHead&&!document.querySelector('#mute-call'))callHead.insertAdjacentHTML('beforeend','<button class="btn secondary btn-with-icon" id="mute-call">'+icon('mic')+'<span>Silenciar micrófono</span></button>');document.querySelector('#mute-call')?.addEventListener('click',toggleMute);const calls=await api('/calls').catch(()=>[]);if(calls.length&&!document.querySelector('.missed-calls')){const node=document.createElement('section');node.className='missed-calls';node.innerHTML=`<h2>Llamadas perdidas</h2>${calls.map(call=>`<div class="missed-call">${avatarMarkup({name:call.caller_name,profile_photo:call.caller_photo},'message-avatar')}<span><strong>${esc(call.caller_name)}</strong><small>${call.call_type==='video'?'Videollamada':'Llamada'} · ${new Date(call.created_at).toLocaleString('es')}</small></span></div>`).join('')}`;document.querySelector('.conversation-list')?.prepend(node)}}

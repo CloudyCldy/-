@@ -3092,10 +3092,55 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .gtc-bar-handle:hover{background:rgba(23,25,28,0.12)}
 .gtc-note{margin-top:var(--sp-3)}
 @media(max-width:850px){
-  .gtc-labels{flex:0 0 140px}
+  .gtc-labels{flex:0 0 160px}
+  .gtc-col-dates, .gtc-col-dur, .gtc-col-prog{display:none}
   .gtc-row-label-fixed span{font-size:12px}
   .gtc-row-label-fixed small{font-size:10px}
 }
+
+/* =========================================================
+   GANTTPROJECT ADVANCED SUITE (bardsoftware/ganttproject)
+   ========================================================= */
+.gantt-gp-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-3);background:var(--color-fog-white);border:1px solid var(--line);border-radius:var(--radius-inputs);margin-bottom:var(--sp-4)}
+.gantt-gp-group{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
+.gantt-gp-toggle{padding:6px 12px;font-size:12px;font-weight:500;border:1px solid var(--line);border-radius:var(--radius-buttons);background:var(--color-paper-white);color:var(--color-ink-black);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s ease}
+.gantt-gp-toggle:hover{background:var(--color-mist-gray)}
+.gantt-gp-toggle.is-active{background:var(--color-ink-black);color:var(--color-paper-white);border-color:var(--color-ink-black)}
+.gantt-gp-toggle.is-critical-active{background:#e5484d;color:#fff;border-color:#b91c1c;box-shadow:0 0 0 2px rgba(229,72,77,0.25)}
+.gantt-gp-toggle.is-baseline-active{background:#0284c7;color:#fff;border-color:#0369a1}
+.gtc-critical-badge{background:#e5484d;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:bold;margin-left:4px}
+.gtc-labels{flex:0 0 350px;border-right:1px solid var(--line);background:var(--color-fog-white);overflow-x:auto}
+.gtc-labels-head{height:57px;display:flex;align-items:center;padding:0 var(--sp-2);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--color-slate-gray);border-bottom:1px solid var(--line);box-sizing:border-box}
+.gtc-col-wbs{width:42px;flex-shrink:0;text-align:center;color:var(--color-slate-gray);font-family:monospace}
+.gtc-col-title{flex:1;min-width:130px;padding-left:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center}
+.gtc-col-dates{width:65px;flex-shrink:0;font-size:10px;text-align:center;color:var(--color-slate-gray)}
+.gtc-col-dur{width:36px;flex-shrink:0;font-size:10px;text-align:center;color:var(--color-slate-gray)}
+.gtc-col-prog{width:36px;flex-shrink:0;font-size:10px;text-align:center;font-weight:600}
+.gtc-row-table{height:46px;display:flex;align-items:center;padding:0 var(--sp-2);border-bottom:1px solid var(--line);box-sizing:border-box;font-size:12px;cursor:pointer}
+.gtc-row-table:hover{background:color-mix(in srgb,var(--line) 30%,transparent)}
+.gtc-row-table.is-summary{font-weight:600}
+.gtc-tree-indent{display:inline-block;width:12px}
+.gtc-tree-btn{background:none;border:none;cursor:pointer;font-size:10px;padding:0 3px;margin-right:2px;color:var(--color-slate-gray);line-height:1}
+.gtc-milestone-icon{color:#e5484d;margin-right:4px;font-size:12px}
+
+/* Barras y Elementos Visuales estilo GanttProject */
+.gtc-bar.is-critical{background:#e5484d!important;color:#fff!important;box-shadow:0 0 0 1px #b91c1c, 0 2px 6px rgba(229,72,77,0.3)!important}
+.gtc-bar.is-critical .gtc-bar-fill{background:rgba(255,255,255,0.25)}
+.gtc-summary-bar{position:absolute;top:13px;height:12px;background:#1e293b;border-radius:2px;cursor:pointer;z-index:2}
+.gtc-summary-bar::before, .gtc-summary-bar::after{content:'';position:absolute;bottom:-6px;border-width:6px 5px 0 5px;border-style:solid;border-color:#1e293b transparent transparent transparent}
+.gtc-summary-bar::before{left:0}
+.gtc-summary-bar::after{right:0}
+.gtc-milestone-diamond{position:absolute;top:15px;width:16px;height:16px;background:#17191c;transform:rotate(45deg);border-radius:2px;cursor:pointer;z-index:3;box-shadow:var(--shadow-sm);transition:transform .1s ease}
+.gtc-milestone-diamond:hover{transform:rotate(45deg) scale(1.2)}
+.gtc-milestone-diamond.is-critical{background:#e5484d;box-shadow:0 0 0 2px #b91c1c}
+.gtc-baseline-track{position:absolute;bottom:5px;height:4px;background:rgba(100,116,139,0.5);border-radius:2px;pointer-events:none;z-index:1}
+.gtc-dep-svg{position:absolute;top:0;left:0;pointer-events:none;z-index:2;overflow:visible}
+.gtc-dep-path{stroke:#94a3b8;stroke-width:1.6;fill:none;pointer-events:stroke;cursor:pointer;transition:stroke .15s ease}
+.gtc-dep-path:hover{stroke:#0284c7;stroke-width:2.6}
+.gtc-dep-path.is-critical{stroke:#e5484d;stroke-width:2.2}
+.gtc-dep-marker{fill:#94a3b8}
+.gtc-dep-marker.is-critical{fill:#e5484d}
+
 
 /* =========================================================
    FILE VIEWER
@@ -5081,6 +5126,18 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 :root[data-theme="ran"] .gtc-bar{background:#2A3541;color:#FEFCEA}
 :root[data-theme="ran"] .gtc-bar.completada{background:#344252;color:#FEFCEA;box-shadow:0 0 0 1px #627079}
 :root[data-theme="ran"] .gtc-bar-fill{background:rgba(254,252,234,0.08)}
+:root[data-theme="ran"] .gantt-gp-toolbar{background:#201B19;border-color:#2A3541}
+:root[data-theme="ran"] .gantt-gp-toggle{background:#2A3541;color:#FEFCEA;border-color:#3E4B5B}
+:root[data-theme="ran"] .gantt-gp-toggle:hover{background:#344252}
+:root[data-theme="ran"] .gantt-gp-toggle.is-active{background:#FEFCEA;color:#13202B}
+:root[data-theme="ran"] .gtc-row-table{border-color:#2A3541;color:#FEFCEA}
+:root[data-theme="ran"] .gtc-row-table:hover{background:#2A3541}
+:root[data-theme="ran"] .gtc-labels{background:#201B19;border-color:#2A3541}
+:root[data-theme="ran"] .gtc-labels-head{border-color:#2A3541;color:#94A3B8}
+:root[data-theme="ran"] .gtc-summary-bar{background:#94A3B8}
+:root[data-theme="ran"] .gtc-summary-bar::before, :root[data-theme="ran"] .gtc-summary-bar::after{border-top-color:#94A3B8}
+:root[data-theme="ran"] .gtc-milestone-diamond{background:#FEFCEA}
+:root[data-theme="ran"] .gtc-milestone-diamond.is-critical{background:#e5484d}
 :root[data-theme="ran"] .gantt-cal-bar{background:#2A3541;color:#FEFCEA}
 :root[data-theme="ran"] .gantt-cal-bar.completada{background:#344252;color:#FEFCEA}
 :root[data-theme="ran"] .gantt-dot{background:#2A3541}

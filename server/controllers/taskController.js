@@ -111,9 +111,24 @@ async function create(req, res) {
     }
   }
 
+  let parentId = req.body.parent_id !== undefined && req.body.parent_id !== '' && req.body.parent_id !== null ? Number(req.body.parent_id) : null;
+  if (parentId !== null) {
+    if (!Number.isInteger(parentId) || parentId < 1) {
+      return res.status(400).json({ error: 'La tarea padre no es válida.' });
+    }
+    const parentTask = await database.prepare('SELECT id, project_id FROM tasks WHERE id = ? AND organization_id = ?').get(parentId, req.session.user.organization_id);
+    if (!parentTask || parentTask.project_id !== project.id) {
+      return res.status(400).json({ error: 'La tarea padre debe pertenecer al mismo proyecto.' });
+    }
+  }
+
+  const isMilestone = Boolean(req.body.is_milestone === true || req.body.is_milestone === 'true' || req.body.is_milestone === 1 || req.body.is_milestone === '1');
+  const progressVal = Number.isInteger(Number(req.body.progress)) ? Math.max(0, Math.min(100, Number(req.body.progress))) : (status === 'completada' ? 100 : (status === 'en_proceso' ? 50 : 0));
+  const color = req.body.color ? String(req.body.color).slice(0, 32) : null;
+
   const assignee = assigned_to ? await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(assigned_to, req.session.user.organization_id) : null;
   if (assigned_to && !assignee) return res.status(400).json({ error: 'El responsable no pertenece a tu organización.' });
-  const result = await database.prepare(`INSERT INTO tasks (project_id, organization_id, creator_id, title, description, assigned_to, priority, start_date, due_date, status, sprint_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`).run(project.id, req.session.user.organization_id, req.session.user.id, title.trim(), description, assigned_to || null, priority, start_date || null, due_date || null, status, sprintId);
+  const result = await database.prepare(`INSERT INTO tasks (project_id, organization_id, creator_id, title, description, assigned_to, priority, start_date, due_date, status, sprint_id, parent_id, is_milestone, progress, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`).run(project.id, req.session.user.organization_id, req.session.user.id, title.trim(), description, assigned_to || null, priority, start_date || null, due_date || null, status, sprintId, parentId, isMilestone, progressVal, color);
   if (req.file) {
     const asset = await database.prepare('INSERT INTO stored_assets (organization_id, uploaded_by, kind, mime_type, content) VALUES (?, ?, ?, ?, ?) RETURNING id').run(req.session.user.organization_id, req.session.user.id, 'task-image', req.file.mimetype, req.file.buffer);
     await database.prepare('UPDATE tasks SET image_asset_id = ? WHERE id = ? AND organization_id = ?').run(asset.lastInsertRowid, result.lastInsertRowid, req.session.user.organization_id);
@@ -288,7 +303,40 @@ async function update(req, res) {
   if (!TASK_PRIORITIES.has(values[3]) || !TASK_STATUSES.has(values[6])) return res.status(400).json({ error: 'Prioridad o estado no válido.' });
   if ([values[4], values[5]].some(value => value !== null && !/^\d{4}-\d{2}-\d{2}$/.test(String(value)))) return res.status(400).json({ error: 'La fecha no es válida.' });
   if (values[2] && !(await database.prepare('SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1').get(values[2], req.session.user.organization_id))) return res.status(400).json({ error: 'El responsable no pertenece a tu organización.' });
-  await database.prepare(`UPDATE tasks SET title = ?, description = ?, assigned_to = ?, priority = ?, start_date = ?, due_date = ?, status = ?, sprint_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?`).run(...values, sprintId, id, req.session.user.organization_id);
+  let parentId = task.parent_id;
+  if (req.body.parent_id !== undefined) {
+    if (req.body.parent_id === '' || req.body.parent_id === null) {
+      parentId = null;
+    } else {
+      const parsedParentId = Number(req.body.parent_id);
+      if (parsedParentId === id) {
+        return res.status(400).json({ error: 'Una tarea no puede ser su propio padre.' });
+      }
+      const parentTask = await database.prepare('SELECT id, project_id FROM tasks WHERE id = ? AND organization_id = ?').get(parsedParentId, req.session.user.organization_id);
+      if (!parentTask || parentTask.project_id !== task.project_id) {
+        return res.status(400).json({ error: 'La tarea padre debe pertenecer al mismo proyecto.' });
+      }
+      parentId = parsedParentId;
+    }
+  }
+
+  let isMilestone = task.is_milestone;
+  if (req.body.is_milestone !== undefined) {
+    isMilestone = Boolean(req.body.is_milestone === true || req.body.is_milestone === 'true' || req.body.is_milestone === 1 || req.body.is_milestone === '1');
+  }
+
+  let progress = task.progress ?? 0;
+  if (req.body.progress !== undefined && req.body.progress !== '') {
+    progress = Math.max(0, Math.min(100, Number(req.body.progress) || 0));
+  } else if (req.body.status !== undefined) {
+    progress = req.body.status === 'completada' ? 100 : (req.body.status === 'en_proceso' ? 50 : 0);
+  }
+
+  let color = req.body.color !== undefined ? (req.body.color || null) : task.color;
+  let baselineStartDate = req.body.baseline_start_date !== undefined ? (req.body.baseline_start_date || null) : task.baseline_start_date;
+  let baselineDueDate = req.body.baseline_due_date !== undefined ? (req.body.baseline_due_date || null) : task.baseline_due_date;
+
+  await database.prepare(`UPDATE tasks SET title = ?, description = ?, assigned_to = ?, priority = ?, start_date = ?, due_date = ?, status = ?, sprint_id = ?, parent_id = ?, is_milestone = ?, progress = ?, color = ?, baseline_start_date = ?, baseline_due_date = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?`).run(...values, sprintId, parentId, isMilestone, progress, color, baselineStartDate, baselineDueDate, id, req.session.user.organization_id);
   if (req.file) {
     const asset = await database.prepare('INSERT INTO stored_assets (organization_id, uploaded_by, kind, mime_type, content) VALUES (?, ?, ?, ?, ?) RETURNING id').run(req.session.user.organization_id, req.session.user.id, 'task-image', req.file.mimetype, req.file.buffer);
     await database.prepare('UPDATE tasks SET image_asset_id = ? WHERE id = ? AND organization_id = ?').run(asset.lastInsertRowid, id, req.session.user.organization_id);

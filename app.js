@@ -203,6 +203,28 @@ async function ensureRuntimeSchema() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS project_events_org_proj_idx ON project_events (organization_id, project_id, resolved);
+
+      -- GanttProject enhancements: WBS hierarchy, milestones, baselines & dependencies
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_milestone BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS baseline_start_date DATE;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS baseline_due_date DATE;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS color TEXT;
+
+      CREATE TABLE IF NOT EXISTS task_dependencies (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        predecessor_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        dependency_type TEXT NOT NULL DEFAULT 'FS' CHECK (dependency_type IN ('FS', 'SS', 'FF', 'SF')),
+        lag_days INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (task_id, predecessor_id)
+      );
+      CREATE INDEX IF NOT EXISTS task_dep_task_idx ON task_dependencies (task_id);
+      CREATE INDEX IF NOT EXISTS task_dep_pred_idx ON task_dependencies (predecessor_id);
+      CREATE INDEX IF NOT EXISTS task_dep_org_proj_idx ON task_dependencies (organization_id, project_id);
     `);
   } catch (error) {
     console.error('No fue posible asegurar el esquema de usuarios:', error);
@@ -279,6 +301,7 @@ app.use('/api/sanzu', require('./server/routes/sanzuRoutes'));
 app.use('/api/knowledge', require('./server/routes/knowledgeRoutes'));
 app.use('/api/risks', require('./server/routes/riskRoutes'));
 app.use('/api/events', require('./server/routes/eventRoutes'));
+app.use('/api/gantt', require('./server/routes/ganttRoutes'));
 app.get('*', (req, res) => {
   try {
     const indexPath = path.join(__dirname, 'public', 'index.html');
