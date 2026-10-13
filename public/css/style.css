@@ -3103,7 +3103,7 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 }
 
 /* =========================================================
-   GANTTPROJECT ADVANCED SUITE (bardsoftware/ganttproject)
+   GANTT HAITANI ADVANCED SUITE
    ========================================================= */
 .gantt-gp-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-3);background:var(--color-fog-white);border:1px solid var(--line);border-radius:var(--radius-inputs);margin-bottom:var(--sp-4)}
 .gantt-gp-group{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
@@ -3130,7 +3130,7 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .gtc-bar-dates{font-size:10px;opacity:.85;font-weight:normal;margin:0 3px}
 .gtc-date-tag{display:inline-block;font-size:9.5px;color:var(--color-slate-gray);background:var(--color-mist-gray);padding:1px 5px;border-radius:4px;border:1px solid var(--line);font-weight:500;margin-left:4px;vertical-align:middle}
 
-/* Barras y Elementos Visuales estilo GanttProject */
+/* Barras y Elementos Visuales estilo Gantt Haitani */
 .gtc-bar.is-critical{background:#e5484d!important;color:#fff!important;box-shadow:0 0 0 1px #b91c1c, 0 2px 6px rgba(229,72,77,0.3)!important}
 .gtc-bar.is-critical .gtc-bar-fill{background:rgba(255,255,255,0.25)}
 .gtc-summary-bar{position:absolute;top:13px;height:12px;background:#1e293b;border-radius:2px;cursor:pointer;z-index:2}
@@ -3149,7 +3149,7 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .gtc-dep-marker.is-critical{fill:#e5484d}
 
 /* =========================================================
-   GANTTPROJECT DESKTOP UI (bardsoftware/ganttproject)
+   GANTT HAITANI DESKTOP UI
    ========================================================= */
 .gp-window {
   background: var(--ht-blue-black, #13202B);

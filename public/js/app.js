@@ -3489,7 +3489,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
       ${ganttActiveTab === 'gantt' ? `
         ${rows.length ? `
           <div class="gp-body gtc-wrap">
-            <!-- Panel Izquierdo: Tabla Jerárquica con Banner GanttProject -->
+            <!-- Panel Izquierdo: Tabla Jerárquica con Banner Gantt Haitani -->
             <div class="gp-left-panel gtc-labels" style="width:${ganttTableWidth}px">
               <div class="gp-banner">
                 <svg class="gp-banner-mesh" viewBox="0 0 360 38" preserveAspectRatio="none">
@@ -3502,8 +3502,8 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
                   <rect width="100%" height="100%" fill="url(#gpHex)" />
                 </svg>
                 <div class="gp-banner-logo">
-                  <span class="gp-logo-gantt">GANTT</span>
-                  <span class="gp-logo-project">project</span>
+                  <span class="gp-logo-gantt">Gantt</span>
+                  <span class="gp-logo-project">Haitani</span>
                 </div>
               </div>
               <div class="gp-table-head gtc-labels-head">
@@ -3550,8 +3550,8 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
                 <rect width="100%" height="100%" fill="rgba(255,255,255,0.06)" />
               </svg>
               <div class="gp-banner-logo">
-                <span class="gp-logo-gantt">GANTT</span>
-                <span class="gp-logo-project">recursos</span>
+                <span class="gp-logo-gantt">Gantt</span>
+                <span class="gp-logo-project">Haitani</span>
               </div>
             </div>
             <div class="gp-resource-head">
