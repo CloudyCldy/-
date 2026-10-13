@@ -123,6 +123,78 @@ async function ensureRuntimeSchema() {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS backlog_items_org_project_idx ON backlog_items (organization_id, project_id, status);
+
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS budget NUMERIC(14, 2) DEFAULT 0;
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS scope TEXT;
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_synced_at TIMESTAMPTZ;
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_sync_status TEXT DEFAULT 'pending';
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_sync_error TEXT;
+
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'general';
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS phase TEXT DEFAULT 'execution';
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS methodology TEXT DEFAULT 'AGILE';
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE;
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE;
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS tags TEXT;
+
+      CREATE TABLE IF NOT EXISTS project_documents (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(project_id, file_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS task_documents (
+        id SERIAL PRIMARY KEY,
+        task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(task_id, file_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS methodology_documents (
+        id SERIAL PRIMARY KEY,
+        methodology TEXT NOT NULL,
+        file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(methodology, file_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS project_risks (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        probability TEXT NOT NULL DEFAULT 'media' CHECK (probability IN ('baja', 'media', 'alta')),
+        impact TEXT NOT NULL DEFAULT 'media' CHECK (impact IN ('baja', 'media', 'alta')),
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'mitigated', 'closed')),
+        mitigation TEXT NOT NULL DEFAULT '',
+        severity_score INTEGER NOT NULL DEFAULT 50,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS project_risks_org_project_idx ON project_risks (organization_id, project_id, status);
+
+      CREATE TABLE IF NOT EXISTS project_events (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+        event_type TEXT NOT NULL CHECK (event_type IN ('task_overdue', 'task_blocked', 'milestone_delayed', 'sprint_ending', 'member_overloaded', 'risk_created', 'deadline_approaching')),
+        severity TEXT NOT NULL DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        payload JSONB DEFAULT '{}',
+        resolved BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS project_events_org_proj_idx ON project_events (organization_id, project_id, resolved);
     `);
   } catch (error) {
     console.error('No fue posible asegurar el esquema de usuarios:', error);
@@ -195,6 +267,9 @@ app.use('/api/absences', require('./server/routes/absenceRoutes'));
 app.use('/api/announcements', require('./server/routes/announcementRoutes'));
 app.use('/api/security/ip-blocks', require('./server/routes/ipBlockRoutes'));
 app.use('/api/assistant', require('./server/routes/assistantRoutes'));
+app.use('/api/knowledge', require('./server/routes/knowledgeRoutes'));
+app.use('/api/risks', require('./server/routes/riskRoutes'));
+app.use('/api/events', require('./server/routes/eventRoutes'));
 app.get('*', (req, res) => {
   try {
     const indexPath = path.join(__dirname, 'public', 'index.html');

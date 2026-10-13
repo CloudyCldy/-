@@ -53,6 +53,9 @@ const SVG_ICONS = {
   progress: '<circle cx="10" cy="10" r="6.8" stroke="currentColor" stroke-width="1.3" stroke-dasharray="32 12"/><polyline points="10,6.5 10,10 12.5,12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
   sun: '<circle cx="10" cy="10" r="3.7" stroke="currentColor" stroke-width="1.3"/><line x1="10" y1="2" x2="10" y2="4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="10" y1="16" x2="10" y2="18" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="2" y1="10" x2="4" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="16" y1="10" x2="18" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="4.34" y1="4.34" x2="5.76" y2="5.76" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="14.24" y1="14.24" x2="15.66" y2="15.66" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="4.34" y1="15.66" x2="5.76" y2="14.24" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="14.24" y1="5.76" x2="15.66" y2="4.34" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
   moon: '<path d="M15.4 11.2A6.5 6.5 0 0 1 8.8 4.6a6.6 6.6 0 1 0 7.7 7.7c-.3-.4-.7-.8-1.1-1.1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  bookOpen: '<path d="M2.5 4.5A2.5 2.5 0 0 1 5 2h4.5v15H5a2.5 2.5 0 0 0-2.5 2.5V4.5Zm15 0A2.5 2.5 0 0 0 15 2h-4.5v15H15a2.5 2.5 0 0 1 2.5 2.5V4.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  alertTriangle: '<path d="M10 3.2 2.8 15.8a1.2 1.2 0 0 0 1 1.8h12.4a1.2 1.2 0 0 0 1-1.8L10 3.2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><line x1="10" y1="8" x2="10" y2="11.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="10" cy="14.2" r="0.9" fill="currentColor"/>',
+  pieChart: '<circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.3"/><path d="M10 2.5V10l5.3 5.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
 };
 function icon(name, className = '') { return `<span class="icon-svg ${className}" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">${SVG_ICONS[name] || ''}</svg></span>`; }
 function paginateItems(items, pageKey, pageSize = 8) {
@@ -321,6 +324,7 @@ function sidebar(){
       title: 'Workspace',
       links: [
         ['/admin/dashboard','Dashboard','dashboard'],
+        ['/admin/overview','Project Overview','pieChart'],
         ['/admin/tasks','Tareas','tasks','tasks'],
         ['/admin/sprints','Sprints','progress'],
         ['/admin/backlog','Backlog','archive'],
@@ -341,6 +345,8 @@ function sidebar(){
     {
       title: 'Operaciones',
       links: [
+        ['/admin/knowledge','Knowledge Center','bookOpen'],
+        ['/admin/risks','Risk Center','alertTriangle'],
         ['/admin/assistant','Asistente IA','sparkles'],
         ['/admin/github','GitHub','github'],
         ['/admin/github/commits','Commits','gitCommit'],
@@ -362,6 +368,7 @@ function sidebar(){
       title: 'Workspace',
       links: [
         ['/member/dashboard','Dashboard','dashboard'],
+        ['/member/overview','Project Overview','pieChart'],
         ['/member/tasks','Mis tareas','tasks','tasks'],
         ['/member/sprints','Sprints','progress'],
         ['/member/backlog','Backlog','archive'],
@@ -377,6 +384,8 @@ function sidebar(){
         ['/member/absences','Inasistencias','calendar'],
         ['/member/members','Equipo','users'],
         ['/member/files','Archivos','folder'],
+        ['/member/knowledge','Knowledge Center','bookOpen'],
+        ['/member/risks','Risk Center','alertTriangle'],
       ]
     },
     {
@@ -410,7 +419,53 @@ function layout(content){
   bindPaginationControls();
 }
 function heading(title, subtitle, action=''){return `<div class="heading"><div><div class="eyebrow"><img class="brand-logo-inline" src="/static/img/ht.png" alt="Haitani"> / ${esc(state.user.organization_name||'Organización')}</div><h1>${title}</h1><p>${subtitle}</p></div>${action}</div>`}
-function projectEditor(project){if(state.user.role!=='admin')return '';const methods=[['AGILE','Agile'],['SCRUM','Scrum'],['KANBAN','Kanban'],['XP','XP'],['LEAN','Lean'],['WATERFALL','Waterfall'],['HYBRID','Híbrida']];return `<form id="project-form" class="form-grid mt-4"><input type="hidden" name="id" value="${project?.id||''}"><label>Nombre<input class="input" name="name" value="${esc(project?.name||'')}" required></label><label>Descripción<input class="input" name="description" value="${esc(project?.description||'')}"></label><label>Metodología<select class="select" name="methodology_id" required>${methods.map(([value,label])=>`<option value="${value}" ${project?.methodology_id===value||(!project&&value==='AGILE')?'selected':''}>${label}</option>`).join('')}</select></label><label class="full">Requerimientos<textarea class="textarea" name="requirements" rows="4" placeholder="Alcance, stack, restricciones y criterios de aceptación">${esc(project?.requirements||'')}</textarea></label><div class="actions full"><button class="btn">${icon('check')}${project?'Guardar proyecto':'Crear proyecto'}</button></div></form>`}
+function projectEditor(project){
+  if(state.user.role!=='admin')return '';
+  const methods=[['AGILE','Agile'],['SCRUM','Scrum'],['KANBAN','Kanban'],['XP','XP'],['LEAN','Lean'],['WATERFALL','Waterfall'],['HYBRID','Híbrida']];
+  const statuses=[['planificado','Planificado'],['en_progreso','En progreso'],['completado','Completado'],['pausado','Pausado']];
+  const priorities=[['baja','Baja'],['media','Media'],['alta','Alta'],['critica','Crítica']];
+  const syncStatus = project?.sanzu_sync_status || 'pending';
+  const syncClass = syncStatus === 'synced' ? 'green' : syncStatus === 'error' ? 'pink' : 'yellow';
+  const syncLabel = syncStatus === 'synced' ? 'Sincronizado' : syncStatus === 'error' ? 'Error al sincronizar' : 'Pendiente';
+  const syncTime = project?.sanzu_synced_at ? new Date(project.sanzu_synced_at).toLocaleString() : 'Nunca';
+
+  return `
+    <form id="project-form" class="form-grid mt-4">
+      <input type="hidden" name="id" value="${project?.id||''}">
+      <label>Nombre del Proyecto<input class="input" name="name" value="${esc(project?.name||'')}" required></label>
+      <label>Cliente / Sponsor<input class="input" name="client" value="${esc(project?.client||'')}" placeholder="Empresa o cliente"></label>
+      <label>Metodología<select class="select" name="methodology_id" required>${methods.map(([value,label])=>`<option value="${value}" ${project?.methodology_id===value||(!project&&value==='AGILE')?'selected':''}>${label}</option>`).join('')}</select></label>
+      <label>Estado<select class="select" name="status">${statuses.map(([v,l])=>`<option value="${v}" ${project?.status===v?'selected':''}>${l}</option>`).join('')}</select></label>
+      <label>Prioridad<select class="select" name="priority">${priorities.map(([v,l])=>`<option value="${v}" ${project?.priority===v?'selected':''}>${l}</option>`).join('')}</select></label>
+      <label>Presupuesto ($)<input class="input" type="number" step="0.01" name="budget" value="${esc(project?.budget||'0')}" placeholder="0.00"></label>
+      <label>Fecha de Inicio<input class="input" type="date" name="start_date" value="${esc((project?.start_date||'').slice(0,10))}"></label>
+      <label>Fecha de Finalización<input class="input" type="date" name="end_date" value="${esc((project?.end_date||'').slice(0,10))}"></label>
+      <label class="full">Objetivo Estratégico<input class="input" name="objective" value="${esc(project?.objective||'')}" placeholder="Objetivo principal del proyecto"></label>
+      <label class="full">Alcance (Scope)<textarea class="textarea" name="scope" rows="2" placeholder="Límites del proyecto, entregables clave y alcance">${esc(project?.scope||'')}</textarea></label>
+      <label class="full">Descripción<input class="input" name="description" value="${esc(project?.description||'')}" placeholder="Descripción general"></label>
+      <label class="full">Stack y Tecnologías<input class="input" name="technologies" value="${esc(project?.technologies||'')}" placeholder="e.g. Node.js, Express, PostgreSQL, Sanzu AI"></label>
+      <label class="full">Riesgos Identificados<textarea class="textarea" name="risks" rows="2" placeholder="Factores de riesgo o restricciones críticas">${esc(project?.risks||'')}</textarea></label>
+      <label class="full">Requerimientos<textarea class="textarea" name="requirements" rows="3" placeholder="Alcance detallado, restricciones y criterios de aceptación">${esc(project?.requirements||'')}</textarea></label>
+      
+      ${project?.id ? `
+        <div class="full card p-3" style="background:var(--bg-glass, rgba(255,255,255,0.03));border:1px solid var(--line);border-radius:var(--r-md);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-2)">
+          <div>
+            <div style="font-weight:600;font-size:0.9rem">Sincronización Haitani ↔ Sanzu</div>
+            <div class="muted sub">Estado: <span class="badge ${syncClass}">${syncLabel}</span> · Última: ${syncTime}</div>
+            ${project?.sanzu_sync_error ? `<div class="sub" style="color:var(--pink);margin-top:2px">${esc(project.sanzu_sync_error)}</div>` : ''}
+          </div>
+          <button type="button" class="btn secondary" id="dash-sync-sanzu-btn" data-project-id="${project.id}">
+            ${icon('external')} Sincronizar con Sanzu
+          </button>
+        </div>
+      ` : ''}
+
+      <div class="actions full">
+        <button class="btn" type="submit">${icon('check')}${project?'Guardar proyecto':'Crear proyecto'}</button>
+      </div>
+    </form>
+  `;
+}
 function methodologyWidgets(project){const method=project?.methodology_id;const links=[];links.push(`<a class="btn secondary" href="#/${state.user.role}/sprints">${icon('gantt')}Ver Sprints</a>`);if(['SCRUM','KANBAN','XP','AGILE'].includes(method))links.push(`<a class="btn secondary" href="#/${state.user.role}/kanban">${icon('kanban')}Abrir tablero</a>`);if(method==='WATERFALL'||method==='LEAN'||method==='HYBRID')links.push(`<a class="btn secondary" href="#/${state.user.role}/gantt">${icon('gantt')}Abrir hitos y Gantt</a>`);if(project?.id)links.push(`<button type="button" class="btn secondary" id="dash-new-project-task" data-project-id="${project.id}">${icon('plus')}Nueva tarea</button>`);return `<div class="actions mt-3"><span class="muted">${method?`Flujo recomendado: ${esc(method)}`:'Define una metodología'}</span>${links.join('')}</div>`}
 function projectHealth(health){if(!health)return '';const statusLabel={saludable:'Saludable',atencion:'Requiere atención',riesgo:'En riesgo'}[health.status]||'Sin datos';const workload=health.workload||[];const activity=health.recentActivity||[];return `<section class="card project-health mt-4"><div class="project-health-head"><div><div class="eyebrow">Control operativo</div><h2>Salud del proyecto</h2><p class="muted">Lectura combinada de avance, planificación, riesgos y capacidad del equipo.</p></div><div class="health-score health-${esc(health.status)}"><strong>${health.score}</strong><span>/ 100</span><small>${statusLabel}</small></div></div><div class="health-overview"><div class="health-meter"><div class="health-meter-track"><i style="width:${health.score}%"></i></div><div class="health-meter-labels"><span>Riesgo</span><span>Atención</span><span>Saludable</span></div></div><div class="health-metrics"><div><strong>${health.overdue}</strong><span>Vencidas</span></div><div><strong>${health.dueSoon}</strong><span>Próximas 7 días</span></div><div><strong>${health.critical}</strong><span>Alta prioridad</span></div><div><strong>${health.unassigned}</strong><span>Sin responsable</span></div></div></div><div class="health-detail-grid"><div><h3>Calidad de planificación</h3><div class="health-progress-row"><span>Fechas definidas</span><strong>${health.dateCoverage}%</strong><i><b style="width:${health.dateCoverage}%"></b></i></div><div class="health-progress-row"><span>Responsables asignados</span><strong>${health.assignmentCoverage}%</strong><i><b style="width:${health.assignmentCoverage}%"></b></i></div><h3 class="health-subtitle">Recomendaciones</h3><ul class="health-list">${health.recommendations.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div><div><h3>Carga del equipo</h3>${workload.length?`<div class="health-workload">${workload.map(item=>{const percentage=item.total?Math.round(item.completed/item.total*100):0;return `<div class="health-workload-row"><span>${esc(item.name)}</span><strong>${item.total} <small>${percentage}% completado</small></strong><i><b style="width:${percentage}%"></b></i></div>`}).join('')}</div>`:'<div class="empty">No hay integrantes activos.</div>'}<h3 class="health-subtitle">Actividad reciente</h3>${activity.length?`<div class="health-activity">${activity.map(item=>`<div><strong>${esc(item.action)}</strong><small>${esc(item.description||'Actualización registrada')}</small></div>`).join('')}</div>`:'<div class="empty">No hay actividad reciente.</div>'}</div></div></section>`}
 async function dashboard(){
@@ -567,6 +622,24 @@ async function renderDashboard(){
       notify(error.message);
     }
   });
+  const syncBtn = document.querySelector('#dash-sync-sanzu-btn');
+  if(syncBtn){
+    syncBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const pId = syncBtn.dataset.projectId;
+      syncBtn.disabled = true;
+      syncBtn.innerHTML = `${icon('progress')} Sincronizando...`;
+      try {
+        await api(`/projects/${pId}/sync`, { method: 'POST' });
+        notify('Proyecto sincronizado con Sanzu exitosamente');
+        renderDashboard();
+      } catch(err) {
+        notify('Error en sincronización Sanzu: ' + err.message);
+        syncBtn.disabled = false;
+        syncBtn.innerHTML = `${icon('external')} Reintentar sincronización`;
+      }
+    });
+  }
 }
 function taskRow(task){
   const statusColor=task.status==='completada'?'green':task.status==='en_proceso'?'pink':'yellow';
@@ -3420,6 +3493,9 @@ async function render(){
   startNotificationPolling();
   const route=location.hash||`#/${state.user.role}/dashboard`;
   try{
+    if(route.includes('overview'))return renderOverview();
+    if(route.includes('knowledge'))return renderKnowledge();
+    if(route.includes('risks'))return renderRisks();
     if(route.includes('announcements'))return renderAnnouncements();
     if(route.includes('absences'))return renderAbsences();
     if(route.includes('assistant'))return state.user.role==='admin'?renderAssistant():renderDashboard();
@@ -4351,6 +4427,957 @@ renderSettings=async function(){
     console.warn('No fue posible recargar la seguridad paginada:', error.message);
   }
 };
+
+async function renderOverview() {
+  const projects = await api('/projects').catch(() => []);
+  if (!projects.length) {
+    return layout(`
+      ${heading('Project Overview', 'Control operativo y ejecutivo')}
+      <div class="card p-5 mt-4 text-center">
+        <h2>No hay proyectos registrados</h2>
+        <p class="muted">Crea un proyecto en el dashboard para ver el resumen ejecutivo y métricas de salud.</p>
+        <a class="btn mt-3" href="#/${state.user.role}/dashboard">Ir al Dashboard</a>
+      </div>
+    `);
+  }
+
+  const hashParams = new URLSearchParams((location.hash.split('?')[1]) || '');
+  let selectedProjectId = Number(hashParams.get('project')) || projects[0].id;
+  if (!projects.some(p => p.id === selectedProjectId)) selectedProjectId = projects[0].id;
+
+  let overviewData = null;
+  let intelData = null;
+  try {
+    overviewData = await api(`/projects/${selectedProjectId}/overview`);
+    intelData = await api(`/projects/${selectedProjectId}/intelligence`).catch(() => null);
+  } catch (err) {
+    return layout(`
+      ${heading('Project Overview', 'Control operativo y ejecutivo')}
+      <div class="alert mt-4">Error al cargar datos del proyecto: ${esc(err.message)}</div>
+    `);
+  }
+
+  const p = overviewData.project || {};
+  const h = overviewData.health || { score: 100, status: 'saludable', overdue: 0, dueSoon: 0, critical: 0, unassigned: 0, recommendations: [], workload: [] };
+  const s = overviewData.summary || {};
+  const sync = overviewData.sanzuSync || { status: 'pending' };
+  const blocked = overviewData.blockedTasks || [];
+  const overdue = overviewData.overdueTasks || [];
+  const risks = overviewData.risks || [];
+  const workload = overviewData.workload || [];
+
+  const syncClass = sync.status === 'synced' ? 'green' : sync.status === 'error' ? 'pink' : 'yellow';
+  const syncLabel = sync.status === 'synced' ? 'Sincronizado' : sync.status === 'error' ? 'Error al sincronizar' : 'Pendiente';
+  const syncDate = sync.synced_at ? new Date(sync.synced_at).toLocaleString() : 'Nunca';
+
+  const healthClass = h.status === 'saludable' ? 'green' : h.status === 'atencion' ? 'yellow' : 'pink';
+  const healthLabel = h.status === 'saludable' ? 'Saludable' : h.status === 'atencion' ? 'Atención Requerida' : 'En Riesgo';
+
+  const budgetDisplay = p.budget ? `$${Number(p.budget).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN` : 'Sin asignar';
+  const datesDisplay = (p.start_date || p.end_date)
+    ? `${p.start_date ? p.start_date.slice(0, 10) : '—'} al ${p.end_date ? p.end_date.slice(0, 10) : '—'}`
+    : 'No definidas';
+
+  const suggestions = (intelData?.suggestions?.length ? intelData.suggestions : h.recommendations) || [];
+
+  const markup = `
+    ${heading('Project Overview', 'Panel ejecutivo de salud, avance, sincronización Sanzu e inteligencia operativa', `
+      <div class="actions">
+        <select class="select" id="overview-project-select" style="min-width:200px">
+          ${projects.map(proj => `<option value="${proj.id}" ${proj.id === selectedProjectId ? 'selected' : ''}>${esc(proj.name)}</option>`).join('')}
+        </select>
+        <button class="btn secondary" id="overview-sync-btn" data-project-id="${p.id}">
+          ${icon('external')} Sincronizar Sanzu
+        </button>
+      </div>
+    `)}
+
+    <div class="card p-4 mt-4" style="border-left: 4px solid var(--primary, #0ea5e9);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:var(--sp-3)">
+        <div>
+          <div class="eyebrow">${esc(p.client ? `Cliente: ${p.client}` : 'Proyecto')}</div>
+          <h2 style="margin:4px 0">${esc(p.name)}</h2>
+          <p class="muted" style="margin:0 0 var(--sp-2)">${esc(p.description || 'Sin descripción detallada.')}</p>
+          ${p.objective ? `<div style="font-size:0.9rem;margin-top:4px"><strong>Objetivo:</strong> ${esc(p.objective)}</div>` : ''}
+          ${p.scope ? `<div style="font-size:0.9rem;margin-top:2px"><strong>Alcance:</strong> ${esc(p.scope)}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-1);align-items:flex-end">
+          <div style="display:flex;gap:var(--sp-2)">
+            <span class="badge ${p.methodology_id === 'SCRUM' || p.methodology_id === 'AGILE' ? 'green' : 'pink'}">${esc(p.methodology_id || 'Ágil')}</span>
+            <span class="badge ${syncClass}">Sanzu: ${syncLabel}</span>
+          </div>
+          <small class="muted">Última sinc: ${syncDate}</small>
+          <small class="muted">Plazo: ${datesDisplay}</small>
+          <small class="muted">Presupuesto: <strong>${budgetDisplay}</strong></small>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid stats dashboard-stats mt-4">
+      <div class="card stat stat-primary">
+        <div class="stat-header"><div class="label">Avance Global</div>${icon('activity')}</div>
+        <div class="num">${overviewData.progress}%</div>
+        <div class="stat-footer-sub">${s.completedTasks || 0} de ${s.totalTasks || 0} tareas finalizadas</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Salud del Proyecto</div>${icon('shield')}</div>
+        <div class="num" style="display:flex;align-items:baseline;gap:6px">
+          ${h.score} <small style="font-size:14px;color:var(--muted)">/ 100</small>
+        </div>
+        <div class="stat-footer-sub"><span class="badge ${healthClass}">${healthLabel}</span></div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Tareas Atrasadas</div>${icon('clock')}</div>
+        <div class="num" style="color:${h.overdue > 0 ? 'var(--pink)' : 'inherit'}">${h.overdue}</div>
+        <div class="stat-footer-sub">${h.critical} tareas de alta prioridad</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Riesgos Activos</div>${icon('alertTriangle')}</div>
+        <div class="num">${risks.length}</div>
+        <div class="stat-footer-sub">${blocked.length} tareas bloqueadas</div>
+      </div>
+    </div>
+
+    <div class="card p-4 mt-4" style="background:linear-gradient(135deg, var(--panel), var(--bg-glass, rgba(255,255,255,0.02)));border:1px solid var(--line)">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--sp-2);margin-bottom:var(--sp-3)">
+        <div style="display:flex;align-items:center;gap:var(--sp-2)">
+          ${icon('sparkles')}
+          <div>
+            <h3 style="margin:0">Sanzu Intelligence & Diagnóstico IA</h3>
+            <p class="muted sub" style="margin:0">Análisis continuo de avance, cuellos de botella y recomendaciones accionables.</p>
+          </div>
+        </div>
+        <a class="btn secondary" href="${state.user.role === 'admin' ? '#/admin/assistant' : '#/member/messages'}">
+          ${icon('sparkles')} Abrir Asistente IA
+        </a>
+      </div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:var(--sp-3)">
+        <div style="background:var(--bg, #111);padding:var(--sp-3);border-radius:var(--r-md);border:1px solid var(--line)">
+          <strong style="display:block;margin-bottom:6px">Recomendaciones Sanzu</strong>
+          ${suggestions.length ? `
+            <ul style="margin:0;padding-left:18px;line-height:1.6;font-size:0.9rem">
+              ${suggestions.map(rec => `<li>${esc(rec)}</li>`).join('')}
+            </ul>
+          ` : '<p class="muted sub" style="margin:0">No hay recomendaciones pendientes en este momento.</p>'}
+        </div>
+        <div style="background:var(--bg, #111);padding:var(--sp-3);border-radius:var(--r-md);border:1px solid var(--line)">
+          <strong style="display:block;margin-bottom:6px">Calidad y Cobertura</strong>
+          <div class="health-progress-row" style="margin-bottom:8px">
+            <span>Fechas planificadas</span>
+            <strong>${h.dateCoverage}%</strong>
+            <i><b style="width:${h.dateCoverage}%"></b></i>
+          </div>
+          <div class="health-progress-row">
+            <span>Asignación de miembros</span>
+            <strong>${h.assignmentCoverage}%</strong>
+            <i><b style="width:${h.assignmentCoverage}%"></b></i>
+          </div>
+          <div style="margin-top:12px;font-size:0.85rem" class="muted">
+            Sprint activo: <strong>${esc(overviewData.sprint?.name || 'Ninguno activo')}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid mt-4" style="grid-template-columns:repeat(auto-fit, minmax(360px, 1fr));gap:var(--sp-4)">
+      <div style="display:grid;gap:var(--sp-4)">
+        <div class="card p-4">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+            <h3 style="margin:0">Tareas Atrasadas o Críticas</h3>
+            <span class="badge pink">${overdue.length + blocked.length}</span>
+          </div>
+          ${(overdue.length || blocked.length) ? `
+            <div style="display:grid;gap:var(--sp-2)">
+              ${[...overdue, ...blocked].slice(0, 6).map(t => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--bg-glass);border-radius:var(--r-sm);border:1px solid var(--line)">
+                  <div>
+                    <strong style="font-size:0.9rem">${esc(t.title)}</strong>
+                    <div class="muted sub">${esc(t.assignee_name || 'Sin asignar')} · Vence: ${esc((t.due_date || '').slice(0, 10) || 'Sin fecha')}</div>
+                  </div>
+                  <span class="badge ${t.priority === 'alta' || t.priority === 'critica' ? 'pink' : 'yellow'}">${esc(t.priority || 'media')}</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : '<div class="empty">No hay tareas atrasadas ni bloqueos críticos. ¡Excelente ritmo!</div>'}
+        </div>
+
+        <div class="card p-4">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+            <h3 style="margin:0">Carga del Equipo (Workload)</h3>
+            <a class="sub" href="#/${state.user.role}/risks">Ver Risk Center</a>
+          </div>
+          ${workload.length ? `
+            <div style="display:grid;gap:var(--sp-3)">
+              ${workload.map(w => {
+                const pct = w.total ? Math.round((w.completed / w.total) * 100) : 0;
+                return `
+                  <div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.9rem;margin-bottom:4px">
+                      <span><strong>${esc(w.name)}</strong> (${w.active || (w.total - w.completed)} activas)</span>
+                      <span>${pct}% completado</span>
+                    </div>
+                    <div class="health-meter-track" style="height:6px">
+                      <i style="width:${pct}%;background:var(--primary, #0ea5e9)"></i>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : '<div class="empty">No hay integrantes asignados a este proyecto.</div>'}
+        </div>
+      </div>
+
+      <div style="display:grid;gap:var(--sp-4)">
+        <div class="card p-4">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+            <h3 style="margin:0">Riesgos Principales</h3>
+            <a class="sub" href="#/${state.user.role}/risks">Gestionar Riesgos</a>
+          </div>
+          ${risks.length ? `
+            <div style="display:grid;gap:var(--sp-2)">
+              ${risks.slice(0, 5).map(r => {
+                const score = r.severity_score || (r.probability * r.impact) || 1;
+                const scoreBadge = score >= 15 ? 'pink' : score >= 8 ? 'yellow' : 'green';
+                return `
+                  <div style="padding:10px;background:var(--bg-glass);border-radius:var(--r-sm);border:1px solid var(--line)">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                      <strong style="font-size:0.9rem">${esc(r.title)}</strong>
+                      <span class="badge ${scoreBadge}">Score: ${score}</span>
+                    </div>
+                    <div class="muted sub" style="margin-top:2px">${esc(r.category || 'General')} · Estado: ${esc(r.status || 'identificado')}</div>
+                    ${r.mitigation ? `<div style="font-size:0.85rem;margin-top:4px"><em>Mitigación:</em> ${esc(r.mitigation)}</div>` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : '<div class="empty">No hay riesgos registrados para este proyecto.</div>'}
+        </div>
+
+        <div class="card p-4">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+            <h3 style="margin:0">Accesos y Documentación</h3>
+            <a class="sub" href="#/${state.user.role}/knowledge">Knowledge Center</a>
+          </div>
+          <div class="actions" style="display:flex;flex-wrap:wrap;gap:var(--sp-2)">
+            <a class="btn secondary" href="#/${state.user.role}/kanban">${icon('kanban')} Tablero Kanban</a>
+            <a class="btn secondary" href="#/${state.user.role}/gantt">${icon('gantt')} Diagrama Gantt</a>
+            <a class="btn secondary" href="#/${state.user.role}/sprints">${icon('progress')} Sprints</a>
+            <a class="btn secondary" href="#/${state.user.role}/knowledge">${icon('bookOpen')} Documentos (${s.totalDocuments || 0})</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  layout(markup);
+
+  document.querySelector('#overview-project-select')?.addEventListener('change', (e) => {
+    location.hash = `#/${state.user.role}/overview?project=${e.target.value}`;
+  });
+
+  document.querySelector('#overview-sync-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const pId = btn.dataset.projectId;
+    btn.disabled = true;
+    btn.innerHTML = `${icon('progress')} Sincronizando Sanzu...`;
+    try {
+      await api(`/projects/${pId}/sync`, { method: 'POST' });
+      notify('Sincronización Haitani ↔ Sanzu completada con éxito');
+      renderOverview();
+    } catch (err) {
+      notify('Error en sincronización Sanzu: ' + err.message);
+      btn.disabled = false;
+      btn.innerHTML = `${icon('external')} Reintentar Sanzu`;
+    }
+  });
+}
+
+async function renderKnowledge() {
+  const hash = location.hash;
+  const params = new URLSearchParams(hash.split('?')[1] || '');
+  const search = params.get('search') || '';
+  const category = params.get('category') || '';
+  const phase = params.get('phase') || '';
+  const methodology = params.get('methodology') || '';
+  const projectId = params.get('project_id') || '';
+
+  const queryParts = [];
+  if (search) queryParts.push(`search=${encodeURIComponent(search)}`);
+  if (category) queryParts.push(`category=${encodeURIComponent(category)}`);
+  if (phase) queryParts.push(`phase=${encodeURIComponent(phase)}`);
+  if (methodology) queryParts.push(`methodology=${encodeURIComponent(methodology)}`);
+  if (projectId) queryParts.push(`project_id=${encodeURIComponent(projectId)}`);
+  const queryStr = queryParts.length ? `?${queryParts.join('&')}` : '';
+
+  let docs = [];
+  let projects = [];
+  let tasks = [];
+  try {
+    docs = await api(`/knowledge${queryStr}`);
+    projects = await api('/projects').catch(() => []);
+    tasks = await api('/tasks').catch(() => []);
+  } catch (err) {
+    return layout(`
+      ${heading('Knowledge Center', 'Documentación y Metodología')}
+      <div class="alert mt-4">Error al cargar documentación: ${esc(err.message)}</div>
+    `);
+  }
+
+  const categories = ['arquitectura', 'requerimientos', 'guias', 'actas', 'diseno', 'plantillas', 'general'];
+  const phases = ['inicio', 'planificacion', 'ejecucion', 'cierre'];
+  const methods = ['AGILE', 'SCRUM', 'KANBAN', 'XP', 'LEAN', 'WATERFALL', 'HYBRID'];
+
+  const markup = `
+    ${heading('Knowledge Center', 'Repositorio centralizado de documentación, metodologías, arquitectura y plantillas', `
+      <button class="btn" id="open-upload-modal">${icon('upload')} Subir Documento</button>
+    `)}
+
+    <div class="card p-3 mt-4">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:var(--sp-2); align-items:end">
+        <label>
+          Búsqueda
+          <input class="input" id="knowledge-search" placeholder="Nombre, descripción..." value="${esc(search)}">
+        </label>
+        <label>
+          Categoría
+          <select class="select" id="filter-category">
+            <option value="">Todas</option>
+            ${categories.map(c => `<option value="${c}" ${c === category ? 'selected' : ''}>${c.charAt(0).toUpperCase() + c.slice(1)}</option>`).join('')}
+          </select>
+        </label>
+        <label>
+          Fase
+          <select class="select" id="filter-phase">
+            <option value="">Todas</option>
+            ${phases.map(ph => `<option value="${ph}" ${ph === phase ? 'selected' : ''}>${ph.charAt(0).toUpperCase() + ph.slice(1)}</option>`).join('')}
+          </select>
+        </label>
+        <label>
+          Metodología
+          <select class="select" id="filter-method">
+            <option value="">Todas</option>
+            ${methods.map(m => `<option value="${m}" ${m === methodology ? 'selected' : ''}>${m}</option>`).join('')}
+          </select>
+        </label>
+        <label>
+          Proyecto
+          <select class="select" id="filter-project">
+            <option value="">Todos</option>
+            ${projects.map(pr => `<option value="${pr.id}" ${String(pr.id) === projectId ? 'selected' : ''}>${esc(pr.name)}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-2)">
+        <button class="btn secondary" id="knowledge-reset-filters">Limpiar Filtros</button>
+        <button class="btn" id="knowledge-apply-filters">${icon('search')} Buscar</button>
+      </div>
+    </div>
+
+    <div class="card mt-4 p-4">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <h3 style="margin:0">Documentos Disponibles (${docs.length})</h3>
+      </div>
+      ${docs.length ? `
+        <div style="display:grid;gap:var(--sp-3)">
+          ${docs.map(doc => {
+            const sizeKb = doc.size ? Math.round(doc.size / 1024) : 0;
+            return `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg-glass);border-radius:var(--r-md);border:1px solid var(--line);flex-wrap:wrap;gap:var(--sp-2)">
+                <div style="display:flex;align-items:center;gap:var(--sp-3)">
+                  ${icon('file')}
+                  <div>
+                    <div style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap">
+                      <strong style="font-size:0.95rem">${esc(doc.title || doc.filename)}</strong>
+                      <span class="badge green">v${esc(doc.version || '1.0')}</span>
+                      ${doc.category ? `<span class="badge yellow">${esc(doc.category)}</span>` : ''}
+                      ${doc.phase ? `<span class="badge pink">${esc(doc.phase)}</span>` : ''}
+                      ${doc.methodology ? `<span class="badge">${esc(doc.methodology)}</span>` : ''}
+                    </div>
+                    <div class="muted sub" style="margin-top:2px">
+                      ${esc(doc.filename)} · ${sizeKb} KB · Subido por ${esc(doc.uploader_name || 'Usuario')} el ${esc((doc.created_at || '').slice(0, 10))}
+                      ${doc.project_name ? ` · Proyecto: <strong>${esc(doc.project_name)}</strong>` : ''}
+                      ${doc.task_title ? ` · Tarea: <strong>${esc(doc.task_title)}</strong>` : ''}
+                      ${doc.tags ? ` · Tags: <em>${esc(doc.tags)}</em>` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div class="actions" style="display:flex;gap:var(--sp-2)">
+                  <a class="btn secondary" href="/api/knowledge/${doc.id}/download" download="${esc(doc.filename)}">
+                    ${icon('download')} Descargar
+                  </a>
+                  <button class="btn secondary associate-btn" data-doc-id="${doc.id}">
+                    ${icon('paperclip')} Asociar
+                  </button>
+                  <button class="btn secondary delete-doc-btn" data-doc-id="${doc.id}" style="color:var(--pink)">
+                    ${icon('trash')}
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      ` : '<div class="empty">No se encontraron documentos con los filtros seleccionados.</div>'}
+    </div>
+
+    <div class="status-overlay" id="knowledge-upload-modal" style="display:none" role="dialog" aria-modal="true">
+      <div class="status-viewer admin-modal-panel">
+        <div class="status-viewer-head">
+          <h3>Subir Documento al Knowledge Center</h3>
+          <button type="button" class="btn secondary mini close-upload-modal">${icon('close')}</button>
+        </div>
+        <form class="p-4" id="upload-doc-form" style="display:grid;gap:var(--sp-3)">
+          <label>
+            Archivo (PDF, Word, Excel, Markdown, ZIP ≤ 10 MB) *
+            <input class="input" type="file" name="file" required>
+          </label>
+          <label>
+            Título Descriptivo
+            <input class="input" name="title" placeholder="e.g. Arquitectura del Sistema Haitani Core">
+          </label>
+          <div class="grid" style="grid-template-columns:1fr 1fr;gap:var(--sp-2)">
+            <label>
+              Categoría
+              <select class="select" name="category">
+                ${categories.map(c => `<option value="${c}">${c.charAt(0).toUpperCase() + c.slice(1)}</option>`).join('')}
+              </select>
+            </label>
+            <label>
+              Fase
+              <select class="select" name="phase">
+                ${phases.map(ph => `<option value="${ph}">${ph.charAt(0).toUpperCase() + ph.slice(1)}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+          <div class="grid" style="grid-template-columns:1fr 1fr;gap:var(--sp-2)">
+            <label>
+              Metodología
+              <select class="select" name="methodology">
+                <option value="">Ninguna</option>
+                ${methods.map(m => `<option value="${m}">${m}</option>`).join('')}
+              </select>
+            </label>
+            <label>
+              Versión
+              <input class="input" name="version" value="1.0" placeholder="1.0">
+            </label>
+          </div>
+          <div class="grid" style="grid-template-columns:1fr 1fr;gap:var(--sp-2)">
+            <label>
+              Asociar a Proyecto
+              <select class="select" name="project_id">
+                <option value="">Sin proyecto</option>
+                ${projects.map(pr => `<option value="${pr.id}">${esc(pr.name)}</option>`).join('')}
+              </select>
+            </label>
+            <label>
+              Asociar a Tarea
+              <select class="select" name="task_id">
+                <option value="">Sin tarea</option>
+                ${tasks.map(t => `<option value="${t.id}">${esc(t.title.slice(0, 45))}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+          <label>
+            Etiquetas (separadas por coma)
+            <input class="input" name="tags" placeholder="e.g. backend, database, specs, sanzu">
+          </label>
+          <div class="actions" style="display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-2)">
+            <button type="button" class="btn secondary close-upload-modal">Cancelar</button>
+            <button type="submit" class="btn" id="upload-submit-btn">${icon('upload')} Subir Documento</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="status-overlay" id="knowledge-associate-modal" style="display:none" role="dialog" aria-modal="true">
+      <div class="status-viewer admin-modal-panel">
+        <div class="status-viewer-head">
+          <h3>Asociar Documento</h3>
+          <button type="button" class="btn secondary mini close-associate-modal">${icon('close')}</button>
+        </div>
+        <form class="p-4" id="associate-doc-form" style="display:grid;gap:var(--sp-3)">
+          <input type="hidden" name="file_id" id="associate-file-id">
+          <label>
+            Tipo de Asociación
+            <select class="select" name="target_type" id="associate-target-type" required>
+              <option value="project">Proyecto</option>
+              <option value="task">Tarea</option>
+              <option value="methodology">Metodología</option>
+            </select>
+          </label>
+          <div id="associate-target-selector">
+            <label>
+              Seleccionar Proyecto
+              <select class="select" name="target_id" id="associate-target-id" required>
+                ${projects.map(pr => `<option value="${pr.id}">${esc(pr.name)}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+          <div class="actions" style="display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-2)">
+            <button type="button" class="btn secondary close-associate-modal">Cancelar</button>
+            <button type="submit" class="btn">${icon('check')} Guardar Asociación</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  layout(markup);
+
+  const applyFilters = () => {
+    const sVal = document.querySelector('#knowledge-search').value.trim();
+    const cVal = document.querySelector('#filter-category').value;
+    const phVal = document.querySelector('#filter-phase').value;
+    const mVal = document.querySelector('#filter-method').value;
+    const prVal = document.querySelector('#filter-project').value;
+    const pms = new URLSearchParams();
+    if (sVal) pms.set('search', sVal);
+    if (cVal) pms.set('category', cVal);
+    if (phVal) pms.set('phase', phVal);
+    if (mVal) pms.set('methodology', mVal);
+    if (prVal) pms.set('project_id', prVal);
+    location.hash = `#/${state.user.role}/knowledge?${pms.toString()}`;
+  };
+
+  document.querySelector('#knowledge-apply-filters')?.addEventListener('click', applyFilters);
+  document.querySelector('#knowledge-search')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') applyFilters();
+  });
+  document.querySelector('#knowledge-reset-filters')?.addEventListener('click', () => {
+    location.hash = `#/${state.user.role}/knowledge`;
+  });
+
+  const uploadModal = document.querySelector('#knowledge-upload-modal');
+  document.querySelector('#open-upload-modal')?.addEventListener('click', () => {
+    uploadModal.style.display = 'grid';
+  });
+  document.querySelectorAll('.close-upload-modal').forEach(btn => {
+    btn.onclick = () => uploadModal.style.display = 'none';
+  });
+
+  document.querySelector('#upload-doc-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const submitBtn = document.querySelector('#upload-submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `${icon('progress')} Subiendo...`;
+    try {
+      await api('/knowledge/upload', { method: 'POST', body: formData });
+      notify('Documento subido y catalogado exitosamente');
+      uploadModal.style.display = 'none';
+      renderKnowledge();
+    } catch (err) {
+      notify('Error al subir documento: ' + err.message);
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `${icon('upload')} Subir Documento`;
+    }
+  });
+
+  const associateModal = document.querySelector('#knowledge-associate-modal');
+  const targetTypeSelect = document.querySelector('#associate-target-type');
+  const targetSelectorContainer = document.querySelector('#associate-target-selector');
+
+  const updateTargetOptions = () => {
+    const type = targetTypeSelect.value;
+    if (type === 'project') {
+      targetSelectorContainer.innerHTML = `
+        <label>
+          Seleccionar Proyecto
+          <select class="select" name="target_id" required>
+            ${projects.map(pr => `<option value="${pr.id}">${esc(pr.name)}</option>`).join('')}
+          </select>
+        </label>
+      `;
+    } else if (type === 'task') {
+      targetSelectorContainer.innerHTML = `
+        <label>
+          Seleccionar Tarea
+          <select class="select" name="target_id" required>
+            ${tasks.map(t => `<option value="${t.id}">${esc(t.title)}</option>`).join('')}
+          </select>
+        </label>
+      `;
+    } else if (type === 'methodology') {
+      targetSelectorContainer.innerHTML = `
+        <label>
+          Seleccionar Metodología
+          <select class="select" name="target_id" required>
+            ${methods.map(m => `<option value="${m}">${m}</option>`).join('')}
+          </select>
+        </label>
+      `;
+    }
+  };
+
+  targetTypeSelect?.addEventListener('change', updateTargetOptions);
+
+  document.querySelectorAll('.associate-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelector('#associate-file-id').value = btn.dataset.docId;
+      targetTypeSelect.value = 'project';
+      updateTargetOptions();
+      associateModal.style.display = 'grid';
+    };
+  });
+
+  document.querySelectorAll('.close-associate-modal').forEach(btn => {
+    btn.onclick = () => associateModal.style.display = 'none';
+  });
+
+  document.querySelector('#associate-doc-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const values = Object.fromEntries(new FormData(e.target));
+    try {
+      await api('/knowledge/associate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values)
+      });
+      notify('Asociación guardada exitosamente');
+      associateModal.style.display = 'none';
+      renderKnowledge();
+    } catch (err) {
+      notify('Error al asociar documento: ' + err.message);
+    }
+  });
+
+  document.querySelectorAll('.delete-doc-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm('¿Seguro que deseas eliminar este documento del repositorio?')) return;
+      try {
+        await api(`/knowledge/${btn.dataset.docId}`, { method: 'DELETE' });
+        notify('Documento eliminado');
+        renderKnowledge();
+      } catch (err) {
+        notify('Error al eliminar: ' + err.message);
+      }
+    };
+  });
+}
+
+async function renderRisks() {
+  let overview = null;
+  let projects = [];
+  try {
+    overview = await api('/risks/overview');
+    projects = await api('/projects').catch(() => []);
+  } catch (err) {
+    return layout(`
+      ${heading('Risk Center & Eventos', 'Monitoreo de riesgos y eventos')}
+      <div class="alert mt-4">Error al cargar Risk Center: ${esc(err.message)}</div>
+    `);
+  }
+
+  const s = overview.summary || { totalRisks: 0, criticalRisks: 0, overloadedMembers: 0, activeEvents: 0 };
+  const risks = overview.risks || [];
+  const workload = overview.workload || [];
+  const events = overview.events || [];
+
+  const markup = `
+    ${heading('Risk Center & Eventos', 'Monitoreo proactivo de riesgos de proyecto, eventos del sistema y capacidad del equipo', `
+      <div class="actions">
+        <button class="btn secondary" id="detect-events-btn">
+          ${icon('activity')} Detectar Eventos del Sistema
+        </button>
+        <button class="btn" id="open-risk-modal">
+          ${icon('plus')} Registrar Riesgo
+        </button>
+      </div>
+    `)}
+
+    <div class="grid stats dashboard-stats mt-4">
+      <div class="card stat stat-primary">
+        <div class="stat-header"><div class="label">Riesgos Activos</div>${icon('alertTriangle')}</div>
+        <div class="num">${s.totalRisks}</div>
+        <div class="stat-footer-sub">En todos los proyectos</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Riesgos Críticos</div>${icon('shield')}</div>
+        <div class="num" style="color:${s.criticalRisks > 0 ? 'var(--pink)' : 'inherit'}">${s.criticalRisks}</div>
+        <div class="stat-footer-sub">Severidad ≥ 15 (Prob x Imp)</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Eventos del Sistema</div>${icon('bell')}</div>
+        <div class="num" style="color:${events.length > 0 ? 'var(--pink)' : 'inherit'}">${events.length}</div>
+        <div class="stat-footer-sub">Alertas operativas pendientes</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Integrantes en Sobrecarga</div>${icon('users')}</div>
+        <div class="num" style="color:${s.overloadedMembers > 0 ? 'var(--pink)' : 'inherit'}">${s.overloadedMembers}</div>
+        <div class="stat-footer-sub">Capacidad asignada > 100%</div>
+      </div>
+    </div>
+
+    <div class="card p-4 mt-4">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <div style="display:flex;align-items:center;gap:var(--sp-2)">
+          ${icon('activity')}
+          <div>
+            <h3 style="margin:0">Eventos Automáticos del Sistema Haitani</h3>
+            <p class="muted sub" style="margin:0">Detección continua de tareas vencidas, bloqueos, sobrecargas y plazos límite.</p>
+          </div>
+        </div>
+        <span class="badge ${events.length > 0 ? 'pink' : 'green'}">${events.length} Activos</span>
+      </div>
+      ${events.length ? `
+        <div style="display:grid;gap:var(--sp-2)">
+          ${events.map(ev => {
+            const sevBadge = ev.severity === 'critical' || ev.severity === 'high' ? 'pink' : ev.severity === 'medium' ? 'yellow' : 'green';
+            return `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg-glass);border-radius:var(--r-md);border:1px solid var(--line);flex-wrap:wrap;gap:var(--sp-2)">
+                <div style="display:flex;align-items:center;gap:var(--sp-3)">
+                  <span class="badge ${sevBadge}">${esc(ev.severity.toUpperCase())}</span>
+                  <div>
+                    <strong style="font-size:0.95rem">${esc(ev.title)}</strong>
+                    <div class="muted sub">${esc(ev.description || '')} · Detectado: ${esc(new Date(ev.created_at).toLocaleString())}</div>
+                  </div>
+                </div>
+                <button class="btn secondary resolve-event-btn" data-event-id="${ev.id}">
+                  ${icon('check')} Resolver
+                </button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      ` : '<div class="empty">No hay eventos pendientes. El sistema no detecta anomalías operativas.</div>'}
+    </div>
+
+    <div class="card p-4 mt-4">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <div>
+          <h3 style="margin:0">Team Workload & Capacidad Asignada</h3>
+          <p class="muted sub" style="margin:0">Distribución de tareas y porcentaje de capacidad operativa por integrante.</p>
+        </div>
+      </div>
+      ${workload.length ? `
+        <div class="grid" style="grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:var(--sp-3)">
+          ${workload.map(mem => {
+            const pct = mem.capacity_percentage || 0;
+            const barColor = pct > 100 ? 'var(--pink)' : pct >= 70 ? 'var(--yellow)' : 'var(--green)';
+            const statusBadge = mem.workload_status === 'overloaded' ? 'badge pink' : mem.workload_status === 'high' ? 'badge yellow' : 'badge green';
+            const statusText = mem.workload_status === 'overloaded' ? 'Sobrecargado' : mem.workload_status === 'high' ? 'Carga Alta' : 'Normal';
+            return `
+              <div style="padding:14px;background:var(--bg-glass);border-radius:var(--r-md);border:1px solid var(--line)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <strong style="font-size:0.95rem">${esc(mem.name)}</strong>
+                  <span class="${statusBadge}">${statusText}</span>
+                </div>
+                <div class="muted sub" style="margin-bottom:8px">${esc(mem.email)} · ${mem.active_tasks} tareas activas</div>
+                <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px">
+                  <span>Capacidad Utilizada</span>
+                  <strong>${pct}%</strong>
+                </div>
+                <div class="health-meter-track" style="height:8px">
+                  <i style="width:min(100%, ${pct}%);background:${barColor}"></i>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      ` : '<div class="empty">No hay integrantes registrados.</div>'}
+    </div>
+
+    <div class="card p-4 mt-4">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <h3 style="margin:0">Matriz de Riesgos Identificados (${risks.length})</h3>
+      </div>
+      ${risks.length ? `
+        <div style="display:grid;gap:var(--sp-3)">
+          ${risks.map(r => {
+            const score = r.severity_score || (r.probability * r.impact) || 1;
+            const scoreBadge = score >= 15 ? 'badge pink' : score >= 8 ? 'badge yellow' : 'badge green';
+            const statusClass = r.status === 'cerrado' ? 'badge green' : r.status === 'mitigando' ? 'badge yellow' : 'badge';
+            return `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg-glass);border-radius:var(--r-md);border:1px solid var(--line);flex-wrap:wrap;gap:var(--sp-2)">
+                <div style="max-width:70%">
+                  <div style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap">
+                    <strong style="font-size:1rem">${esc(r.title)}</strong>
+                    <span class="${scoreBadge}">Score: ${score}</span>
+                    <span class="${statusClass}">${esc(r.status.toUpperCase())}</span>
+                    <span class="badge">${esc(r.category)}</span>
+                  </div>
+                  <p class="muted" style="margin:4px 0">${esc(r.description || 'Sin descripción.')}</p>
+                  <div style="font-size:0.88rem;margin-top:4px">
+                    <span><strong>Probabilidad:</strong> ${r.probability}/5</span> ·
+                    <span><strong>Impacto:</strong> ${r.impact}/5</span>
+                    ${r.project_name ? ` · Proyecto: <strong>${esc(r.project_name)}</strong>` : ''}
+                  </div>
+                  ${r.mitigation ? `<div style="font-size:0.88rem;margin-top:4px;color:var(--text)"><strong>Plan de Mitigación:</strong> ${esc(r.mitigation)}</div>` : ''}
+                </div>
+                <div class="actions" style="display:flex;gap:var(--sp-2)">
+                  <button class="btn secondary toggle-risk-btn" data-risk-id="${r.id}" data-current-status="${r.status}">
+                    ${r.status === 'cerrado' ? 'Reabrir' : 'Mitigar/Cerrar'}
+                  </button>
+                  <button class="btn secondary delete-risk-btn" data-risk-id="${r.id}" style="color:var(--pink)">
+                    ${icon('trash')}
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      ` : '<div class="empty">No hay riesgos registrados en la matriz.</div>'}
+    </div>
+
+    <div class="status-overlay" id="risk-modal" style="display:none" role="dialog" aria-modal="true">
+      <div class="status-viewer admin-modal-panel">
+        <div class="status-viewer-head">
+          <h3>Registrar Nuevo Riesgo</h3>
+          <button type="button" class="btn secondary mini close-risk-modal">${icon('close')}</button>
+        </div>
+        <form class="p-4" id="create-risk-form" style="display:grid;gap:var(--sp-3)">
+          <label>
+            Título del Riesgo *
+            <input class="input" name="title" required placeholder="e.g. Demora en aprobación de requerimientos">
+          </label>
+          <label>
+            Descripción
+            <textarea class="textarea" name="description" rows="2" placeholder="Detalle y contexto del riesgo..."></textarea>
+          </label>
+          <div class="grid" style="grid-template-columns:1fr 1fr;gap:var(--sp-2)">
+            <label>
+              Categoría
+              <select class="select" name="category">
+                <option value="tecnico">Técnico</option>
+                <option value="alcance">Alcance</option>
+                <option value="tiempo">Tiempo / Cronograma</option>
+                <option value="recursos">Recursos / Equipo</option>
+                <option value="externo">Externo</option>
+              </select>
+            </label>
+            <label>
+              Proyecto
+              <select class="select" name="project_id">
+                <option value="">General / Ninguno</option>
+                ${projects.map(pr => `<option value="${pr.id}">${esc(pr.name)}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+          <div class="grid" style="grid-template-columns:1fr 1fr;gap:var(--sp-2)">
+            <label>
+              Probabilidad (1 = Rara, 5 = Casi segura)
+              <select class="select" name="probability">
+                <option value="1">1 - Muy Baja</option>
+                <option value="2">2 - Baja</option>
+                <option value="3" selected>3 - Media</option>
+                <option value="4">4 - Alta</option>
+                <option value="5">5 - Muy Alta</option>
+              </select>
+            </label>
+            <label>
+              Impacto (1 = Mínimo, 5 = Crítico)
+              <select class="select" name="impact">
+                <option value="1">1 - Insignificante</option>
+                <option value="2">2 - Menor</option>
+                <option value="3" selected>3 - Moderado</option>
+                <option value="4">4 - Mayor</option>
+                <option value="5">5 - Crítico</option>
+              </select>
+            </label>
+          </div>
+          <label>
+            Estrategia de Mitigación / Contingencia
+            <textarea class="textarea" name="mitigation" rows="3" placeholder="Acciones preventivas y correctivas..."></textarea>
+          </label>
+          <div class="actions" style="display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-2)">
+            <button type="button" class="btn secondary close-risk-modal">Cancelar</button>
+            <button type="submit" class="btn">${icon('check')} Guardar Riesgo</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  layout(markup);
+
+  const riskModal = document.querySelector('#risk-modal');
+  document.querySelector('#open-risk-modal')?.addEventListener('click', () => {
+    riskModal.style.display = 'grid';
+  });
+  document.querySelectorAll('.close-risk-modal').forEach(btn => {
+    btn.onclick = () => riskModal.style.display = 'none';
+  });
+
+  document.querySelector('#detect-events-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.innerHTML = `${icon('progress')} Detectando anomalías...`;
+    try {
+      const res = await api('/events/detect', { method: 'POST' });
+      notify(`Detección completada: ${res.detected} eventos analizados`);
+      renderRisks();
+    } catch (err) {
+      notify('Error al ejecutar detección: ' + err.message);
+      btn.disabled = false;
+      btn.innerHTML = `${icon('activity')} Detectar Eventos del Sistema`;
+    }
+  });
+
+  document.querySelectorAll('.resolve-event-btn').forEach(btn => {
+    btn.onclick = async () => {
+      try {
+        await api(`/events/${btn.dataset.eventId}/resolve`, { method: 'POST' });
+        notify('Evento marcado como resuelto');
+        renderRisks();
+      } catch (err) {
+        notify('Error al resolver evento: ' + err.message);
+      }
+    };
+  });
+
+  document.querySelector('#create-risk-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const values = Object.fromEntries(new FormData(e.target));
+    values.probability = Number(values.probability);
+    values.impact = Number(values.impact);
+    if (!values.project_id) delete values.project_id;
+    try {
+      await api('/risks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values)
+      });
+      notify('Riesgo registrado en la matriz');
+      riskModal.style.display = 'none';
+      renderRisks();
+    } catch (err) {
+      notify('Error al guardar riesgo: ' + err.message);
+    }
+  });
+
+  document.querySelectorAll('.toggle-risk-btn').forEach(btn => {
+    btn.onclick = async () => {
+      const current = btn.dataset.currentStatus;
+      const next = current === 'identificado' ? 'mitigando' : current === 'mitigando' ? 'cerrado' : 'identificado';
+      try {
+        await api(`/risks/${btn.dataset.riskId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: next })
+        });
+        notify(`Estado de riesgo actualizado a: ${next}`);
+        renderRisks();
+      } catch (err) {
+        notify('Error al actualizar estado: ' + err.message);
+      }
+    };
+  });
+
+  document.querySelectorAll('.delete-risk-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm('¿Seguro que deseas eliminar este riesgo?')) return;
+      try {
+        await api(`/risks/${btn.dataset.riskId}`, { method: 'DELETE' });
+        notify('Riesgo eliminado');
+        renderRisks();
+      } catch (err) {
+        notify('Error al eliminar: ' + err.message);
+      }
+    };
+  });
+}
+
 const appRender=render;
 render=async function(){
   if(slowLoaderTimer) clearTimeout(slowLoaderTimer);
