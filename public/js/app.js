@@ -3312,7 +3312,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
       <div class="gp-titlebar">
         <div class="gp-titlebar-title">
           <span class="gp-titlebar-icon">⊞</span>
-          <span>GanttProject - [${esc(activeProjectName)}]</span>
+          <span>Gantt Haitani - [${esc(activeProjectName)}]</span>
         </div>
         <div class="gp-titlebar-controls">
           <span class="gp-win-btn" title="Minimizar">−</span>
