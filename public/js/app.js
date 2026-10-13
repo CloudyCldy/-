@@ -165,25 +165,52 @@ let ganttChartZoom = 32;
 let ganttChartMinDate = null;
 const GANTT_WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const GANTT_DOW_SHORT = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
+function parseGanttDate(dateVal) {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date) {
+    return isNaN(dateVal.getTime()) ? null : new Date(dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDate(), 0, 0, 0, 0);
+  }
+  const s = String(dateVal).trim();
+  if (!s) return null;
+  const match = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (match) {
+    const y = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10) - 1;
+    const d = parseInt(match[3], 10);
+    const date = new Date(y, m, d, 0, 0, 0, 0);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  const parsed = new Date(s);
+  if (isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 0, 0, 0, 0);
+}
+
+function toISODate(date) {
+  if (!date) return '';
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date.trim())) return date.trim();
+  const d = parseGanttDate(date);
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function formatGanttDate(dateVal, includeYear = false) {
-  if (!dateVal) return '-';
-  const str = dateVal instanceof Date ? toISODate(dateVal) : String(dateVal);
-  const parts = str.split('-');
-  if (parts.length < 3) return str;
-  const year = parseInt(parts[0], 10);
-  const monthIdx = parseInt(parts[1], 10) - 1;
-  const day = parseInt(parts[2], 10);
+  const d = parseGanttDate(dateVal);
+  if (!d) return '-';
+  const year = d.getFullYear();
+  const day = d.getDate();
   const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  const monthName = months[monthIdx] || parts[1];
+  const monthName = months[d.getMonth()] || '';
   const curYear = new Date().getFullYear();
   if (includeYear || year !== curYear) {
     return `${day} ${monthName} ${year}`;
   }
   return `${day} ${monthName}`;
 }
-function startOfWeekMonday(date) { const d = new Date(date); const offset = (d.getDay() + 6) % 7; d.setDate(d.getDate() - offset); d.setHours(0, 0, 0, 0); return d }
-function toISODate(date) { return date.toISOString().slice(0, 10) }
-function addDays(dateStr, delta) { const base = dateStr || new Date().toISOString().slice(0, 10); const date = new Date(`${base}T00:00:00`); date.setDate(date.getDate() + delta); return date.toISOString().slice(0, 10) }
+function startOfWeekMonday(date) { const d = parseGanttDate(date) || new Date(); const offset = (d.getDay() + 6) % 7; d.setDate(d.getDate() - offset); d.setHours(0, 0, 0, 0); return d }
+function addDays(dateStr, delta) { const base = parseGanttDate(dateStr) || new Date(); base.setDate(base.getDate() + delta); return toISODate(base); }
 function themeToggle(){return `<div class="theme-switch" role="group" aria-label="Tema visual"><button class="theme-option ${currentTheme==='steep'?'active':''}" data-theme="steep" type="button" title="Modo claro" aria-label="Modo claro">${icon('sun')}</button><button class="theme-option ${currentTheme==='ran'?'active':''}" data-theme="ran" type="button" title="Modo oscuro" aria-label="Modo oscuro">${icon('moon')}</button></div>`}
 function bindTheme(){document.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>{currentTheme=button.dataset.theme;localStorage.setItem('haitani-theme',currentTheme);document.documentElement.dataset.theme=currentTheme;document.querySelectorAll('.theme-option').forEach(option=>option.classList.toggle('active',option.dataset.theme===currentTheme))})}
 async function api(url, options = {}) { const projectId = localStorage.getItem('haitani-github-project'); const githubUrl = url.startsWith('/github/') && projectId && !url.includes('?') ? `${url}?project_id=${encodeURIComponent(projectId)}` : url; const response = await fetch(`/api${githubUrl}`, { ...options, credentials:'include' }); const data = await response.json().catch(() => ({})); if (response.status === 403 && data.blocked) { blockedView(data.reason || 'Tu dirección IP no puede acceder a esta aplicación.'); throw new Error(data.error); } if (response.status === 401) { state.user = null; clearInterval(notificationTimer); } if (!response.ok) throw new Error(data.error || 'No fue posible completar la operación.'); return data; }
@@ -2486,8 +2513,8 @@ function buildGanttWbsTree(tasks) {
 
 function scrollToGanttDate(dateVal) {
   if (!dateVal || !ganttChartMinDate) return;
-  const target = new Date(typeof dateVal === 'string' && !dateVal.includes('T') ? `${dateVal}T00:00:00` : dateVal);
-  if (isNaN(target.getTime())) return;
+  const target = parseGanttDate(dateVal);
+  if (!target) return;
   const dayMs = 86400000;
   const dayWidth = ganttTimeScale === 'week'
     ? Math.max(14, Math.round(ganttChartZoom * 0.55))
@@ -2495,15 +2522,24 @@ function scrollToGanttDate(dateVal) {
   const diffDays = Math.round((target - ganttChartMinDate) / dayMs);
   const scrollEl = document.querySelector('#gtc-scroll');
   if (scrollEl) {
-    const targetLeft = Math.max(0, diffDays * dayWidth - 140);
+    const targetLeft = Math.max(0, diffDays * dayWidth - 80);
     scrollEl.scrollTo({ left: targetLeft, behavior: 'smooth' });
     const iso = toISODate(target);
     const dayCol = document.querySelector(`.gtc-day[data-date="${iso}"]`);
     if (dayCol) {
       dayCol.style.transition = 'background-color .3s ease';
       const origBg = dayCol.style.backgroundColor;
-      dayCol.style.backgroundColor = 'var(--color-blush-peach)';
+      dayCol.style.backgroundColor = 'rgba(236, 216, 140, 0.4)';
       setTimeout(() => { dayCol.style.backgroundColor = origBg; }, 1400);
+    }
+    const targetMonthPrefix = iso.slice(0, 7);
+    document.querySelectorAll('.gp-month-pill').forEach(btn => {
+      btn.classList.toggle('active', (btn.dataset.date || '').startsWith(targetMonthPrefix));
+    });
+    const monthSelect = document.querySelector('#gp-month-quick-select');
+    if (monthSelect) {
+      const matchOpt = Array.from(monthSelect.options).find(opt => opt.value.startsWith(targetMonthPrefix));
+      if (matchOpt) monthSelect.value = matchOpt.value;
     }
   }
 }
@@ -2701,11 +2737,11 @@ async function gantt() {
   const unscheduledTasks = [];
 
   wbsOrderedTasks.forEach(t => {
-    const start = t.start_date ? new Date(`${t.start_date}T00:00:00`) : (t.due_date ? new Date(`${t.due_date}T00:00:00`) : null);
-    const due = t.due_date ? new Date(`${t.due_date}T00:00:00`) : start;
+    const start = parseGanttDate(t.start_date) || (t.due_date ? parseGanttDate(t.due_date) : null);
+    const due = parseGanttDate(t.due_date) || start;
     const isCritical = criticalTaskIds.has(t.id);
 
-    if (start) {
+    if (start && due) {
       scheduledTasks.push({ ...t, startDate: start, dueDate: due, isCritical });
     } else {
       unscheduledTasks.push({ ...t, isCritical });
@@ -3021,7 +3057,12 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
     const nextMonth = new Date(y, m + 1, 1);
     const segEnd = nextMonth <= max ? new Date(nextMonth.getTime() - dayMs) : new Date(max);
     const days = Math.round((segEnd - cursor) / dayMs) + 1;
-    months.push({ label: cursor.toLocaleDateString('es', { month: 'long', year: 'numeric' }), days });
+    const isoDate = toISODate(cursor);
+    const rawLabel = cursor.toLocaleDateString('es', { month: 'long', year: 'numeric' });
+    const label = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+    const rawShort = cursor.toLocaleDateString('es', { month: 'short' }).replace('.', '');
+    const shortLabel = `${rawShort.charAt(0).toUpperCase() + rawShort.slice(1)} ${y}`;
+    months.push({ label, shortLabel, days, isoDate, year: y, month: m });
     cursor = nextMonth;
   }
 
@@ -3403,6 +3444,21 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
           </div>
         </div>
         <div class="gp-subtoolbar-right">
+          <!-- Navegador de Meses en la Barra de Tareas para mover entre fechas -->
+          <div class="gp-month-nav" title="Navegar entre meses del proyecto">
+            <button type="button" class="gp-month-nav-btn" id="gp-nav-prev-month" title="Mes anterior (◀)">◀</button>
+            <div class="gp-month-pills" id="gp-month-pills">
+              ${months.map(m => `
+                <button type="button" class="gp-month-pill" data-date="${m.isoDate}" title="Ir a ${esc(m.label)}">${esc(m.shortLabel)}</button>
+              `).join('')}
+            </div>
+            <button type="button" class="gp-month-nav-btn" id="gp-nav-next-month" title="Mes siguiente (▶)">▶</button>
+            <select class="select gp-month-dropdown" id="gp-month-quick-select" title="Saltar rápidamente a un mes">
+              <option value="">Meses...</option>
+              ${months.map(m => `<option value="${m.isoDate}">${esc(m.label)}</option>`).join('')}
+            </select>
+          </div>
+
           <div class="gp-sub-group">
             <button type="button" class="gp-sub-btn" id="gtc-zoom-in" title="Acercar">🔍 Acercar</button>
             <button type="button" class="gp-sub-btn" id="gtc-zoom-out" title="Alejar">🔍 Alejar</button>
@@ -3416,7 +3472,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
           <div class="gp-sub-group">
             <label class="gp-sub-label" title="Calcular y resaltar Ruta Crítica (CPM)">
               <input type="checkbox" id="gtc-toggle-critical" ${ganttShowCriticalPath ? 'checked' : ''}>
-              <span>Mostrar la ruta crítica</span>
+              <span>Ruta crítica</span>
               ${criticalCount > 0 ? `<span class="gtc-critical-badge">${criticalCount}</span>` : ''}
             </label>
             <button type="button" class="gp-sub-btn ${ganttShowBaselines ? 'active' : ''}" id="gtc-toggle-baseline" title="Mostrar/ocultar comparativa de Línea Base">
@@ -3471,7 +3527,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
             <div class="gp-right-panel gtc-scroll" id="gtc-scroll">
               <div class="gtc-timeline" style="width:${totalDays * dayWidth}px">
                 <div class="gp-timeline-months gtc-months">
-                  ${months.map(m => `<div class="gp-timeline-month gtc-month" style="width:${m.days * dayWidth}px">${esc(m.label)}</div>`).join('')}
+                  ${months.map(m => `<div class="gp-timeline-month gtc-month" style="width:${m.days * dayWidth}px;cursor:pointer" onclick="scrollToGanttDate('${m.isoDate}')" title="Saltar a ${esc(m.label)}">${esc(m.label)}</div>`).join('')}
                 </div>
                 <div class="gp-timeline-days gtc-days">
                   ${dayCells.join('')}
@@ -3836,6 +3892,24 @@ function bindGanttChartEvents() {
     } else if (e.target.value === 'project-start') {
       if (ganttChartMinDate) scrollToGanttDate(ganttChartMinDate);
     }
+  });
+
+  // Navegador de Meses en la Barra de Tareas
+  document.querySelector('#gp-nav-prev-month')?.addEventListener('click', () => {
+    const scrollEl = document.querySelector('#gtc-scroll');
+    if (scrollEl) scrollEl.scrollBy({ left: -30 * dayWidth, behavior: 'smooth' });
+  });
+  document.querySelector('#gp-nav-next-month')?.addEventListener('click', () => {
+    const scrollEl = document.querySelector('#gtc-scroll');
+    if (scrollEl) scrollEl.scrollBy({ left: 30 * dayWidth, behavior: 'smooth' });
+  });
+  document.querySelector('#gp-month-quick-select')?.addEventListener('change', e => {
+    if (e.target.value) scrollToGanttDate(e.target.value);
+  });
+  document.querySelectorAll('.gp-month-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.date) scrollToGanttDate(btn.dataset.date);
+    });
   });
 
   // Divisor Splitter interactivo
