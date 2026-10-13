@@ -155,10 +155,28 @@ let ganttShowCriticalPath = false;
 let ganttShowBaselines = false;
 let ganttCollapsedTasks = new Set();
 let ganttDataCache = null;
+let ganttCalendarCollapsed = false;
 let ganttCalendarMonth = (() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d })();
 let ganttChartZoom = 32;
 let ganttChartMinDate = null;
 const GANTT_WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const GANTT_DOW_SHORT = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
+function formatGanttDate(dateVal, includeYear = false) {
+  if (!dateVal) return '-';
+  const str = dateVal instanceof Date ? toISODate(dateVal) : String(dateVal);
+  const parts = str.split('-');
+  if (parts.length < 3) return str;
+  const year = parseInt(parts[0], 10);
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const monthName = months[monthIdx] || parts[1];
+  const curYear = new Date().getFullYear();
+  if (includeYear || year !== curYear) {
+    return `${day} ${monthName} ${year}`;
+  }
+  return `${day} ${monthName}`;
+}
 function startOfWeekMonday(date) { const d = new Date(date); const offset = (d.getDay() + 6) % 7; d.setDate(d.getDate() - offset); d.setHours(0, 0, 0, 0); return d }
 function toISODate(date) { return date.toISOString().slice(0, 10) }
 function addDays(dateStr, delta) { const base = dateStr || new Date().toISOString().slice(0, 10); const date = new Date(`${base}T00:00:00`); date.setDate(date.getDate() + delta); return date.toISOString().slice(0, 10) }
@@ -2462,6 +2480,176 @@ function buildGanttWbsTree(tasks) {
   return flatList;
 }
 
+function scrollToGanttDate(dateVal) {
+  if (!dateVal || !ganttChartMinDate) return;
+  const target = new Date(typeof dateVal === 'string' && !dateVal.includes('T') ? `${dateVal}T00:00:00` : dateVal);
+  if (isNaN(target.getTime())) return;
+  const dayMs = 86400000;
+  const dayWidth = ganttTimeScale === 'week'
+    ? Math.max(14, Math.round(ganttChartZoom * 0.55))
+    : (ganttTimeScale === 'month' ? Math.max(8, Math.round(ganttChartZoom * 0.3)) : ganttChartZoom);
+  const diffDays = Math.round((target - ganttChartMinDate) / dayMs);
+  const scrollEl = document.querySelector('#gtc-scroll');
+  if (scrollEl) {
+    const targetLeft = Math.max(0, diffDays * dayWidth - 140);
+    scrollEl.scrollTo({ left: targetLeft, behavior: 'smooth' });
+    const iso = toISODate(target);
+    const dayCol = document.querySelector(`.gtc-day[data-date="${iso}"]`);
+    if (dayCol) {
+      dayCol.style.transition = 'background-color .3s ease';
+      const origBg = dayCol.style.backgroundColor;
+      dayCol.style.backgroundColor = 'var(--color-blush-peach)';
+      setTimeout(() => { dayCol.style.backgroundColor = origBg; }, 1400);
+    }
+  }
+}
+
+function renderGanttCalendarHtml(scheduledTasks, monthDate, today) {
+  const dayMs = 86400000;
+  const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+  const gridStart = startOfWeekMonday(monthStart);
+  const gridEndOffset = 6 - ((monthEnd.getDay() + 6) % 7);
+  const gridEnd = new Date(monthEnd); gridEnd.setDate(gridEnd.getDate() + gridEndOffset);
+  const totalGridDays = Math.round((gridEnd - gridStart) / dayMs) + 1;
+  const weeksCount = Math.ceil(totalGridDays / 7);
+
+  const MAX_LANES = 4;
+  const weeksHtml = [];
+
+  for (let w = 0; w < weeksCount; w++) {
+    const weekStart = new Date(gridStart.getTime() + w * 7 * dayMs);
+    const weekEnd = new Date(weekStart.getTime() + 6 * dayMs);
+    const weekTasks = scheduledTasks
+      .filter(t => t.startDate <= weekEnd && t.dueDate >= weekStart)
+      .sort((a, b) => (a.startDate - b.startDate) || ((b.dueDate - b.startDate) - (a.dueDate - a.startDate)));
+
+    const lanesOccupied = [];
+    const bars = [];
+    let overflow = 0;
+
+    weekTasks.forEach(task => {
+      const segStart = task.startDate < weekStart ? weekStart : task.startDate;
+      const segEnd = task.dueDate > weekEnd ? weekEnd : task.dueDate;
+      const colStart = Math.round((segStart - weekStart) / dayMs);
+      const colSpan = Math.round((segEnd - segStart) / dayMs) + 1;
+
+      let lane = 0;
+      while (lane < MAX_LANES) {
+        const occ = lanesOccupied[lane] || (lanesOccupied[lane] = []);
+        const clash = occ.some(range => colStart < range.end && (colStart + colSpan) > range.start);
+        if (!clash) {
+          occ.push({ start: colStart, end: colStart + colSpan });
+          break;
+        }
+        lane++;
+      }
+      if (lane >= MAX_LANES) {
+        overflow++;
+        return;
+      }
+      bars.push({
+        task,
+        colStart,
+        colSpan,
+        lane,
+        continuesLeft: task.startDate < weekStart,
+        continuesRight: task.dueDate > weekEnd
+      });
+    });
+
+    const lanesUsed = Math.min(MAX_LANES, Math.max(1, bars.reduce((m, b) => Math.max(m, b.lane + 1), 0)));
+    const dayBoxes = [];
+
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(weekStart.getTime() + d * dayMs);
+      const outside = date.getMonth() !== monthDate.getMonth();
+      const isToday = date.getTime() === today.getTime();
+      const isoDate = toISODate(date);
+      const dayTitle = date.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      dayBoxes.push(`
+        <div class="gantt-cal-day ${outside ? 'is-out' : ''} ${isToday ? 'is-today' : ''}"
+             data-date="${isoDate}"
+             title="Centrar Gantt en ${dayTitle}">
+          <span class="gantt-cal-daynum">${date.getDate()}</span>
+        </div>
+      `);
+    }
+
+    const barsHtml = bars.map(bar => {
+      const prog = bar.task.progress ?? (bar.task.status === 'completada' ? 100 : (bar.task.status === 'en_proceso' ? 50 : 0));
+      const milestoneIcon = bar.task.is_milestone ? '♦ ' : '';
+      const critClass = bar.task.isCritical ? 'is-critical' : '';
+      return `
+        <div class="gantt-cal-bar ${bar.task.status} ${critClass}"
+             draggable="true"
+             data-id="${bar.task.id}"
+             data-start="${bar.task.start_date || ''}"
+             data-due="${bar.task.due_date || ''}"
+             style="--col-start:${bar.colStart};--col-span:${bar.colSpan};--lane:${bar.lane}"
+             title="${milestoneIcon}${esc(bar.task.title)} · ${formatGanttDate(bar.task.start_date, true)} al ${formatGanttDate(bar.task.due_date, true)} · ${prog}%">
+          ${bar.continuesLeft ? '<span class="gantt-cal-bar-arrow">‹</span>' : ''}
+          <span class="gantt-cal-bar-label">${milestoneIcon}${esc(bar.task.title)}</span>
+          ${bar.continuesRight ? '<span class="gantt-cal-bar-arrow">›</span>' : ''}
+        </div>
+      `;
+    }).join('');
+
+    const overflowHtml = overflow
+      ? `<div class="gantt-cal-more" style="--lane:${MAX_LANES}">+${overflow} más</div>`
+      : '';
+
+    weeksHtml.push(`
+      <div class="gantt-cal-week">
+        <div class="gantt-cal-days" style="--lanes:${lanesUsed + (overflow ? 1 : 0)}">
+          ${dayBoxes.join('')}
+        </div>
+        <div class="gantt-cal-bars">
+          ${barsHtml}
+          ${overflowHtml}
+        </div>
+      </div>
+    `);
+  }
+
+  const monthLabel = monthDate.toLocaleDateString('es', { month: 'long', year: 'numeric' });
+
+  return `
+    <section class="card gantt-card mb-4" id="gantt-calendar-section" style="margin-bottom:var(--sp-4)">
+      <div class="gantt-controls" style="${ganttCalendarCollapsed ? 'margin-bottom:0;padding-bottom:0;border-bottom:none' : ''}">
+        <div class="actions" style="align-items:center">
+          <button type="button" class="btn secondary" id="gantt-prev-month" aria-label="Mes anterior" title="Mes anterior">‹</button>
+          <strong class="gantt-month-label">${monthLabel}</strong>
+          <button type="button" class="btn secondary" id="gantt-next-month" aria-label="Mes siguiente" title="Mes siguiente">›</button>
+          <button type="button" class="btn secondary" id="gantt-today-cal-btn" title="Ir al mes actual">Hoy</button>
+          <label class="inline" style="margin-left:var(--sp-2)">
+            <input class="input gantt-date-picker" id="gantt-date-picker" type="date" value="${toISODate(monthStart)}" title="Seleccionar fecha para ver mes" style="padding:4px 8px;font-size:12px;height:28px">
+          </label>
+        </div>
+        <div class="actions" style="align-items:center">
+          <button type="button" class="btn secondary" id="gantt-cal-toggle" title="${ganttCalendarCollapsed ? 'Mostrar calendario mensual' : 'Colapsar calendario mensual'}">
+            ${ganttCalendarCollapsed ? '📅 Mostrar Calendario ▼' : '📅 Ocultar Calendario ▲'}
+          </button>
+        </div>
+      </div>
+      ${!ganttCalendarCollapsed ? `
+        <div class="gantt-cal-weekdays">
+          ${GANTT_WEEKDAY_LABELS.map(l => `<span>${l}</span>`).join('')}
+        </div>
+        <div class="gantt-cal-grid">
+          ${weeksHtml.join('')}
+        </div>
+        <div class="gantt-legend" style="margin-top:var(--sp-3);padding-top:var(--sp-3)">
+          <span><i class="gantt-dot pendiente"></i>Pendiente</span>
+          <span><i class="gantt-dot en_proceso"></i>En proceso</span>
+          <span><i class="gantt-dot completada"></i>Completada</span>
+          <span class="muted" style="margin-left:auto;font-size:11px">💡 Haz clic en cualquier día para centrar el diagrama Gantt en esa fecha</span>
+        </div>
+      ` : ''}
+    </section>
+  `;
+}
+
 async function gantt() {
   let ganttData;
   try {
@@ -2566,6 +2754,10 @@ async function gantt() {
           <button class="btn secondary" id="gtc-zoom-in" aria-label="Acercar">+</button>
           <button class="btn secondary" id="gtc-today-btn" title="Desplazar a la fecha de hoy">Hoy</button>
         </div>
+        <label class="inline" title="Saltar la vista a una fecha específica">
+          <span class="muted gantt-controls-label">Ir a Fecha</span>
+          <input class="input" type="date" id="gtc-jump-date" style="padding:4px 8px;font-size:12px;height:28px">
+        </label>
       </div>
 
       <div class="gantt-gp-group">
@@ -2605,7 +2797,8 @@ async function gantt() {
   ` : '';
 
   return `
-    ${heading('GanttProject Suite', 'Gestión avanzada de cronogramas: estructura WBS, dependencias, ruta crítica CPM, hitos y líneas base.')}
+    ${heading('GanttProject Suite', 'Gestión avanzada de cronogramas: calendario interactivo, estructura WBS, dependencias, ruta crítica CPM, hitos y líneas base.')}
+    ${renderGanttCalendarHtml(scheduledTasks, ganttCalendarMonth, today)}
     ${toolbarHtml}
     ${ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies, criticalTaskIds)}
     ${unscheduledHtml}
@@ -2656,8 +2849,20 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
     const date = new Date(min.getTime() + i * dayMs);
     const isToday = date.getTime() === today.getTime();
     const isWeekend = [0, 6].includes(date.getDay());
-    const label = ganttTimeScale === 'month' ? (date.getDate() === 1 ? '1' : '') : date.getDate();
-    dayCells.push(`<div class="gtc-day ${isToday ? 'is-today' : ''} ${isWeekend ? 'is-weekend' : ''}" style="width:${dayWidth}px">${label}</div>`);
+    const isoDate = toISODate(date);
+    const dow = GANTT_DOW_SHORT[date.getDay()];
+    const fullDateTitle = date.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    let contentHtml = '';
+    if (ganttTimeScale === 'month') {
+      contentHtml = date.getDate() === 1 ? `<span class="gtc-day-num">1</span>` : '';
+    } else {
+      contentHtml = `
+        <span class="gtc-day-dow">${dow}</span>
+        <span class="gtc-day-num">${date.getDate()}</span>
+      `;
+    }
+    dayCells.push(`<div class="gtc-day ${isToday ? 'is-today' : ''} ${isWeekend ? 'is-weekend' : ''}" data-date="${isoDate}" style="width:${dayWidth}px" title="${fullDateTitle}">${contentHtml}</div>`);
   }
 
   const rows = scheduledTasks;
@@ -2668,11 +2873,10 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
 
   // Lado Izquierdo: Tabla WBS jerárquica
   const labelsHtml = rows.map(t => {
-    const startStr = t.start_date || '';
-    const dueStr = t.due_date || '';
     const durDays = t.is_milestone ? 0 : Math.max(1, Math.round((t.dueDate - t.startDate) / dayMs) + 1);
     const prog = t.progress ?? (t.status === 'completada' ? 100 : (t.status === 'en_proceso' ? 50 : 0));
     const isCrit = ganttShowCriticalPath && t.isCritical;
+    const isOverdue = t.status !== 'completada' && t.dueDate && t.dueDate < today;
 
     const indents = '<span class="gtc-tree-indent"></span>'.repeat(t.depth || 0);
     const treeToggle = t.has_children
@@ -2687,8 +2891,10 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
           ${indents}${treeToggle}${milestoneSymbol}
           <span>${esc(t.title)}</span>
         </div>
-        <div class="gtc-col-dates" title="Inicio">${startStr ? startStr.slice(5) : '-'}</div>
-        <div class="gtc-col-dates" title="Fin">${dueStr ? dueStr.slice(5) : '-'}</div>
+        <div class="gtc-col-dates" title="Inicio: ${t.start_date || 'Sin definir'}">${formatGanttDate(t.start_date)}</div>
+        <div class="gtc-col-dates ${isOverdue ? 'is-overdue' : ''}" title="${isOverdue ? '¡Vencida! Límite: ' + (t.due_date || '') : 'Fin: ' + (t.due_date || 'Sin definir')}">
+          ${isOverdue ? '⚠️ ' : ''}${formatGanttDate(t.due_date)}
+        </div>
         <div class="gtc-col-dur" title="Duración">${durDays}d</div>
         <div class="gtc-col-prog" title="Avance">${prog}%</div>
       </div>
@@ -2701,6 +2907,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
     const span = Math.max(1, Math.round((t.dueDate - t.startDate) / dayMs) + 1);
     const prog = t.progress ?? (t.status === 'completada' ? 100 : (t.status === 'en_proceso' ? 50 : 0));
     const isCrit = ganttShowCriticalPath && t.isCritical;
+    const isOverdue = t.status !== 'completada' && t.dueDate && t.dueDate < today;
     const barWidth = Math.max(dayWidth - 4, span * dayWidth - 4);
     const leftPx = offset * dayWidth;
 
@@ -2724,10 +2931,10 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
           <div class="gtc-milestone-diamond ${isCrit ? 'is-critical' : ''}"
                data-id="${t.id}"
                style="left:${leftPx + Math.round(dayWidth / 2) - 8}px"
-               title="${esc(t.title)} (Hito) · ${t.start_date || ''} · ${prog}%">
+               title="${esc(t.title)} (Hito) · Fecha: ${formatGanttDate(t.start_date, true)} · ${prog}%">
           </div>
-          <span class="gtc-bar-label" style="position:absolute;left:${leftPx + dayWidth + 4}px;top:14px;font-size:11px;font-weight:600;pointer-events:none">
-            ${esc(t.title)}
+          <span class="gtc-bar-label" style="position:absolute;left:${leftPx + dayWidth + 4}px;top:10px;font-size:11px;font-weight:600;pointer-events:none;white-space:nowrap">
+            ${esc(t.title)} <span class="gtc-date-tag">${formatGanttDate(t.start_date)}</span>
           </span>
         </div>
       `;
@@ -2741,7 +2948,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
           <div class="gtc-summary-bar ${isCrit ? 'is-critical' : ''}"
                data-id="${t.id}"
                style="left:${leftPx}px;width:${barWidth}px"
-               title="Resumen: ${esc(t.title)} · ${prog}%">
+               title="Resumen: ${esc(t.title)} · ${formatGanttDate(t.start_date)} al ${formatGanttDate(t.due_date)} · ${prog}%">
           </div>
           <span class="gtc-bar-label" style="position:absolute;left:${leftPx + barWidth + 6}px;top:13px;font-size:11px;font-weight:600;pointer-events:none">
             ${esc(t.title)} (${prog}%)
@@ -2759,10 +2966,10 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
              data-start="${t.start_date || ''}"
              data-due="${t.due_date || ''}"
              style="left:${leftPx}px;width:${barWidth}px"
-             title="${esc(t.title)} · ${esc(t.assignee_name || 'Sin asignar')} · ${prog}%">
+             title="${esc(t.title)} · ${formatGanttDate(t.start_date, true)} al ${formatGanttDate(t.due_date, true)} · ${esc(t.assignee_name || 'Sin asignar')} · ${prog}%${isOverdue ? ' · ¡Vencida!' : ''}">
           <span class="gtc-bar-fill" style="width:${prog}%"></span>
           <button type="button" class="gtc-bar-handle left" data-edge="start" aria-label="Ajustar inicio"></button>
-          <span class="gtc-bar-label">${esc(t.title)} (${prog}%)</span>
+          <span class="gtc-bar-label">${esc(t.title)} <span class="gtc-bar-dates">(${formatGanttDate(t.start_date)} - ${formatGanttDate(t.due_date)})</span> (${prog}%)</span>
           <button type="button" class="gtc-bar-handle right" data-edge="due" aria-label="Ajustar fin"></button>
         </div>
       </div>
@@ -3076,6 +3283,13 @@ function bindGanttChartEvents() {
       startDrag(event, 'resize-due');
     });
   });
+
+  // Saltar a fecha en Gantt
+  document.querySelector('#gtc-jump-date')?.addEventListener('change', e => {
+    if (e.target.value) {
+      scrollToGanttDate(e.target.value);
+    }
+  });
 }
 
 function bindGanttEvents() {
@@ -3093,13 +3307,104 @@ function bindGanttEvents() {
     renderGantt();
   });
 
-  // Botón Hoy
-  document.querySelector('#gtc-today-btn')?.addEventListener('click', () => {
-    const todayEl = document.querySelector('.gtc-today-line');
-    const scrollEl = document.querySelector('#gtc-scroll');
-    if (todayEl && scrollEl) {
-      scrollEl.scrollTo({ left: todayEl.offsetLeft - 200, behavior: 'smooth' });
+  // Navegación del Calendario Superior
+  document.querySelector('#gantt-prev-month')?.addEventListener('click', () => {
+    ganttCalendarMonth.setMonth(ganttCalendarMonth.getMonth() - 1);
+    renderGantt();
+  });
+  document.querySelector('#gantt-next-month')?.addEventListener('click', () => {
+    ganttCalendarMonth.setMonth(ganttCalendarMonth.getMonth() + 1);
+    renderGantt();
+  });
+  document.querySelector('#gantt-today-cal-btn')?.addEventListener('click', () => {
+    ganttCalendarMonth = new Date();
+    ganttCalendarMonth.setDate(1);
+    ganttCalendarMonth.setHours(0, 0, 0, 0);
+    renderGantt();
+    scrollToGanttDate(new Date());
+  });
+  document.querySelector('#gantt-date-picker')?.addEventListener('change', e => {
+    if (!e.target.value) return;
+    const parts = e.target.value.split('-');
+    if (parts.length >= 2) {
+      ganttCalendarMonth = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+      renderGantt();
     }
+  });
+  document.querySelector('#gantt-cal-toggle')?.addEventListener('click', () => {
+    ganttCalendarCollapsed = !ganttCalendarCollapsed;
+    renderGantt();
+  });
+
+  // Clic y Drag & Drop en el Calendario Superior
+  document.querySelectorAll('.gantt-cal-bar').forEach(bar => {
+    bar.addEventListener('click', () => {
+      if (bar.dataset.dragging === '1') return;
+      openGanttQuickEdit(bar.dataset.id);
+    });
+    bar.addEventListener('dragstart', event => {
+      bar.dataset.dragging = '1';
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('id', bar.dataset.id);
+      event.dataTransfer.setData('start', bar.dataset.start);
+      event.dataTransfer.setData('due', bar.dataset.due);
+    });
+    bar.addEventListener('dragend', () => {
+      setTimeout(() => { bar.dataset.dragging = '0'; }, 0);
+    });
+  });
+
+  document.querySelectorAll('.gantt-cal-day').forEach(day => {
+    day.addEventListener('click', e => {
+      if (e.target.closest('.gantt-cal-bar')) return;
+      const targetDate = day.dataset.date;
+      if (targetDate) scrollToGanttDate(targetDate);
+    });
+    day.addEventListener('dragover', event => {
+      event.preventDefault();
+      day.classList.add('drop-target');
+    });
+    day.addEventListener('dragleave', () => day.classList.remove('drop-target'));
+    day.addEventListener('drop', async event => {
+      event.preventDefault();
+      day.classList.remove('drop-target');
+      const id = event.dataTransfer.getData('id');
+      const originalStart = event.dataTransfer.getData('start');
+      const originalDue = event.dataTransfer.getData('due');
+      if (!id || !originalStart) return;
+      const targetDate = day.dataset.date;
+      const deltaDays = Math.round((new Date(`${targetDate}T00:00:00`) - new Date(`${originalStart}T00:00:00`)) / 86400000);
+      if (!deltaDays) return;
+      const newStart = addDays(originalStart, deltaDays);
+      const newDue = originalDue ? addDays(originalDue, deltaDays) : newStart;
+      try {
+        const task = await api(`/tasks/${id}`);
+        await api(`/tasks/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: task.title,
+            description: task.description || '',
+            assigned_to: task.assigned_to || '',
+            priority: task.priority,
+            status: task.status,
+            start_date: newStart,
+            due_date: newDue
+          })
+        });
+        notify('Fechas actualizadas');
+      } catch (error) { notify(error.message); }
+      renderGantt();
+    });
+  });
+
+  document.querySelectorAll('.gantt-cal-more').forEach(more => {
+    more.addEventListener('click', () => notify('Hay más tareas esta semana de las que caben visualmente. Filtra por integrante o estado.'));
+  });
+
+  // Botón Hoy de Gantt Timeline
+  document.querySelector('#gtc-today-btn')?.addEventListener('click', () => {
+    scrollToGanttDate(new Date());
   });
 }
 
@@ -3357,6 +3662,8 @@ async function openGanttQuickEdit(id) {
   // Posicionamiento dinámico
   const anchor = document.querySelector(`.gtc-bar[data-id="${id}"]`) ||
                  document.querySelector(`.gtc-row-table[data-id="${id}"]`) ||
+                 document.querySelector(`.gtc-milestone-diamond[data-id="${id}"]`) ||
+                 document.querySelector(`.gantt-cal-bar[data-id="${id}"]`) ||
                  document.body;
   const rect = anchor.getBoundingClientRect();
   popover.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 380))}px`;

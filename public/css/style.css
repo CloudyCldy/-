@@ -3009,7 +3009,8 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .gantt-cal-grid{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius-inputs);overflow:hidden}
 .gantt-cal-week{position:relative}
 .gantt-cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line)}
-.gantt-cal-day{background:var(--color-paper-white);min-height:calc(30px + (var(--lanes,1) + 1) * 22px);padding:6px;transition:background-color .15s var(--ease)}
+.gantt-cal-day{background:var(--color-paper-white);min-height:calc(30px + (var(--lanes,1) + 1) * 22px);padding:6px;transition:background-color .15s var(--ease);cursor:pointer}
+.gantt-cal-day:hover{background:color-mix(in srgb,var(--color-blush-peach) 14%,var(--color-paper-white))}
 .gantt-cal-day.is-out{background:var(--color-mist-gray);opacity:.6}
 .gantt-cal-day.is-today .gantt-cal-daynum{background:var(--color-blush-peach);color:var(--color-sienna-brown);border-radius:50%}
 .gantt-cal-day.drop-target{background:color-mix(in srgb,var(--color-blush-peach) 24%,var(--color-paper-white))}
@@ -3072,10 +3073,13 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .gtc-timeline{position:relative}
 .gtc-months{display:flex;height:29px;border-bottom:1px solid var(--line);box-sizing:border-box}
 .gtc-month{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;text-transform:capitalize;color:var(--color-slate-gray);border-right:1px solid var(--line);white-space:nowrap;overflow:hidden;flex-shrink:0;box-sizing:border-box}
-.gtc-days{display:flex;height:28px;border-bottom:1px solid var(--line);box-sizing:border-box}
-.gtc-day{display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--color-ash-gray);border-right:1px solid color-mix(in srgb,var(--line) 55%,transparent);flex-shrink:0;box-sizing:border-box}
+.gtc-days{display:flex;height:38px;border-bottom:1px solid var(--line);box-sizing:border-box}
+.gtc-day{display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;color:var(--color-ash-gray);border-right:1px solid color-mix(in srgb,var(--line) 55%,transparent);flex-shrink:0;box-sizing:border-box;padding:2px 0;line-height:1.15;user-select:none}
+.gtc-day-dow{font-size:9px;font-weight:600;text-transform:uppercase;opacity:.75}
+.gtc-day-num{font-size:11px;font-weight:600}
 .gtc-day.is-weekend{background:var(--color-mist-gray)}
-.gtc-day.is-today{background:var(--color-blush-peach);color:var(--color-sienna-brown);font-weight:500}
+.gtc-day.is-today{background:var(--color-blush-peach);color:var(--color-sienna-brown);font-weight:600}
+.gtc-day.is-today .gtc-day-num{background:var(--color-sienna-brown);color:#fff;border-radius:10px;padding:0 4px}
 .gtc-rows-area{position:relative}
 .gtc-today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--color-sienna-brown);z-index:1;pointer-events:none;opacity:.6}
 .gtc-row{position:relative;height:46px;border-bottom:1px solid var(--line);box-sizing:border-box}
@@ -3110,10 +3114,11 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .gantt-gp-toggle.is-baseline-active{background:#0284c7;color:#fff;border-color:#0369a1}
 .gtc-critical-badge{background:#e5484d;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:bold;margin-left:4px}
 .gtc-labels{flex:0 0 350px;border-right:1px solid var(--line);background:var(--color-fog-white);overflow-x:auto}
-.gtc-labels-head{height:57px;display:flex;align-items:center;padding:0 var(--sp-2);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--color-slate-gray);border-bottom:1px solid var(--line);box-sizing:border-box}
+.gtc-labels-head{height:67px;display:flex;align-items:center;padding:0 var(--sp-2);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--color-slate-gray);border-bottom:1px solid var(--line);box-sizing:border-box}
 .gtc-col-wbs{width:42px;flex-shrink:0;text-align:center;color:var(--color-slate-gray);font-family:monospace}
 .gtc-col-title{flex:1;min-width:130px;padding-left:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center}
-.gtc-col-dates{width:65px;flex-shrink:0;font-size:10px;text-align:center;color:var(--color-slate-gray)}
+.gtc-col-dates{width:68px;flex-shrink:0;font-size:10.5px;text-align:center;color:var(--color-slate-gray)}
+.gtc-col-dates.is-overdue{color:#e5484d;font-weight:600}
 .gtc-col-dur{width:36px;flex-shrink:0;font-size:10px;text-align:center;color:var(--color-slate-gray)}
 .gtc-col-prog{width:36px;flex-shrink:0;font-size:10px;text-align:center;font-weight:600}
 .gtc-row-table{height:46px;display:flex;align-items:center;padding:0 var(--sp-2);border-bottom:1px solid var(--line);box-sizing:border-box;font-size:12px;cursor:pointer}
@@ -3122,6 +3127,8 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .gtc-tree-indent{display:inline-block;width:12px}
 .gtc-tree-btn{background:none;border:none;cursor:pointer;font-size:10px;padding:0 3px;margin-right:2px;color:var(--color-slate-gray);line-height:1}
 .gtc-milestone-icon{color:#e5484d;margin-right:4px;font-size:12px}
+.gtc-bar-dates{font-size:10px;opacity:.85;font-weight:normal;margin:0 3px}
+.gtc-date-tag{display:inline-block;font-size:9.5px;color:var(--color-slate-gray);background:var(--color-mist-gray);padding:1px 5px;border-radius:4px;border:1px solid var(--line);font-weight:500;margin-left:4px;vertical-align:middle}
 
 /* Barras y Elementos Visuales estilo GanttProject */
 .gtc-bar.is-critical{background:#e5484d!important;color:#fff!important;box-shadow:0 0 0 1px #b91c1c, 0 2px 6px rgba(229,72,77,0.3)!important}
