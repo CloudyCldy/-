@@ -2777,7 +2777,7 @@ async function gantt() {
   ` : '';
 
   return `
-    ${heading('GanttProject Suite', 'Gestión avanzada de proyectos estilo GanttProject: estructura WBS, dependencias, ruta crítica CPM, diagrama de recursos y líneas base.')}
+    ${heading('Gantt Haitani Suite', 'Gestión avanzada de proyectos estilo Gantt Haitani: estructura WBS, dependencias, ruta crítica CPM, diagrama de recursos y líneas base.')}
     ${renderGanttCalendarHtml(scheduledTasks, ganttCalendarMonth, today)}
     ${ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies, criticalTaskIds, users, activeProjectName, projectOptions, assigneeOptions, criticalCount)}
     ${unscheduledHtml}
@@ -3332,7 +3332,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
             <div class="gp-menu-entry" onclick="document.querySelector('#gtc-save-baseline')?.click()"><span>📐 Fijar Línea Base</span></div>
             <div class="gp-menu-entry" onclick="document.querySelector('#gtc-auto-schedule')?.click()"><span>🔄 Auto-Alinear Cronograma</span></div>
             <div class="gp-menu-divider"></div>
-            <a class="gp-menu-entry" href="/api/gantt/export/gan${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}" download><span>📥 Exportar .GAN (GanttProject)</span></a>
+            <a class="gp-menu-entry" href="/api/gantt/export/gan${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}" download><span>📥 Exportar .GAN (Gantt Haitani)</span></a>
             <a class="gp-menu-entry" href="/api/gantt/export/csv${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}" download><span>📊 Exportar a CSV</span></a>
             <div class="gp-menu-entry" onclick="openGanttImportModal()"><span>📤 Importar .GAN...</span></div>
           </div>
@@ -3379,7 +3379,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
         <div class="gp-menu-item" tabindex="0">
           Ayuda
           <div class="gp-menu-dropdown">
-            <div class="gp-menu-entry" onclick="notify('GanttProject Suite en Haitani: compatible con archivos .gan, WBS, CPM y Líneas Base.')"><span>Acerca de GanttProject</span></div>
+            <div class="gp-menu-entry" onclick="notify('Gantt Haitani: compatible con archivos .gan, WBS, CPM y Líneas Base.')"><span>Acerca de Gantt Haitani</span></div>
           </div>
         </div>
       </div>
@@ -3388,7 +3388,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
       <div class="gp-toolbar-main">
         <div class="gp-toolbar-tools">
           <button type="button" class="gp-tool-btn" id="gp-tool-open" title="Importar proyecto (.gan / .csv)">📁</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-save" title="Exportar a GanttProject (.gan)">💾</button>
+          <button type="button" class="gp-tool-btn" id="gp-tool-save" title="Exportar a Gantt Haitani (.gan)">💾</button>
           <button type="button" class="gp-tool-btn" id="gp-tool-baseline" title="Fijar Línea Base actual">⏱️</button>
           <button type="button" class="gp-tool-btn ${ganttActiveTab === 'resources' ? 'active' : ''}" id="gp-tool-resources" title="Ver Diagrama de Recursos">👤</button>
           <button type="button" class="gp-tool-btn" id="gp-tool-delete" title="Eliminar tarea seleccionada">❌</button>
@@ -4173,11 +4173,11 @@ function openGanttImportModal() {
   overlay.innerHTML = `
     <div class="file-viewer-panel" style="max-width:540px;height:auto;padding:var(--sp-4)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
-        <h2 style="margin:0">📤 Importar Archivo GanttProject</h2>
+        <h2 style="margin:0">📤 Importar Archivo Gantt Haitani</h2>
         <button type="button" class="btn secondary" id="gantt-import-close" style="width:32px;height:32px;padding:0">✕</button>
       </div>
       <p class="muted" style="margin-bottom:var(--sp-3)">
-        Selecciona un archivo <strong>.gan</strong> exportado desde <strong>GanttProject</strong> (o archivo .csv). Se importarán las tareas, duraciones, dependencias e hitos automáticamente.
+        Selecciona un archivo <strong>.gan</strong> exportado desde <strong>Gantt Haitani</strong> (o archivo .csv). Se importarán las tareas, duraciones, dependencias e hitos automáticamente.
       </p>
       <form id="gantt-import-form" style="display:grid;gap:var(--sp-3)">
         <label>Proyecto de Destino
@@ -4295,7 +4295,7 @@ async function openGanttQuickEdit(id) {
 
     <div style="margin-top:var(--sp-3);padding-top:var(--sp-2);border-top:1px solid var(--line)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <strong style="font-size:11px;text-transform:uppercase;color:var(--color-slate-gray)">Predecesoras (GanttProject)</strong>
+        <strong style="font-size:11px;text-transform:uppercase;color:var(--color-slate-gray)">Predecesoras (Gantt Haitani)</strong>
       </div>
       <div id="gp-dep-list" style="margin-bottom:var(--sp-2)">
         ${depsListHtml}
