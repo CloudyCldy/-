@@ -124,11 +124,19 @@ async function ensureRuntimeSchema() {
       );
       CREATE INDEX IF NOT EXISTS backlog_items_org_project_idx ON backlog_items (organization_id, project_id, status);
 
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_project_id TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_token TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_api_url TEXT DEFAULT 'https://sanzu.onrender.com';
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_connected BOOLEAN DEFAULT false;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_last_tested_at TIMESTAMPTZ;
+
       ALTER TABLE projects ADD COLUMN IF NOT EXISTS budget NUMERIC(14, 2) DEFAULT 0;
       ALTER TABLE projects ADD COLUMN IF NOT EXISTS scope TEXT;
       ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_synced_at TIMESTAMPTZ;
       ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_sync_status TEXT DEFAULT 'pending';
       ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_sync_error TEXT;
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
 
       ALTER TABLE files ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'general';
       ALTER TABLE files ADD COLUMN IF NOT EXISTS phase TEXT DEFAULT 'execution';
@@ -267,6 +275,7 @@ app.use('/api/absences', require('./server/routes/absenceRoutes'));
 app.use('/api/announcements', require('./server/routes/announcementRoutes'));
 app.use('/api/security/ip-blocks', require('./server/routes/ipBlockRoutes'));
 app.use('/api/assistant', require('./server/routes/assistantRoutes'));
+app.use('/api/sanzu', require('./server/routes/sanzuRoutes'));
 app.use('/api/knowledge', require('./server/routes/knowledgeRoutes'));
 app.use('/api/risks', require('./server/routes/riskRoutes'));
 app.use('/api/events', require('./server/routes/eventRoutes'));

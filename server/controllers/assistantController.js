@@ -53,8 +53,17 @@ async function chat(req, res) {
   try {
     const project = context.project;
     if (!project) throw new Error('La organización no tiene un proyecto activo.');
-    await sanzuService.syncProject(project);
-    const result = await sanzuService.askSanzu(project, message, req.body.conversationId, { methodology_id: project.methodology_id, requirements: project.requirements });
+    const creds = await sanzuService.resolveOrganizationCredentials(database, req.session.user.organization_id);
+    if (!creds.apiKey) {
+      return res.json({
+        answer: localAnswer(message, context),
+        source: 'local',
+        warning: 'La Sanzu API Key no está configurada. El administrador debe añadirla en Configuración > Sanzu IA para conectar con Sanzu.',
+        context
+      });
+    }
+    await sanzuService.syncProject(project, creds);
+    const result = await sanzuService.askSanzu(project, message, req.body.conversationId, { methodology_id: project.methodology_id, requirements: project.requirements }, creds);
     const answer = result.response || result.answer || result.reply || result.message;
     if (!answer) throw new Error('La respuesta de Sanzu no tiene un formato compatible.');
     return res.json({ answer, source: 'sanzu', context });

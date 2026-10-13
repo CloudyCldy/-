@@ -359,6 +359,7 @@ function sidebar(){
       links: [
         ['/admin/billing','Facturación','creditCard'],
         ['/admin/settings/github','Configuración','settings'],
+        ['/admin/settings/sanzu','Sanzu IA (API Key)','sparkles'],
         ['/admin/settings/security','Seguridad','shield'],
         ['/admin/profile','Perfil','user'],
       ]
@@ -454,9 +455,12 @@ function projectEditor(project){
             <div class="muted sub">Estado: <span class="badge ${syncClass}">${syncLabel}</span> · Última: ${syncTime}</div>
             ${project?.sanzu_sync_error ? `<div class="sub" style="color:var(--pink);margin-top:2px">${esc(project.sanzu_sync_error)}</div>` : ''}
           </div>
-          <button type="button" class="btn secondary" id="dash-sync-sanzu-btn" data-project-id="${project.id}">
-            ${icon('external')} Sincronizar con Sanzu
-          </button>
+          <div style="display:flex;gap:var(--sp-2);align-items:center">
+            <a class="btn secondary mini" href="#/admin/settings/sanzu" title="Añadir o cambiar API Key">${icon('settings')} Configurar API Key</a>
+            <button type="button" class="btn secondary" id="dash-sync-sanzu-btn" data-project-id="${project.id}">
+              ${icon('external')} Sincronizar con Sanzu
+            </button>
+          </div>
         </div>
       ` : ''}
 
@@ -2684,8 +2688,143 @@ async function playSoundCloud(frame,fallbackUrl){await loadSoundCloudWidget();if
 async function renderRelax(){layout(await relax());const form=document.querySelector('#music-search');document.querySelectorAll('.source-pill').forEach(pill=>pill.onclick=()=>{relaxSource=pill.dataset.source;form.elements.source.value=relaxSource;document.querySelectorAll('.source-pill').forEach(p=>p.classList.toggle('active',p===pill))});form.onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.target));const results=document.querySelector('#music-results');results.className='music-results empty';results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('music')}</div><p>Buscando...</p></div>`;try{const data=await api(`/music/search?q=${encodeURIComponent(values.q)}&source=${encodeURIComponent(values.source)}`);if(!data.configured){results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('block')}</div><p>MusicAPI no está configurada en el servidor.</p></div>`;return}if(!data.tracks.length){results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('search')}</div><p>No encontramos pistas.</p></div>`;return}results.className='music-results';results.innerHTML=data.tracks.map((track,index)=>{const title=track.title||track.name||'Pista sin título';const artist=track.artist?.name||track.artist||track.artistNames?.join(', ')||track.artists?.[0]?.name||'Artista desconocido';const url=musicUrl(track);const img=trackImage(track);return `<article class="music-track" data-index="${index}"><div class="music-track-cover" style="${img?`background-image:url('${esc(img)}')`:''}">${img?'':icon('music')}</div><div class="music-track-info"><strong>${esc(title)}</strong><small class="muted">${esc(artist)}</small><span class="badge music-track-source">${esc(sourceLabel(values.source))}</span></div><button class="btn play-track" data-index="${index}" ${url?'':'disabled'}>${icon('play')}${url?'Reproducir':'Sin preview'}</button></article>`}).join('');results.querySelectorAll('.play-track').forEach(button=>button.onclick=async()=>{document.querySelectorAll('.music-track').forEach(node=>node.classList.toggle('is-playing',node.dataset.index===button.dataset.index));const track=data.tracks[Number(button.dataset.index)];const url=musicUrl(track);const embed=musicEmbed(url);const player=document.querySelector('#music-player');const audio=document.querySelector('#music-audio');const title=track.title||track.name||'Pista';const artist=track.artist?.name||track.artist||track.artistNames?.join(', ')||'';const img=trackImage(track);document.querySelector('#music-title').textContent=title;document.querySelector('#music-artist').textContent=artist;document.querySelector('#music-link').href=url||'#';const art=document.querySelector('#music-art');if(img){art.style.backgroundImage=`url('${img}')`;art.textContent=''}else{art.style.backgroundImage='';art.innerHTML=icon('music')}player.classList.add('is-playing');if(embed){audio.hidden=true;let frame=document.querySelector('#music-embed');if(!frame){frame=document.createElement('iframe');frame.id='music-embed';frame.className='music-embed';frame.allow='autoplay; encrypted-media; clipboard-write';frame.referrerPolicy='strict-origin-when-cross-origin';audio.after(frame)}frame.src=embed;frame.hidden=false;if(embed.includes('soundcloud.com/player'))playSoundCloud(frame,url)}else if(track.previewUrl||track.preview_url||track.audio){document.querySelector('#music-embed')?.remove();audio.hidden=false;audio.src=track.previewUrl||track.preview_url||track.audio;audio.play().catch(()=>notify('Pulsa reproducir para iniciar el audio.'))}else{audio.hidden=true;document.querySelector('#music-embed')?.remove();player.classList.remove('is-playing');notify('Este servicio no entrega preview de audio. Usa el reproductor embebido o abre el servicio.')}player.hidden=false})}catch(error){results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('block')}</div><p>${esc(error.message)}</p></div>`}}}
 async function assistant(){return `${heading('Asistente IA','Controla el proyecto con preguntas sobre tareas, responsables y fechas.')}<section class="assistant-shell"><div class="assistant-intro"><div><span class="assistant-kicker">Sanzu / Sakura Coffee</span><h2>Tu copiloto de operaciones</h2><p>Consulta el estado del proyecto y recibe respuestas basadas en la información actual del panel.</p></div><span class="assistant-status"><i></i>Conectado al panel</span></div><div class="assistant-suggestions"><button type="button" class="btn secondary assistant-suggestion">¿Qué tareas están vencidas?</button><button type="button" class="btn secondary assistant-suggestion">¿Cuál es el progreso del proyecto?</button><button type="button" class="btn secondary assistant-suggestion">Dame un resumen para la reunión</button></div><div class="assistant-messages" id="assistant-messages"><article class="assistant-message assistant-bot"><span class="assistant-avatar">S</span><div><strong>Sanzu</strong><p>Hola, ${esc(state.user.name)}. Puedo ayudarte a detectar riesgos y preparar el siguiente paso del proyecto.</p><small>Listo para consultar Sakura Coffee</small></div></article></div><form class="assistant-form" id="assistant-form"><textarea class="textarea" name="message" rows="2" placeholder="Pregunta por el progreso, tareas vencidas o próximos pasos..." required></textarea><button type="submit" class="btn assistant-send" aria-label="Enviar pregunta">${icon('send')} Enviar</button></form></section>`}
 async function renderAssistant(){layout(await assistant());const messages=document.querySelector('#assistant-messages');const form=document.querySelector('#assistant-form');const sendBtn=form?.querySelector('.assistant-send');const textarea=form?.querySelector('textarea[name="message"]');const suggestionButtons=document.querySelectorAll('.assistant-suggestion');let isAsking=false;const setBusy=busy=>{isAsking=busy;if(sendBtn)sendBtn.disabled=busy;if(textarea)textarea.disabled=busy;suggestionButtons.forEach(btn=>btn.disabled=busy)};const ask=async rawMessage=>{const message=String(rawMessage||'').trim();if(!message||isAsking)return;setBusy(true);messages?.insertAdjacentHTML('beforeend',`<article class="assistant-message assistant-user"><span class="assistant-avatar">${esc(state.user?.name?.[0]||'U')}</span><div><strong>Tú</strong><p>${esc(message)}</p></div></article>`);if(form)form.reset();messages?.insertAdjacentHTML('beforeend','<div class="assistant-loading" id="assistant-loading">Sanzu está analizando el proyecto...</div>');if(messages)messages.scrollTop=messages.scrollHeight;try{const result=await api('/assistant/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message})});document.querySelector('#assistant-loading')?.remove();const sourceLabel=result.source==='sanzu'?'IA remota':'Modo local';const warningText=result.warning?esc(result.warning):'Contexto actualizado desde el proyecto';messages?.insertAdjacentHTML('beforeend',`<article class="assistant-message assistant-bot"><span class="assistant-avatar">S</span><div><strong>Sanzu <small class="assistant-source">${sourceLabel}</small></strong><p>${esc(result.answer)}</p><small>${warningText}</small></div></article>`);if(messages)messages.scrollTop=messages.scrollHeight}catch(error){document.querySelector('#assistant-loading')?.remove();const errorMsg=error.message||'No fue posible obtener respuesta del asistente.';messages?.insertAdjacentHTML('beforeend',`<article class="assistant-message assistant-bot"><span class="assistant-avatar" style="background:#ef4444;color:#fff">!</span><div><strong style="color:#ef4444">Sanzu</strong><p style="border-color:#ef4444;color:#ef4444">${esc(errorMsg)}</p><small>Error al consultar. Puedes volver a intentarlo.</small></div></article>`);if(messages)messages.scrollTop=messages.scrollHeight;notify(errorMsg)}finally{setBusy(false);if(textarea)textarea.focus()}};if(form){form.onsubmit=event=>{event.preventDefault();const msg=textarea?textarea.value:'';if(msg.trim())ask(msg)}};if(textarea){textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(form){form.requestSubmit?form.requestSubmit():form.dispatchEvent(new Event('submit',{cancelable:true}))}}})};suggestionButtons.forEach(button=>{button.onclick=e=>{e.preventDefault();const q=button.textContent.trim();if(q)ask(q)}})}
-async function settings(){return `${heading('Configuración','El token solo vive en memoria del servidor y nunca se devuelve al navegador.')}<section class="card"><form id="github-settings" class="form-grid"><label>URL del repositorio<input class="input" name="url" placeholder="https://github.com/owner/repository" required></label><label>Owner<input class="input" name="owner" required></label><label>Repository<input class="input" name="repo" placeholder="CoffeeKorea" required></label><label>Token de GitHub<input class="input" name="token" type="password" required></label><div class="actions full"><button class="btn">${icon('check')}Guardar y probar conexión</button></div></form></section>`}
-async function renderSettings(){layout(await settings());const projects=await api('/projects');const form=document.querySelector('#github-settings');form.insertAdjacentHTML('afterbegin',`<label>Proyecto<select class="select" name="project_id" required>${projects.map(project=>`<option value="${project.id}" ${String(project.id)===localStorage.getItem('haitani-github-project')?'selected':''}>${esc(project.name)}</option>`).join('')}</select></label>`);form.onsubmit=async e=>{e.preventDefault();try{const values=Object.fromEntries(new FormData(e.target));localStorage.setItem('haitani-github-project',values.project_id);await api('/github/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});await api('/github/test');notify('Conexión con GitHub establecida correctamente.')}catch(error){notify(error.message)}}}
+async function settings(){
+  return `
+    ${heading('Configuración & Integraciones', 'Configura las conexiones externas con Sanzu IA y repositorios de GitHub.')}
+    
+    <section class="card mb-4" id="sanzu-config-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3);flex-wrap:wrap;gap:var(--sp-2)">
+        <div style="display:flex;align-items:center;gap:var(--sp-2)">
+          ${icon('sparkles')}
+          <div>
+            <h2 style="margin:0">Conexión con Sanzu IA (API Key)</h2>
+            <p class="muted sub" style="margin:0">El administrador añade manualmente la Sanzu API Key para conectar con Sanzu y habilitar la sincronización y el asistente IA.</p>
+          </div>
+        </div>
+        <span class="badge yellow" id="sanzu-status-badge">Consultando estado...</span>
+      </div>
+      <form id="sanzu-settings-form" class="form-grid">
+        <label class="full">
+          Sanzu API Key (Añadir manualmente) *
+          <input class="input" type="password" name="sanzu_api_key" id="sanzu-api-key-input" placeholder="Introduce tu clave API de Sanzu (ej: snz_live_...)" autocomplete="off">
+          <small class="muted" id="sanzu-key-hint">Cargando...</small>
+        </label>
+        <label>
+          URL del Servicio Sanzu
+          <input class="input" name="sanzu_api_url" id="sanzu-api-url-input" value="https://sanzu.onrender.com" required>
+        </label>
+        <label>
+          ID de Proyecto Sanzu (Opcional)
+          <input class="input" name="sanzu_project_id" id="sanzu-project-id-input" placeholder="Referencia externa o ID de proyecto">
+        </label>
+        <div class="actions full" style="display:flex;gap:var(--sp-2);flex-wrap:wrap">
+          <button type="submit" class="btn" id="sanzu-save-btn">${icon('check')} Guardar y Conectar Sanzu</button>
+          <button type="button" class="btn secondary" id="sanzu-test-btn">${icon('activity')} Probar Conexión</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div style="display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-3)">
+        ${icon('github')}
+        <div>
+          <h2 style="margin:0">Configuración de GitHub</h2>
+          <p class="muted sub" style="margin:0">El token solo vive en memoria del servidor y nunca se devuelve al navegador.</p>
+        </div>
+      </div>
+      <form id="github-settings" class="form-grid">
+        <label>URL del repositorio<input class="input" name="url" placeholder="https://github.com/owner/repository" required></label>
+        <label>Owner<input class="input" name="owner" required></label>
+        <label>Repository<input class="input" name="repo" placeholder="CoffeeKorea" required></label>
+        <label>Token de GitHub<input class="input" name="token" type="password" required></label>
+        <div class="actions full"><button class="btn">${icon('check')} Guardar y probar conexión</button></div>
+      </form>
+    </section>
+  `;
+}
+
+async function renderSettings(){
+  layout(await settings());
+
+  try {
+    const sanzuStatus = await api('/sanzu/status');
+    const keyHint = document.querySelector('#sanzu-key-hint');
+    const statusBadge = document.querySelector('#sanzu-status-badge');
+    const urlInput = document.querySelector('#sanzu-api-url-input');
+    const projIdInput = document.querySelector('#sanzu-project-id-input');
+    if (urlInput && sanzuStatus.sanzu_api_url) urlInput.value = sanzuStatus.sanzu_api_url;
+    if (projIdInput && sanzuStatus.sanzu_project_id) projIdInput.value = sanzuStatus.sanzu_project_id;
+    if (sanzuStatus.configured) {
+      if (keyHint) keyHint.innerHTML = `Clave configurada: <code>${esc(sanzuStatus.masked_key)}</code> (ingresa una nueva solo para reemplazarla)`;
+      if (statusBadge) {
+        statusBadge.className = sanzuStatus.connected ? 'badge green' : 'badge yellow';
+        statusBadge.textContent = sanzuStatus.connected ? 'Conectado a Sanzu' : 'Clave guardada (no verificada)';
+      }
+    } else {
+      if (keyHint) keyHint.textContent = 'Sin clave configurada. Añade manualmente tu Sanzu API Key arriba para conectarte.';
+      if (statusBadge) {
+        statusBadge.className = 'badge pink';
+        statusBadge.textContent = 'API Key no añadida';
+      }
+    }
+  } catch (err) {
+    console.warn('Error al consultar estado de Sanzu:', err.message);
+  }
+
+  document.querySelector('#sanzu-settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.querySelector('#sanzu-save-btn');
+    btn.disabled = true;
+    btn.innerHTML = `${icon('progress')} Guardando y conectando...`;
+    const values = Object.fromEntries(new FormData(e.target));
+    try {
+      const res = await api('/sanzu/configure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values)
+      });
+      notify(res.message);
+      renderSettings();
+    } catch (err) {
+      notify('Error al guardar Sanzu API Key: ' + err.message);
+      btn.disabled = false;
+      btn.innerHTML = `${icon('check')} Guardar y Conectar Sanzu`;
+    }
+  });
+
+  document.querySelector('#sanzu-test-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.innerHTML = `${icon('progress')} Probando...`;
+    try {
+      const res = await api('/sanzu/test', { method: 'POST' });
+      notify(res.message || 'Conexión con Sanzu exitosa');
+      renderSettings();
+    } catch (err) {
+      notify('Error al probar conexión con Sanzu: ' + err.message);
+      btn.disabled = false;
+      btn.innerHTML = `${icon('activity')} Probar Conexión`;
+    }
+  });
+
+  const projects = await api('/projects').catch(() => []);
+  const form = document.querySelector('#github-settings');
+  if (form && projects.length) {
+    form.insertAdjacentHTML('afterbegin', `<label>Proyecto<select class="select" name="project_id" required>${projects.map(project => `<option value="${project.id}" ${String(project.id) === localStorage.getItem('haitani-github-project') ? 'selected' : ''}>${esc(project.name)}</option>`).join('')}</select></label>`);
+  }
+  form?.addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      const values = Object.fromEntries(new FormData(e.target));
+      if (values.project_id) localStorage.setItem('haitani-github-project', values.project_id);
+      await api('/github/configure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
+      await api('/github/test');
+      notify('Conexión con GitHub establecida correctamente.');
+    } catch (error) {
+      notify(error.message);
+    }
+  });
+}
 async function billing(){const [status,plans]=await Promise.all([api('/billing/status'),api('/plans')]);const money=plan=>plan.price_cents?`${(plan.price_cents/100).toLocaleString('es-MX',{style:'currency',currency:plan.currency})} / mes`:'Gratis';return `${heading('Facturación','Administra el plan y el estado de la suscripción.')}<section class="card"><div class="grid stats"><div><div class="muted">Plan actual</div><h2>${esc(status.plan_name)}</h2></div><div><div class="muted">Estado</div><h2>${esc(status.subscription_status)}</h2></div><div><div class="muted">Próximo periodo</div><h2>${status.current_period_end?new Date(status.current_period_end).toLocaleDateString('es-MX'):'No definido'}</h2></div></div></section><section class="grid two mt-4">${plans.map(plan=>`<article class="card plan-card${plan.key===status.plan_key?' current':''}"><div class="eyebrow">${esc(plan.key)}</div><h2>${esc(plan.name)}</h2><p class="num">${money(plan)}</p><p class="muted">${plan.max_users??'Ilimitados'} usuarios · ${plan.max_projects??'Ilimitados'} proyectos · ${plan.max_storage_mb} MB</p><button class="btn billing-plan" data-plan="${esc(plan.key)}">${plan.key===status.plan_key?'Plan actual':'Elegir plan'}</button></article>`).join('')}</section>`}
 async function renderBilling(){layout(await billing());document.querySelectorAll('.billing-plan').forEach(button=>button.onclick=async()=>{const planKey=String(button.dataset.plan||'').trim().toLowerCase();if(!planKey)return notify('El plan seleccionado no es válido.');button.disabled=true;try{const result=await api('/billing/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_key:planKey})});if(result.redirect)window.location.href=result.redirect;else{notify('Plan actualizado');renderBilling()}}catch(error){button.disabled=false;notify(error.message)}})}
 async function enhanceConversation(){const conversation=document.querySelector('.conversation');if(!conversation||conversation.dataset.enhanced)return;conversation.dataset.enhanced='true';const selectedId=new URLSearchParams(location.hash.split('?')[1]||'').get('user');if(!selectedId)return;const key=`${Math.min(state.user.id,Number(selectedId))}-${Math.max(state.user.id,Number(selectedId))}`;const tools=conversation.querySelector('.conversation-tools');tools?.insertAdjacentHTML('beforeend',`<div class="icon-group conversation-actions"><button class="icon-btn" id="archive-conversation" title="Archivar" aria-label="Archivar">${icon('archive')}</button><button class="icon-btn" id="schedule-call" title="Programar llamada" aria-label="Programar llamada">${icon('clock')}</button><button class="icon-btn danger" id="delete-conversation" title="Borrar conversación" aria-label="Borrar conversación">${icon('trash')}</button></div>`);const messages=await api(`/messages?user_id=${selectedId}`).catch(()=>[]);document.querySelectorAll('.message.mine small').forEach((node,index)=>{const message=messages.filter(item=>item.sender_id===state.user.id)[index];if(message)node.textContent=`${node.textContent} · ${message.delivery_status==='leido'?'✓✓ leído':message.delivery_status==='entregado'?'✓✓ entregado':'✓ enviado'}`});document.querySelector('#archive-conversation').onclick=()=>{localStorage.setItem(`haitani-archived-${key}`,'1');notify('Conversación archivada')};document.querySelector('#delete-conversation').onclick=async()=>{if(confirm('¿Borrar toda esta conversación?')){await api(`/messages/conversation/${selectedId}`,{method:'DELETE'});renderMessages()}};document.querySelector('#schedule-call').onclick=async()=>{const date=prompt('Fecha y hora de la llamada (YYYY-MM-DDTHH:mm):');if(!date)return;try{await api('/calls',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({receiver_id:selectedId,call_type:'audio',scheduled_at:date})});notify('Llamada programada');}catch(error){notify(error.message)}}}
@@ -4486,6 +4625,9 @@ async function renderOverview() {
         <select class="select" id="overview-project-select" style="min-width:200px">
           ${projects.map(proj => `<option value="${proj.id}" ${proj.id === selectedProjectId ? 'selected' : ''}>${esc(proj.name)}</option>`).join('')}
         </select>
+        <a class="btn secondary" href="#/${state.user.role}/settings/sanzu" title="Añadir o cambiar Sanzu API Key">
+          ${icon('settings')} API Key
+        </a>
         <button class="btn secondary" id="overview-sync-btn" data-project-id="${p.id}">
           ${icon('external')} Sincronizar Sanzu
         </button>

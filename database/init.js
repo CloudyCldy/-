@@ -35,6 +35,11 @@ async function init() {
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ;
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_project_id TEXT;
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_token TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_api_url TEXT DEFAULT 'https://sanzu.onrender.com';
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_connected BOOLEAN DEFAULT false;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_last_tested_at TIMESTAMPTZ;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
     ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_subscription_status_check;
     ALTER TABLE organizations ADD CONSTRAINT organizations_subscription_status_check
       CHECK (subscription_status IN ('active', 'pending', 'past_due', 'canceled'));
