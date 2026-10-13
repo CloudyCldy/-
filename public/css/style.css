@@ -3148,6 +3148,592 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 .gtc-dep-marker{fill:#94a3b8}
 .gtc-dep-marker.is-critical{fill:#e5484d}
 
+/* =========================================================
+   GANTTPROJECT DESKTOP UI (bardsoftware/ganttproject)
+   ========================================================= */
+.gp-window {
+  background: #f1f3f6;
+  border: 1px solid #c5cbd3;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.09);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #1e293b;
+  margin-top: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 1. Title bar */
+.gp-titlebar {
+  background: linear-gradient(180deg, #f2a4b8 0%, #e68ca4 100%);
+  color: #1e1e1e;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid #d47b94;
+  user-select: none;
+}
+.gp-titlebar-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gp-titlebar-icon {
+  font-size: 13px;
+}
+.gp-titlebar-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gp-win-btn {
+  width: 15px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  opacity: 0.75;
+  cursor: pointer;
+}
+.gp-win-btn:hover { opacity: 1; }
+
+/* 2. Menu bar */
+.gp-menubar {
+  background: #eef1f5;
+  border-bottom: 1px solid #d8dde4;
+  display: flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 11.5px;
+  color: #334155;
+  position: relative;
+  user-select: none;
+}
+.gp-menu-item {
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+}
+.gp-menu-item:hover, .gp-menu-item.active {
+  background: #dfe5ec;
+  color: #0f172a;
+}
+.gp-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  border-radius: 4px;
+  min-width: 210px;
+  z-index: 100;
+  display: none;
+  padding: 4px 0;
+}
+.gp-menu-item:hover .gp-menu-dropdown, .gp-menu-dropdown.show {
+  display: block;
+}
+.gp-menu-entry {
+  padding: 6px 12px;
+  font-size: 11.5px;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.gp-menu-entry:hover {
+  background: #e2e8f0;
+}
+.gp-menu-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 0;
+}
+
+/* 3. Primary icon toolbar */
+.gp-toolbar-main {
+  background: linear-gradient(180deg, #f6f8fa 0%, #e9ecf0 100%);
+  border-bottom: 1px solid #d4dae2;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.gp-toolbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.gp-tool-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-size: 14px;
+  color: #475569;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  min-width: 28px;
+  line-height: 1;
+  transition: all .1s ease;
+}
+.gp-tool-btn:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+.gp-tool-btn.active {
+  background: #cbd5e1;
+  border-color: #94a3b8;
+  color: #0284c7;
+}
+.gp-tool-sep {
+  width: 1px;
+  height: 18px;
+  background: #cbd5e1;
+  margin: 0 4px;
+}
+.gp-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.gp-search-input {
+  background: #ffffff;
+  border: 1px solid #c5cbd3;
+  border-radius: 3px;
+  padding: 4px 26px 4px 8px;
+  font-size: 12px;
+  width: 260px;
+  outline: none;
+  color: #1e293b;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+}
+.gp-search-input:focus {
+  border-color: #0284c7;
+}
+.gp-search-icon {
+  position: absolute;
+  right: 8px;
+  font-size: 11px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+/* 4. Tab Strip with Yellow & Blue Stripe */
+.gp-tabs-bar {
+  background: #e2e6eb;
+  padding: 4px 8px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+.gp-tab {
+  background: #d3d9e0;
+  border: 1px solid #b8c1cc;
+  border-bottom: none;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  z-index: 2;
+  transition: all .1s ease;
+}
+.gp-tab:hover {
+  background: #e7ecf2;
+}
+.gp-tab.active {
+  background: #ffffff;
+  border-color: #9aa5b4;
+  border-bottom: 1px solid #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  box-shadow: 0 -1px 3px rgba(0,0,0,0.04);
+}
+.gp-tab-icon {
+  font-size: 13px;
+}
+.gp-accent-lines {
+  height: 6px;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+}
+.gp-accent-yellow {
+  height: 3px;
+  background: #fab005;
+}
+.gp-accent-blue {
+  height: 3px;
+  background: #0284c7;
+}
+
+/* 5. Sub-toolbar split */
+.gp-subtoolbar {
+  background: #f1f3f6;
+  border-bottom: 1px solid #c5cbd3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  padding: 2px 0;
+  user-select: none;
+}
+.gp-subtoolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 4px;
+  width: 360px;
+  box-sizing: border-box;
+}
+.gp-subtoolbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  padding: 0 10px;
+}
+.gp-sub-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gp-sub-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.gp-sub-btn:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+.gp-sub-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 11.5px;
+}
+
+/* 6. Body layout (WBS Table + Splitter + Timeline) */
+.gp-body {
+  display: flex;
+  min-height: 480px;
+  background: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+.gp-left-panel {
+  width: 360px;
+  flex-shrink: 0;
+  border-right: 1px solid #d4dae2;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+}
+.gp-splitter {
+  width: 6px;
+  background: #e2e8f0;
+  border-left: 1px solid #cbd5e1;
+  border-right: 1px solid #cbd5e1;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  flex-shrink: 0;
+}
+.gp-splitter-handle {
+  width: 2px;
+  height: 24px;
+  background: #94a3b8;
+  border-radius: 2px;
+}
+.gp-right-panel {
+  flex: 1;
+  min-width: 0;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 7. Banner & Headers */
+.gp-banner {
+  height: 38px;
+  position: relative;
+  background: linear-gradient(135deg, #006978 0%, #00838f 60%, #0097a7 100%);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  overflow: hidden;
+  border-bottom: 1px solid #005662;
+}
+.gp-banner-mesh {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  pointer-events: none;
+}
+.gp-banner-logo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+.gp-logo-gantt {
+  color: #ff9800;
+  font-size: 16px;
+  font-weight: 800;
+  font-family: "Trebuchet MS", Arial, sans-serif;
+  letter-spacing: 0.5px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+.gp-logo-project {
+  color: #ffffff;
+  font-size: 11px;
+  font-style: italic;
+  font-family: Georgia, serif;
+  margin-top: -1px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+.gp-table-head {
+  height: 29px;
+  background: #f1f5f9;
+  border-bottom: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  padding: 0 6px;
+  box-sizing: border-box;
+}
+.gp-th-name { flex: 1; min-width: 140px; padding-left: 4px; }
+.gp-th-start { width: 75px; text-align: center; flex-shrink: 0; }
+.gp-th-end { width: 75px; text-align: center; flex-shrink: 0; }
+.gp-th-dur { width: 36px; text-align: center; flex-shrink: 0; }
+.gp-th-prog { width: 36px; text-align: center; flex-shrink: 0; }
+
+/* 8. Timeline Header */
+.gp-timeline-months {
+  height: 29px;
+  display: flex;
+  background: #f8fafc;
+  border-bottom: 1px solid #cbd5e1;
+  box-sizing: border-box;
+}
+.gp-timeline-month {
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #1e293b;
+  border-right: 1px solid #cbd5e1;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gp-timeline-days {
+  height: 38px;
+  display: flex;
+  background: #f8fafc;
+  border-bottom: 1px solid #cbd5e1;
+  box-sizing: border-box;
+}
+.gp-day-col {
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  color: #475569;
+  user-select: none;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+.gp-day-col.is-weekend {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+.gp-day-col.is-today {
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: bold;
+}
+.gp-day-col.is-today .gtc-day-num {
+  background: #dc2626;
+  color: #ffffff;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+}
+
+/* 9. Rows and Tasks */
+.gp-row-table {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 11.5px;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background .1s;
+}
+.gp-row-table:hover, .gp-row-table.is-selected {
+  background: #e0f2fe;
+}
+.gp-row-table.is-summary {
+  font-weight: 600;
+  background: #f8fafc;
+}
+
+.gp-row-track {
+  height: 42px;
+  position: relative;
+  border-bottom: 1px solid #f1f5f9;
+  box-sizing: border-box;
+}
+.gp-weekend-strip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(241, 245, 249, 0.7);
+  pointer-events: none;
+}
+.gp-today-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #dc2626;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* 10. Status Bar */
+.gp-statusbar {
+  height: 24px;
+  background: #e2e8f0;
+  border-top: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-size: 11px;
+  color: #475569;
+  user-select: none;
+}
+.gp-status-cloud {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.gp-status-cloud.connected {
+  color: #0f766e;
+}
+.gp-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+}
+.gp-status-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* 11. Resource Diagram */
+.gp-resource-head {
+  height: 29px;
+  background: #f1f5f9;
+  border-bottom: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+}
+.gp-res-row-table {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 12px;
+}
+.gp-res-track {
+  height: 44px;
+  position: relative;
+  border-bottom: 1px solid #f1f5f9;
+}
+.gp-res-task-bar {
+  position: absolute;
+  top: 8px;
+  height: 26px;
+  background: #0284c7;
+  color: #ffffff;
+  border-radius: 3px;
+  padding: 0 6px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  cursor: pointer;
+  z-index: 1;
+}
+.gp-res-task-bar.overdue {
+  background: #e5484d;
+}
+.gp-res-task-bar.completed {
+  background: #1e293b;
+}
+
 
 /* =========================================================
    FILE VIEWER
