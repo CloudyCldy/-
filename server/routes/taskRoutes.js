@@ -4,6 +4,7 @@ const { requireAuth, requireRole } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 router.use(requireAuth);
 router.get('/', controller.list);
+router.get('/export/pdf', controller.exportPdf);
 router.get('/import-template', requireRole('admin', 'project_manager', 'member'), controller.downloadImportTemplate);
 router.get('/:id/image', controller.image);
 router.get('/:id', controller.get);

@@ -1,3 +1,4 @@
+const pdfService = require('../services/pdfService');
 const TASK_STATUSES = new Set(['pendiente', 'en_proceso', 'en_revision', 'bloqueada', 'completada']);
 const TASK_PRIORITIES = new Set(['baja', 'media', 'alta', 'critica']);
 
@@ -376,4 +377,86 @@ async function removeMany(req, res) {
   }
   res.json({ deleted: tasks.length });
 }
-module.exports = { list, get, listByProject, create, update, updateSprint, status, image, remove, removeMany, importTasks, downloadImportTemplate };
+
+async function exportPdf(req, res) {
+  const organizationId = req.session.user.organization_id;
+  const currentUser = req.session.user;
+  const database = req.app.locals.database;
+
+  // Multi-tenant & role security:
+  // Regular members and viewers can only ever download their own tasks.
+  let targetUserId = currentUser.id;
+  if (['admin', 'project_manager'].includes(currentUser.role) && req.query.assigned_to) {
+    const requestedId = Number(req.query.assigned_to);
+    if (Number.isInteger(requestedId) && requestedId > 0) {
+      targetUserId = requestedId;
+    }
+  }
+
+  const user = await database.prepare('SELECT id, name, username, email, role FROM users WHERE id = ? AND organization_id = ?').get(targetUserId, organizationId);
+  if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
+
+  const org = await database.prepare('SELECT name FROM organizations WHERE id = ?').get(organizationId);
+  const orgName = org?.name || 'Haitani';
+
+  const filters = ['tasks.organization_id = ?', 'tasks.assigned_to = ?'];
+  const params = [organizationId, targetUserId];
+
+  if (req.query.status && TASK_STATUSES.has(req.query.status)) {
+    filters.push('tasks.status = ?');
+    params.push(req.query.status);
+  }
+  if (req.query.priority && TASK_PRIORITIES.has(req.query.priority)) {
+    filters.push('tasks.priority = ?');
+    params.push(req.query.priority);
+  }
+  if (req.query.project_id && Number.isInteger(Number(req.query.project_id))) {
+    filters.push('tasks.project_id = ?');
+    params.push(Number(req.query.project_id));
+  }
+
+  const query = `
+    SELECT tasks.*, 
+           projects.name AS project_name, 
+           users.name AS assignee_name, 
+           users.username AS assignee_username, 
+           sprints.name AS sprint_name
+    FROM tasks
+    LEFT JOIN projects ON projects.id = tasks.project_id AND projects.organization_id = tasks.organization_id
+    LEFT JOIN users ON users.id = tasks.assigned_to
+    LEFT JOIN sprints ON sprints.id = tasks.sprint_id AND sprints.organization_id = tasks.organization_id
+    WHERE ${filters.join(' AND ')}
+    ORDER BY 
+      CASE tasks.status 
+        WHEN 'en_proceso' THEN 1 
+        WHEN 'pendiente' THEN 2 
+        WHEN 'en_revision' THEN 3
+        WHEN 'bloqueada' THEN 4
+        ELSE 5 
+      END, 
+      CASE tasks.priority 
+        WHEN 'critica' THEN 1 
+        WHEN 'alta' THEN 2 
+        WHEN 'media' THEN 3 
+        ELSE 4 
+      END, 
+      tasks.due_date ASC NULLS LAST`;
+
+  const tasks = await database.prepare(query).all(...params);
+
+  try {
+    const pdfBuffer = await pdfService.generateTasksPdf(user, orgName, tasks);
+    const sanitizedUsername = (user.username || 'usuario').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const filename = `mis-tareas-${sanitizedUsername}-${dateStamp}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al generar el documento PDF.' });
+  }
+}
+
+module.exports = { list, get, listByProject, create, update, updateSprint, status, image, remove, removeMany, importTasks, downloadImportTemplate, exportPdf };

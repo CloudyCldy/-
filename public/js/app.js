@@ -766,7 +766,12 @@ async function tasksView(){
   ).values()];
 
   return `
-    ${heading(canDelete?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',canManage?`<div class="actions"><button class="btn secondary" id="import-tasks">Importar CSV/XLSX</button><button class="btn" id="new-task">${icon('plus')}Nueva tarea</button></div>`:'')}
+    ${heading(canDelete?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',`
+      <div class="actions">
+        <button class="btn secondary" id="download-tasks-pdf" type="button" title="Descargar reporte PDF con tus tareas">${icon('download')}Descargar PDF</button>
+        ${canManage?`<button class="btn secondary" id="import-tasks" type="button">Importar CSV/XLSX</button><button class="btn" id="new-task" type="button">${icon('plus')}Nueva tarea</button>`:''}
+      </div>
+    `)}
     <section class="card admin-table-card">
       <div class="task-list-toolbar">
         <div class="task-toolbar-main">
@@ -1004,6 +1009,35 @@ async function renderTasks(focusSearchCursor = null){
   };
   window.addEventListener('keydown', handleTaskKeydown, { once: true });
   bindPaginationControls();
+  document.querySelector('#download-tasks-pdf')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `${icon('progress')}Generando PDF...`;
+    try {
+      const params = new URLSearchParams();
+      if (taskStatusFilter) params.set('status', taskStatusFilter);
+      if (taskAssigneeFilter && ['admin','project_manager'].includes(state.user.role)) params.set('assigned_to', taskAssigneeFilter);
+      const url = `/api/tasks/export/pdf${params.toString() ? '?' + params.toString() : ''}`;
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'No se pudo generar el reporte PDF.');
+      }
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `mis-tareas-${new Date().toISOString().slice(0, 10)}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      notify('PDF de tareas descargado con éxito');
+    } catch (err) {
+      notify(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  });
   const modal=document.querySelector('#task-modal');
   const form=document.querySelector('#task-form-element');
   const canManage=['admin','project_manager','member'].includes(state.user.role);
