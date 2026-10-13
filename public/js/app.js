@@ -3734,6 +3734,34 @@ function bindGanttChartEvents() {
     el.addEventListener('click', () => openGanttQuickEdit(el.dataset.id));
   });
 
+  const ganttScroll = document.querySelector('.gtc-scroll');
+  if (ganttScroll) {
+    let pan = null;
+    ganttScroll.addEventListener('pointerdown', event => {
+      if (event.target.closest('.gtc-bar, .gtc-bar-handle, button, input, select, textarea, a')) return;
+      if (event.button !== undefined && event.button !== 0) return;
+      pan = { startX: event.clientX, startScrollLeft: ganttScroll.scrollLeft };
+      ganttScroll.classList.add('is-panning');
+      ganttScroll.setPointerCapture?.(event.pointerId);
+    });
+
+    ganttScroll.addEventListener('pointermove', event => {
+      if (!pan) return;
+      const delta = event.clientX - pan.startX;
+      ganttScroll.scrollLeft = pan.startScrollLeft - delta;
+    });
+
+    const stopPan = () => {
+      if (!pan) return;
+      pan = null;
+      ganttScroll.classList.remove('is-panning');
+    };
+
+    ganttScroll.addEventListener('pointerup', stopPan);
+    ganttScroll.addEventListener('pointerleave', stopPan);
+    ganttScroll.addEventListener('pointercancel', stopPan);
+  }
+
   // Arrastre y Redimensionamiento de Barras
   document.querySelectorAll('.gtc-bar').forEach(bar => {
     let drag = null;
