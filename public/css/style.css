@@ -6874,3 +6874,470 @@ a:focus-visible{outline:2px solid var(--pink);outline-offset:2px;border-radius:v
     scroll-snap-align: start;
   }
 }
+
+/* =========================================================
+   GANTT SIMPLIFICADO (estilo Jira / Asana)
+   Pestañas, una sola barra de herramientas, colores por estado
+   ========================================================= */
+
+/* Pestañas: Cronograma / Calendario / Recursos */
+.gv-tabs{display:flex;gap:4px;margin:var(--sp-4) 0 var(--sp-3);border-bottom:1px solid #2A3541;overflow-x:auto}
+.gv-tab{display:inline-flex;align-items:center;gap:6px;padding:10px 14px;margin-bottom:-1px;border:0;border-bottom:2px solid transparent;background:none;color:#7D9B9F;font:500 14px var(--font-sohne);cursor:pointer;white-space:nowrap}
+.gv-tab:hover{color:#FEFCEA}
+.gv-tab.active{color:#FEFCEA;border-bottom-color:#ECD88C}
+.gv-tab .icon-svg{width:16px;height:16px}
+
+/* Contenedor del diagrama */
+.gv-page .gv-chart{margin-top:0}
+
+/* Barra de herramientas en una sola línea */
+.gv-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 14px;border-bottom:1px solid #2A3541}
+.gv-group{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.gv-group-end{margin-left:auto}
+.gv-toolbar .gv-select{height:34px;padding:0 10px;font-size:13px;width:auto;min-width:0;max-width:210px;border-radius:10px}
+.gv-search{display:flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:1px solid #2A3541;border-radius:10px;color:#7D9B9F}
+.gv-search:focus-within{border-color:#94B2BA}
+.gv-search .icon-svg{width:15px;height:15px}
+.gv-search input{width:120px;border:0;outline:none;background:none;color:#FEFCEA;font:13px var(--font-sohne)}
+.gv-btn{display:inline-flex;align-items:center;height:34px;padding:0 14px;border:1px solid #2A3541;border-radius:10px;background:transparent;color:#FEFCEA;font:500 13px var(--font-sohne);white-space:nowrap;cursor:pointer;list-style:none;user-select:none}
+.gv-btn:hover{background:rgba(148,178,186,.12)}
+summary.gv-btn::-webkit-details-marker{display:none}
+summary.gv-btn::marker{content:''}
+
+/* Botones agrupados (Día / Semana / Mes y zoom) */
+.gv-segmented{display:inline-flex;border:1px solid #2A3541;border-radius:10px;overflow:hidden}
+.gv-segmented button{height:32px;min-width:34px;padding:0 12px;border:0;background:transparent;color:#94B2BA;font:500 13px var(--font-sohne);cursor:pointer}
+.gv-segmented button+button{border-left:1px solid #2A3541}
+.gv-segmented button:hover{background:rgba(148,178,186,.12);color:#FEFCEA}
+.gv-segmented button.active{background:#ECD88C;color:#13202B}
+
+/* Casilla de Ruta crítica dentro del menú */
+.gv-check{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1px solid #627079;border-radius:4px;font-size:11px;line-height:1}
+.gv-menu .is-on .gv-check{background:#e5484d;border-color:#e5484d;color:#fff}
+
+/* Menú "Más" */
+.gv-more{position:relative}
+.gv-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;display:flex;flex-direction:column;min-width:260px;max-height:70vh;overflow-y:auto;padding:6px;border:1px solid #2A3541;border-radius:12px;background:#13202B;box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.gv-menu-title{padding:10px 10px 4px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#7D9B9F}
+.gv-menu-title small{font-weight:400;letter-spacing:0;text-transform:none}
+.gv-menu button,.gv-menu a{display:flex;align-items:center;gap:8px;padding:8px 10px;border:0;border-radius:8px;background:none;color:#FEFCEA;font:13px var(--font-sohne);text-align:left;text-decoration:none;cursor:pointer}
+.gv-menu button:hover,.gv-menu a:hover{background:rgba(148,178,186,.14)}
+.gv-menu .is-danger{color:#f87171}
+.gv-menu .icon-svg{width:15px;height:15px}
+
+/* Encabezado de la tabla (ya sin el banner) alineado con meses + días */
+.gv-chart .gp-table-head,.gv-chart .gp-resource-head{height:67px;align-items:flex-end;padding-bottom:12px}
+
+/* Quita el estilo de la barra anterior y deja la tabla con el ancho correcto */
+.gv-chart .gv-toolbar.gantt-gp-toolbar{justify-content:flex-start;margin:0;padding:12px 14px;background:transparent;border:0;border-bottom:1px solid #2A3541;border-radius:0}
+.gv-chart .gv-toolbar select.gv-select{height:34px;min-height:0;padding:0 28px 0 10px;font-size:13px;line-height:1;width:auto;min-width:0;max-width:200px;border-radius:10px}
+.gv-chart .gp-left-panel{flex:0 0 auto;max-width:60%}
+:root[data-theme="ran"] .gv-chart .gp-left-panel{background:#0d161f}
+:root[data-theme="steep"] .gv-chart .gv-toolbar.gantt-gp-toolbar{border-color:#e2e8f0}
+
+/* Colores de las barras según su estado */
+.gv-chart .gtc-row .gtc-bar{background:#64748b;color:#fff}
+.gv-chart .gtc-row .gtc-bar.pendiente{background:#64748b;color:#fff}
+.gv-chart .gtc-row .gtc-bar.en_proceso{background:#3b82f6;color:#fff}
+.gv-chart .gtc-row .gtc-bar.en_revision{background:#8b5cf6;color:#fff}
+.gv-chart .gtc-row .gtc-bar.bloqueada{background:#db2777;color:#fff}
+.gv-chart .gtc-row .gtc-bar.completada{background:#22a35a;color:#fff;box-shadow:none}
+.gv-chart .gtc-row .gtc-bar.is-overdue{background:#f59e0b;color:#1f1300}
+.gv-chart .gtc-row .gtc-bar .gtc-bar-fill{background:rgba(255,255,255,.18)}
+.gv-chart .gtc-row .gtc-bar .gtc-bar-label{font-weight:600}
+
+/* Calendario con los mismos colores */
+.gv-page .gantt-cal-grid .gantt-cal-bar{background:#64748b;color:#fff}
+.gv-page .gantt-cal-grid .gantt-cal-bar.en_proceso{background:#3b82f6;color:#fff}
+.gv-page .gantt-cal-grid .gantt-cal-bar.en_revision{background:#8b5cf6;color:#fff}
+.gv-page .gantt-cal-grid .gantt-cal-bar.bloqueada{background:#db2777;color:#fff}
+.gv-page .gantt-cal-grid .gantt-cal-bar.completada{background:#22a35a;color:#fff}
+.gv-page .gantt-cal-grid .gantt-cal-bar.is-overdue{background:#f59e0b;color:#1f1300}
+.gv-page .gantt-legend .gantt-dot{background:#64748b}
+.gv-page .gantt-legend .gantt-dot.en_proceso{background:#3b82f6}
+.gv-page .gantt-legend .gantt-dot.completada{background:#22a35a}
+.gv-page #gantt-cal-toggle{display:none}
+
+/* Leyenda inferior */
+.gv-legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:10px 14px;border-top:1px solid #2A3541;font-size:12px;color:#94B2BA}
+.gv-legend span{display:inline-flex;align-items:center;gap:6px}
+.gv-legend-count{margin-left:auto}
+.gv-legend-count strong{color:#f59e0b}
+.gv-dot{display:inline-block;width:10px;height:10px;border-radius:3px}
+.gv-dot.pendiente{background:#64748b}
+.gv-dot.en_proceso{background:#3b82f6}
+.gv-dot.en_revision{background:#8b5cf6}
+.gv-dot.bloqueada{background:#db2777}
+.gv-dot.completada{background:#22a35a}
+.gv-dot.atrasada{background:#f59e0b}
+.gv-dot.critica{background:#e5484d}
+
+/* Pantallas chicas */
+@media (max-width:760px){
+  .gv-group-end{margin-left:0}
+  .gv-search input{width:110px}
+  .gv-menu{left:0;right:auto}
+}
+
+/* Modo claro */
+:root[data-theme="steep"] .gv-tabs,
+:root[data-theme="steep"] .gv-toolbar,
+:root[data-theme="steep"] .gv-legend{border-color:#e2e8f0}
+:root[data-theme="steep"] .gv-tab{color:#64748b}
+:root[data-theme="steep"] .gv-tab:hover,
+:root[data-theme="steep"] .gv-tab.active{color:#0f172a}
+:root[data-theme="steep"] .gv-tab.active{border-bottom-color:#3b82f6}
+:root[data-theme="steep"] .gv-search,
+:root[data-theme="steep"] .gv-btn,
+:root[data-theme="steep"] .gv-segmented,
+:root[data-theme="steep"] .gv-segmented button+button{border-color:#cbd5e1}
+:root[data-theme="steep"] .gv-search input,
+:root[data-theme="steep"] .gv-btn{color:#1e293b}
+:root[data-theme="steep"] .gv-segmented button{color:#475569}
+:root[data-theme="steep"] .gv-segmented button.active{background:#0f172a;color:#fff}
+:root[data-theme="steep"] .gv-menu{background:#fff;border-color:#e2e8f0;box-shadow:0 12px 32px rgba(15,23,42,.14)}
+:root[data-theme="steep"] .gv-menu button,
+:root[data-theme="steep"] .gv-menu a{color:#1e293b}
+:root[data-theme="steep"] .gv-menu button:hover,
+:root[data-theme="steep"] .gv-menu a:hover{background:#f1f5f9}
+:root[data-theme="steep"] .gv-menu .is-danger{color:#dc2626}
+:root[data-theme="steep"] .gv-legend{color:#475569}
+
+/* =========================================================
+   GANTT V2: resumen, lista clara, avatares, globo y orillas
+   ========================================================= */
+
+/* Tarjetas de resumen (también filtran) */
+.gv-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 12px}
+.gv-stat{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;padding:14px 16px;border:1px solid #2A3541;border-radius:14px;background:#13202B;color:#FEFCEA;font-family:var(--font-sohne);text-align:left;overflow:hidden}
+button.gv-stat{cursor:pointer;transition:border-color .15s,transform .15s,background .15s}
+button.gv-stat:hover{transform:translateY(-1px);border-color:#627079}
+.gv-stat::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:#627079}
+.gv-stat.is-warn::before{background:#f59e0b}
+.gv-stat.is-soon::before{background:#eab308}
+.gv-stat.is-info::before{background:#3b82f6}
+.gv-stat.is-progress::before{background:#22a35a}
+.gv-stat.active{border-color:#ECD88C;background:#1a2a37;box-shadow:0 0 0 1px #ECD88C inset}
+.gv-stat-value{font-size:26px;font-weight:700;line-height:1.1}
+.gv-stat.is-warn .gv-stat-value{color:#f59e0b}
+.gv-stat-label small{display:block;font-size:11.5px;opacity:.85}
+.gv-stat.is-progress .gv-stat-label{white-space:normal}
+.gv-stat-label{font-size:12.5px;color:#94B2BA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.gv-stat-bar{display:block;width:100%;height:6px;margin-top:8px;border-radius:999px;background:#2A3541;overflow:hidden}
+.gv-stat-bar i{display:block;height:100%;border-radius:inherit;background:#22a35a}
+.gv-filter-note{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px;font-size:13px;color:#94B2BA}
+.gv-filter-note strong{color:#FEFCEA}
+.gv-link{padding:0;border:0;background:none;color:#ECD88C;font:600 13px var(--font-sohne);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+
+/* Tip de uso */
+.gv-tips{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;margin:0 0 12px;padding:10px 14px;border:1px dashed #2A3541;border-radius:12px;font-size:13px;line-height:1.45;color:#94B2BA}
+.gv-tips strong{color:#FEFCEA}
+
+/* Lista de tareas */
+.gv-chart .gtc-row-table{gap:8px;padding:0 10px}
+.gv-chart .gtc-col-title{gap:8px;min-width:0}
+.gv-task-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gv-status-dot{flex:0 0 auto;display:inline-block;width:10px;height:10px;border-radius:50%;background:#64748b}
+.gv-status-dot.en_proceso{background:#3b82f6}
+.gv-status-dot.en_revision{background:#8b5cf6}
+.gv-status-dot.bloqueada{background:#db2777}
+.gv-status-dot.completada{background:#22a35a}
+.gv-status-dot.atrasada{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.22)}
+.gv-col-who,.gv-th-who{flex:0 0 40px;display:flex;justify-content:center}
+.gv-col-when,.gv-th-when{flex:0 0 108px}
+.gv-col-prog,.gv-th-prog{flex:0 0 78px}
+.gv-col-when{display:flex;flex-direction:column;justify-content:center;font-size:11.5px;line-height:1.25;color:#94B2BA;white-space:nowrap}
+.gv-col-when small{font-size:10.5px;font-weight:600}
+.gv-col-when.atrasada small{color:#f59e0b}
+.gv-col-when.is-soon small{color:#eab308}
+.gv-col-prog{display:flex;align-items:center;gap:6px}
+.gv-col-prog b{min-width:32px;font-size:11px;text-align:right}
+.gv-mini-bar{flex:1;height:6px;border-radius:999px;background:#2A3541;overflow:hidden}
+.gv-mini-bar i{display:block;height:100%;border-radius:inherit;background:#22a35a}
+.gv-chart .gp-table-head{gap:8px;padding-left:10px;padding-right:10px}
+.gv-chart .gp-table-head .gp-th-name{min-width:0;padding-left:18px}
+.gv-th-who,.gv-th-when,.gv-th-prog{font-size:10.5px}
+
+/* Avatares */
+.gv-avatar{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:var(--av,#627079);color:#fff;font:700 10.5px var(--font-sohne);letter-spacing:.02em}
+.gv-avatar.is-empty{background:transparent;border:1px dashed #627079;color:#627079}
+.gv-avatar.in-bar{width:20px;height:20px;margin-right:6px;font-size:9px;box-shadow:0 0 0 2px rgba(255,255,255,.35);position:relative;z-index:1}
+
+/* Barras */
+.gv-chart .gtc-row .gtc-bar{padding:0 10px 0 6px;overflow:clip}
+.gv-chart .gtc-row .gtc-bar .gtc-bar-fill{background:rgba(0,0,0,.16)}
+.gv-bar-outside{position:absolute;top:50%;transform:translateY(-50%);font-size:11.5px;font-weight:600;color:#cbd5e1;white-space:nowrap;pointer-events:none}
+
+/* Botones ‹ › en la orilla cuando la tarea no se ve */
+.gv-chart .gtc-row{display:flex;align-items:center;justify-content:space-between}
+.gv-edge{position:sticky;z-index:4;visibility:hidden;height:24px;padding:0 9px;border:1px solid #2A3541;border-radius:999px;background:#13202B;color:#94B2BA;font:600 11px var(--font-sohne);white-space:nowrap;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.gv-edge.left{left:6px}
+.gv-edge.right{right:6px}
+.gv-edge.is-visible{visibility:visible}
+.gv-edge:hover{color:#FEFCEA;border-color:#94B2BA}
+
+/* Globo de información */
+.gv-tip{position:fixed;z-index:9999;max-width:290px;padding:12px 14px;border:1px solid #2A3541;border-radius:12px;background:#0f1922;color:#FEFCEA;font:12.5px/1.45 var(--font-sohne);box-shadow:0 14px 36px rgba(0,0,0,.5);pointer-events:none}
+.gv-tip[hidden]{display:none}
+.gv-tip strong{display:block;margin-bottom:6px;font-size:13.5px}
+.gv-tip-row{display:flex;align-items:center;gap:7px;color:#cbd5e1}
+.gv-tip-row .icon-svg{width:14px;height:14px;opacity:.8}
+.gv-tip-progress{display:flex;align-items:center;gap:8px;margin-top:6px;font-weight:600}
+.gv-tip-progress span{flex:1;height:6px;border-radius:999px;background:#2A3541;overflow:hidden}
+.gv-tip-progress i{display:block;height:100%;background:#22a35a}
+.gv-tip-note{margin-top:6px;font-weight:600;color:#eab308}
+.gv-tip-note.atrasada{color:#f59e0b}
+.gv-tip-hint{margin-top:8px;padding-top:8px;border-top:1px solid #2A3541;font-size:11px;color:#7D9B9F}
+
+/* Semana: solo lunes y hoy llevan número */
+.gv-chart .gtc-day .gtc-day-dow{font-size:8.5px}
+
+@media (max-width:900px){
+  .gv-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .gv-col-who,.gv-th-who,.gv-col-prog,.gv-th-prog{display:none}
+}
+
+/* Modo claro */
+:root[data-theme="steep"] .gv-stat{background:#fff;border-color:#e2e8f0;color:#0f172a}
+:root[data-theme="steep"] .gv-stat.active{background:#f8fafc;border-color:#0f172a;box-shadow:0 0 0 1px #0f172a inset}
+:root[data-theme="steep"] .gv-stat-label,
+:root[data-theme="steep"] .gv-filter-note,
+:root[data-theme="steep"] .gv-tips,
+:root[data-theme="steep"] .gv-col-when{color:#475569}
+:root[data-theme="steep"] .gv-filter-note strong,
+:root[data-theme="steep"] .gv-tips strong{color:#0f172a}
+:root[data-theme="steep"] .gv-link{color:#2563eb}
+:root[data-theme="steep"] .gv-tips{border-color:#cbd5e1}
+:root[data-theme="steep"] .gv-stat-bar,
+:root[data-theme="steep"] .gv-mini-bar{background:#e2e8f0}
+:root[data-theme="steep"] .gv-bar-outside{color:#334155}
+:root[data-theme="steep"] .gv-edge{background:#fff;border-color:#cbd5e1;color:#475569;box-shadow:0 2px 8px rgba(15,23,42,.12)}
+:root[data-theme="steep"] .gv-tip{background:#fff;border-color:#e2e8f0;color:#0f172a;box-shadow:0 14px 36px rgba(15,23,42,.18)}
+:root[data-theme="steep"] .gv-tip-row{color:#334155}
+:root[data-theme="steep"] .gv-tip-progress span{background:#e2e8f0}
+:root[data-theme="steep"] .gv-tip-hint{border-color:#e2e8f0;color:#64748b}
+:root[data-theme="steep"] .gv-chart .gp-timeline-month{color:#334155}
+:root[data-theme="steep"] .gv-chart .gp-day-col.is-weekend{background:#f1f5f9;color:#94a3b8}
+
+/* =========================================================
+   GANTT V3: calendario de fechas de entrega + panel del día
+   ========================================================= */
+.gvc{padding:16px}
+.gvc-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.gvc-month{min-width:150px;margin:0;text-align:center;font:600 20px var(--font-signifier, Georgia, serif);color:#FEFCEA}
+.gvc-nav{width:36px;justify-content:center;padding:0;font-size:18px}
+.gvc-hint{margin:12px 0 14px;font-size:13px;line-height:1.45;color:#94B2BA}
+.gvc-hint strong{color:#FEFCEA}
+
+.gvc-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;align-items:start}
+.gvc-main{min-width:0}
+
+/* Cuadrícula del mes */
+.gvc-weekdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:6px}
+.gvc-weekdays span{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;text-align:center;color:#7D9B9F}
+.gvc-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.gvc-day{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:104px;padding:6px;border:1px solid #2A3541;border-radius:10px;background:#13202B;cursor:pointer;transition:border-color .12s,background .12s;outline:none}
+.gvc-day:hover{border-color:#627079}
+.gvc-day:focus-visible{border-color:#94B2BA;box-shadow:0 0 0 2px rgba(148,178,186,.35)}
+.gvc-day.is-weekend{background:#101a23}
+.gvc-day.is-out{opacity:.45}
+.gvc-day.is-today{border-color:#ECD88C}
+.gvc-day.is-selected{border-color:#ECD88C;background:#1a2a37;box-shadow:0 0 0 1px #ECD88C inset}
+.gvc-day.drop-target{border-style:dashed;border-color:#3b82f6;background:rgba(59,130,246,.12)}
+.gvc-day-top{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.gvc-num{font-size:13px;font-weight:600;color:#cbd5e1}
+.gvc-day.is-today .gvc-num{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:50%;background:#ECD88C;color:#13202B}
+.gvc-today{padding:1px 7px;border-radius:999px;background:rgba(236,216,140,.18);color:#ECD88C;font-size:10.5px;font-weight:700}
+.gvc-chips{display:flex;flex-direction:column;gap:3px;min-width:0}
+.gvc-chip{display:flex;align-items:flex-start;gap:5px;min-width:0;padding:3px 6px;border-radius:6px;border-left:3px solid #64748b;background:rgba(100,116,139,.18);font-size:11px;font-weight:600;color:#e2e8f0;cursor:grab}
+.gvc-chip:hover{filter:brightness(1.15)}
+.gvc-chip.is-dragging{opacity:.4}
+.gvc-chip .gv-status-dot{width:7px;height:7px;margin-top:4px}
+.gvc-chip-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25;word-break:break-word}
+.gvc-chip.en_proceso{border-left-color:#3b82f6;background:rgba(59,130,246,.2)}
+.gvc-chip.en_revision{border-left-color:#8b5cf6;background:rgba(139,92,246,.2)}
+.gvc-chip.bloqueada{border-left-color:#db2777;background:rgba(219,39,119,.2)}
+.gvc-chip.atrasada{border-left-color:#f59e0b;background:rgba(245,158,11,.22);color:#fde68a}
+.gvc-chip.is-done{border-left-color:#22a35a;background:rgba(34,163,90,.14);color:#94B2BA}
+.gvc-more{align-self:flex-start;padding:0 4px;border:0;background:none;color:#ECD88C;font:600 11px var(--font-sohne);cursor:pointer}
+
+/* Panel del día */
+.gvc-panel{position:sticky;top:80px;display:flex;flex-direction:column;gap:6px;padding:14px;border:1px solid #2A3541;border-radius:14px;background:#13202B}
+.gvc-panel-date{display:flex;flex-direction:column;margin-bottom:4px}
+.gvc-panel-date span{font-size:12px;text-transform:capitalize;color:#94B2BA}
+.gvc-panel-date strong{font:600 22px var(--font-signifier, Georgia, serif);color:#FEFCEA}
+.gvc-panel h4{display:flex;align-items:center;justify-content:space-between;margin:10px 0 2px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7D9B9F}
+.gvc-panel h4 span{min-width:22px;padding:1px 7px;border-radius:999px;background:#2A3541;color:#FEFCEA;text-align:center;letter-spacing:0}
+.gvc-item{display:flex;align-items:center;gap:8px;width:100%;padding:8px;border:1px solid transparent;border-radius:10px;background:rgba(148,178,186,.06);color:#FEFCEA;text-align:left;cursor:pointer;font-family:var(--font-sohne)}
+.gvc-item:hover{border-color:#2A3541;background:rgba(148,178,186,.12)}
+.gvc-item-text{flex:1;min-width:0;display:flex;flex-direction:column}
+.gvc-item-text b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+.gvc-item-text small{font-size:11px;color:#94B2BA}
+.gvc-item.atrasada small{color:#f59e0b;font-weight:600}
+.gvc-empty{margin:2px 0;font-size:12.5px;color:#7D9B9F}
+.gvc-panel-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.gvc-panel-actions .btn,.gvc-panel-actions .gv-btn{justify-content:center;width:100%}
+.gvc-panel-actions .btn{padding:9px 14px;font-size:13.5px}
+
+/* Modo "duración completa" reutiliza el calendario anterior sin su barra */
+.gv-chart.gvc .gvc-duration section.gantt-card{margin:0 !important;padding:0 !important;border:0 !important;background:transparent !important;box-shadow:none !important}
+.gvc-duration .gantt-controls{display:none}
+.gv-chart.gvc .gvc-duration .gantt-cal-grid,
+.gv-chart.gvc .gvc-duration .gantt-cal-week,
+.gv-chart.gvc .gvc-duration .gantt-cal-day{background-color:transparent !important}
+.gv-chart.gvc .gvc-duration .gantt-cal-day.is-out{background-color:rgba(0,0,0,.2) !important}
+.gv-chart.gvc .gvc-duration .gantt-cal-weekdays{background:transparent !important}
+
+@media (max-width:1100px){
+  .gvc-layout{grid-template-columns:minmax(0,1fr)}
+  .gvc-panel{position:static}
+}
+@media (max-width:640px){
+  .gvc{padding:12px}
+  .gvc-grid,.gvc-weekdays{gap:3px}
+  .gvc-day{min-height:64px;padding:4px}
+  .gvc-chip{padding:2px 4px;font-size:0}
+  .gvc-chip .gv-status-dot{width:8px;height:8px}
+  .gvc-chip-title{display:none}
+  .gvc-day .gvc-today{display:none}
+}
+
+/* Modo claro */
+:root[data-theme="steep"] .gvc-month,
+:root[data-theme="steep"] .gvc-hint strong,
+:root[data-theme="steep"] .gvc-panel-date strong{color:#0f172a}
+:root[data-theme="steep"] .gvc-hint,
+:root[data-theme="steep"] .gvc-panel-date span{color:#475569}
+:root[data-theme="steep"] .gvc-day{background:#fff;border-color:#e2e8f0}
+:root[data-theme="steep"] .gvc-day.is-weekend{background:#f8fafc}
+:root[data-theme="steep"] .gvc-day.is-today,
+:root[data-theme="steep"] .gvc-day.is-selected{border-color:#0f172a}
+:root[data-theme="steep"] .gvc-day.is-selected{background:#f1f5f9;box-shadow:0 0 0 1px #0f172a inset}
+:root[data-theme="steep"] .gvc-num{color:#334155}
+:root[data-theme="steep"] .gvc-day.is-today .gvc-num{background:#0f172a;color:#fff}
+:root[data-theme="steep"] .gvc-today{background:#fef3c7;color:#92400e}
+:root[data-theme="steep"] .gvc-chip{color:#1e293b}
+:root[data-theme="steep"] .gvc-chip.atrasada{color:#92400e}
+:root[data-theme="steep"] .gvc-chip.is-done{color:#475569}
+:root[data-theme="steep"] .gvc-more{color:#2563eb}
+:root[data-theme="steep"] .gvc-panel{background:#fff;border-color:#e2e8f0}
+:root[data-theme="steep"] .gvc-panel h4 span{background:#e2e8f0;color:#0f172a}
+:root[data-theme="steep"] .gvc-item{background:#f8fafc;color:#0f172a}
+:root[data-theme="steep"] .gvc-item:hover{background:#f1f5f9;border-color:#e2e8f0}
+:root[data-theme="steep"] .gvc-item-text small{color:#64748b}
+
+/* =========================================================
+   GANTT V4: tareas en riesgo, avance esperado y sprints
+   ========================================================= */
+
+/* En riesgo */
+.gv-stat.is-risk::before{background:#fb7185}
+.gv-stat.is-risk .gv-stat-value{color:#fb7185}
+.gv-status-dot.riesgo{background:#fb7185;box-shadow:0 0 0 3px rgba(251,113,133,.22)}
+.gv-dot.riesgo{background:#fb7185}
+.gv-col-when.is-risk small{color:#fb7185}
+.gv-tip-row.is-risk{color:#fb7185;font-weight:600}
+.gv-tip-note.riesgo{color:#fb7185}
+.gv-chart .gtc-row .gtc-bar.is-risk{box-shadow:0 0 0 2px #fb7185}
+
+/* Marca blanca: dónde debería ir el avance a la fecha de hoy */
+.gv-expected{position:absolute;top:3px;bottom:3px;width:2px;margin-left:-1px;border-radius:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.35);pointer-events:none;z-index:1}
+.gv-expected-key{display:inline-block;width:3px;height:12px;border-radius:2px;background:#fff;box-shadow:0 0 0 1px #627079}
+
+/* Sprints */
+.gv-sprint-row{position:relative;height:26px;border-bottom:1px solid #2A3541;background:#101b25}
+.gv-sprint{position:absolute;top:3px;bottom:3px;display:flex;align-items:center;gap:6px;padding:0 8px;overflow:hidden;border:1px solid #2A3541;border-radius:6px;background:#162433;color:#94B2BA;font-size:11px;white-space:nowrap;box-sizing:border-box}
+.gv-sprint b{color:#FEFCEA;font-weight:600}
+.gv-sprint span{overflow:hidden;text-overflow:ellipsis}
+.gv-sprint.activo{border-color:#ECD88C;background:rgba(236,216,140,.14)}
+.gv-sprint.activo span{color:#ECD88C}
+.gv-sprint.cerrado{opacity:.7}
+.gv-sprint-shade{position:absolute;top:0;bottom:0;border-left:1px dashed rgba(148,178,186,.25);pointer-events:none}
+.gv-sprint-shade.is-odd{background:rgba(148,178,186,.035)}
+.gv-sprint-shade.activo{background:rgba(236,216,140,.05);border-left-color:rgba(236,216,140,.45)}
+.gv-chart.has-sprints .gp-table-head,.gv-chart.has-sprints .gp-resource-head{height:93px}
+
+/* Modo claro */
+:root[data-theme="steep"] .gv-sprint-row{background:#f8fafc;border-color:#e2e8f0}
+:root[data-theme="steep"] .gv-sprint{background:#fff;border-color:#cbd5e1;color:#475569}
+:root[data-theme="steep"] .gv-sprint b{color:#0f172a}
+:root[data-theme="steep"] .gv-sprint.activo{background:#fef9c3;border-color:#ca8a04}
+:root[data-theme="steep"] .gv-sprint.activo span{color:#854d0e}
+:root[data-theme="steep"] .gv-sprint-shade.is-odd{background:rgba(15,23,42,.025)}
+:root[data-theme="steep"] .gv-sprint-shade.activo{background:rgba(234,179,8,.06)}
+
+/* =========================================================
+   GANTT V5: ajustes de la barra con nombres largos
+   ========================================================= */
+.gv-chart .gv-toolbar select#gantt-project-filter{max-width:170px}
+
+/* =========================================================
+   GANTT V6: veredicto de cada tarea y vista de Recursos
+   ========================================================= */
+
+/* Frase clara en el globo de información */
+.gv-tip-verdict{margin-top:8px;padding:8px 10px;border-radius:8px;font-weight:600;line-height:1.4;background:rgba(148,178,186,.1);color:#cbd5e1}
+.gv-tip-verdict.ok{background:rgba(34,163,90,.16);color:#86efac}
+.gv-tip-verdict.calm{background:rgba(148,178,186,.12);color:#cbd5e1}
+.gv-tip-verdict.warn{background:rgba(234,179,8,.16);color:#fde047}
+.gv-tip-verdict.risk{background:rgba(251,113,133,.16);color:#fda4af}
+.gv-tip-verdict.bad{background:rgba(245,158,11,.18);color:#fcd34d}
+
+/* Recursos: resumen */
+.gv-res-summary{display:flex;flex-wrap:wrap;gap:8px 20px;padding:12px 14px;border-bottom:1px solid #2A3541;font-size:13px;color:#94B2BA}
+.gv-res-summary b{margin-right:4px;font-size:16px;color:#FEFCEA}
+.gv-res-summary .bad b{color:#f87171}
+.gv-res-summary .warn b{color:#eab308}
+
+/* Recursos: persona */
+.gv-res-person{display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #2A3541;box-sizing:border-box}
+.gv-res-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.gv-res-info strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#FEFCEA}
+.gv-res-status{font-size:11.5px;font-weight:600;line-height:1.3}
+.gv-res-status.ok{color:#86efac}
+.gv-res-status.calm{color:#94B2BA}
+.gv-res-status.warn{color:#eab308}
+.gv-res-status.bad{color:#f87171}
+.gv-res-count{display:flex;flex-direction:column;align-items:flex-end;min-width:44px}
+.gv-res-count b{font-size:17px;line-height:1;color:#FEFCEA}
+.gv-res-count small{font-size:10.5px;color:#7D9B9F}
+
+/* Recursos: línea de tiempo */
+.gv-res-track{position:relative;border-bottom:1px solid #2A3541;box-sizing:border-box}
+.gv-res-bar{position:absolute;height:24px;display:flex;align-items:center;padding:0 8px;overflow:hidden;border-radius:999px;background:#64748b;color:#fff;font-size:11px;font-weight:600;white-space:nowrap;cursor:pointer;box-sizing:border-box;z-index:2}
+.gv-res-bar span{display:flex;align-items:center;gap:4px;overflow:hidden;text-overflow:ellipsis}
+.gv-res-bar .icon-svg{width:12px;height:12px}
+.gv-res-bar:hover{filter:brightness(1.12)}
+.gv-res-bar.en_proceso{background:#3b82f6}
+.gv-res-bar.en_revision{background:#8b5cf6}
+.gv-res-bar.bloqueada{background:#db2777}
+.gv-res-bar.completada{background:#22a35a;opacity:.6}
+.gv-res-bar.is-overdue{background:#f59e0b;color:#1f1300}
+.gv-res-bar.is-risk{box-shadow:0 0 0 2px #fb7185}
+.gv-heat-row{position:absolute;left:0;right:0;height:8px;z-index:1}
+.gv-heat{position:absolute;top:0;bottom:0;border-radius:3px}
+.gv-heat.l1,.gv-heat-key.l1{background:rgba(34,163,90,.55)}
+.gv-heat.l2,.gv-heat-key.l2{background:rgba(234,179,8,.75)}
+.gv-heat.l3,.gv-heat-key.l3{background:#ef4444}
+.gv-heat-key{display:inline-block;width:18px;height:8px;border-radius:3px}
+
+/* Modo claro */
+:root[data-theme="steep"] .gv-tip-verdict.ok{background:#dcfce7;color:#166534}
+:root[data-theme="steep"] .gv-tip-verdict.calm{background:#f1f5f9;color:#334155}
+:root[data-theme="steep"] .gv-tip-verdict.warn{background:#fef9c3;color:#854d0e}
+:root[data-theme="steep"] .gv-tip-verdict.risk{background:#ffe4e6;color:#9f1239}
+:root[data-theme="steep"] .gv-tip-verdict.bad{background:#ffedd5;color:#9a3412}
+:root[data-theme="steep"] .gv-res-summary,
+:root[data-theme="steep"] .gv-res-person,
+:root[data-theme="steep"] .gv-res-track{border-color:#e2e8f0}
+:root[data-theme="steep"] .gv-res-summary{color:#475569}
+:root[data-theme="steep"] .gv-res-summary b,
+:root[data-theme="steep"] .gv-res-info strong,
+:root[data-theme="steep"] .gv-res-count b{color:#0f172a}
+:root[data-theme="steep"] .gv-res-status.ok{color:#15803d}
+:root[data-theme="steep"] .gv-res-status.calm{color:#64748b}
+:root[data-theme="steep"] .gv-res-status.warn{color:#a16207}
+:root[data-theme="steep"] .gv-res-status.bad{color:#dc2626}
+:root[data-theme="steep"] .gv-chart .gp-resource-head{background:#f8fafc;color:#475569;border-color:#e2e8f0}

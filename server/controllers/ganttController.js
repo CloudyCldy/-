@@ -221,10 +221,10 @@ async function getGanttData(req, res) {
     `).all(...taskParams);
 
     // Consulta de dependencias
-    const depFilters = ['task_dependencies.organization_id = ?'];
+    const depFilters = ['td.organization_id = ?'];
     const depParams = [organizationId];
     if (projectIdQuery && Number.isInteger(projectIdQuery)) {
-      depFilters.push('task_dependencies.project_id = ?');
+      depFilters.push('td.project_id = ?');
       depParams.push(projectIdQuery);
     }
 
