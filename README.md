@@ -104,6 +104,17 @@ La suite de pruebas utiliza el ejecutor nativo de Node.js (`node --test`) y `sup
 npm test
 ```
 
+### Pruebas E2E con Playwright
+
+Las pruebas de interfaz usan Chromium, Firefox y WebKit. Instala sus navegadores una vez y ejecuta la suite así:
+
+```bash
+npx playwright install chromium firefox webkit
+npm run test:e2e
+```
+
+El servidor E2E usa el Express real y una capa de datos aislada; reemplaza la conexión de base de datos por una dirección local inválida y no ejecuta inicialización ni seed. Las pruebas cubren el acceso, la validación de credenciales, el consentimiento de privacidad, la navegación por teclado y el diseño en escritorio, tablet y móvil. Las capturas, trazas y videos se guardan en `test-results/` cuando corresponda; los reintentos solo se habilitan en CI.
+
 ### Configuración de base de datos de pruebas
 
 Para ejecutar las pruebas contra una base de datos PostgreSQL dedicada, define la variable de entorno `TEST_DATABASE_URL`:
@@ -127,5 +138,4 @@ Si no se define `TEST_DATABASE_URL`, el runner ejecuta automáticamente la suite
 7. Aislamiento multi-tenant estricto (404 al acceder a recursos de otra organización).
 8. Control de acceso por roles (`admin`/`project_manager` vs. `member`/`viewer`).
 9. Disponibilidad de plantillas de historias y sprints.
-
 

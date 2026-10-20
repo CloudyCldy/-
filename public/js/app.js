@@ -6173,7 +6173,7 @@ async function registerView(error=''){
               <input class="input" name="company_name" placeholder="Ej. Sakura Coffee" required>
             </label>
             <label>Slug (identificador)
-              <input class="input" name="slug" pattern="[a-z0-9][a-z0-9-]{2,49}" placeholder="sakura-coffee" required>
+              <input class="input" name="slug" pattern="[a-z0-9][a-z0-9\\x2d]{2,49}" placeholder="sakura-coffee" required>
             </label>
             <label>Correo de empresa
               <input class="input" name="email" type="email" placeholder="contacto@empresa.com" required>
