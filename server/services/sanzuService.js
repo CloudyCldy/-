@@ -134,8 +134,9 @@ async function testConnection(apiKey, apiUrl = DEFAULT_BASE_URL) {
 }
 
 async function syncProject(project, options = {}) {
+  const externalRef = project.sanzu_external_ref || `haitani-proj-${project.id}`;
   const payload = {
-    externalRef: project.sanzu_external_ref,
+    externalRef,
     name: project.name,
     description: project.description || undefined,
     methodologyId: project.methodology_id || 'AGILE',
@@ -156,19 +157,34 @@ async function syncProject(project, options = {}) {
 }
 
 async function askSanzu(project, message, conversationId, context = {}, options = {}) {
+  const externalRef = project.sanzu_external_ref || `haitani-proj-${project.id}`;
   const body = {
-    externalRef: project.sanzu_external_ref,
+    externalRef,
     message,
-    requirements: context.requirements ?? project.requirements ?? undefined
+    requirements: context.requirements ?? project.requirements ?? undefined,
+    context: {
+      projectId: project.id,
+      project: {
+        id: project.id,
+        name: project.name,
+        methodology: project.methodology_id,
+        status: project.status
+      },
+      tasks: context.tasks || [],
+      team: context.users || context.team || [],
+      locale: 'es-MX'
+    }
   };
   if (conversationId) body.conversationId = conversationId;
-  return (await request(CHAT_PATH, {
+  const res = await request(CHAT_PATH, {
     method: 'POST',
     body: JSON.stringify(body),
     apiKey: options.apiKey || project.sanzu_api_key,
     apiUrl: options.apiUrl
-  })).data;
+  });
+  return res.data || res;
 }
+
 
 /**
  * Arma el payload de contexto (INT-01-ST043 / INT-01-ST037) a partir de filas de Haitani.
@@ -360,5 +376,7 @@ module.exports = {
   syncSprints,
   resolveOrganizationCredentials,
   testConnection,
-  baseUrl
+  baseUrl,
+  sanzuClient: require('./sanzuClient').defaultClient,
+  SanzuClient: require('./sanzuClient').SanzuClient
 };

@@ -52,13 +52,49 @@ npm start
 
 最初にPostgreSQLサーバーと`haitani`データベースを作成し、その後`npm run db:init`と`npm run db:seed`を実行してください。このプロジェクトではSQLiteを使用しません。
 
-## Asistente Sanzu
+## Integración con Sanzu API e Inteligencia Contextual
 
-管理者パネルには`Asistente IA`が含まれています。サーバーはデフォルトで`https://sanzu.onrender.com`に接続します。各組織にはSanzu上の専用技術アカウントとプロジェクトが作成され、認証情報はPostgreSQLに保存され、ブラウザには送信されません。URLを設定するには、`.env`に次を追加します。
+Haitani incluye integración nativa con el motor de inteligencia de proyectos **Sanzu**, operado de forma centralizada mediante `server/services/sanzuClient.js`.
+
+### Arquitectura de Integración
+
+```mermaid
+flowchart LR
+    subgraph Haitani ["Haitani (Express + PostgreSQL)"]
+        UI[Panel de Usuario / Asistente] --> Backend[Servidor Express]
+        Backend --> DB[(PostgreSQL)]
+        Backend --> Client[sanzuClient.js]
+    end
+
+    subgraph Sanzu ["Sanzu API (Next.js 15 + MongoDB)"]
+        API[Route Handlers /api/v1] --> Engine[Motor de Metodologías & Riesgos]
+        API --> Dict[Diccionario 15 Categorías]
+        API --> AI[AI Provider: Core / Gemini / OpenAI]
+        Engine --> SanzuDB[(MongoDB)]
+    end
+
+    Client -- "HTTP POST /api/v1/partner/chatbot/message<br/>Header: X-Api-Key" --> API
+    Client -- "HTTP GET /api/v1/dictionary" --> API
+    API -- "Respuesta estructurada (answer, sources, suggestions)" --> Client
+```
+
+### Variables de Entorno de Integración
 
 ```env
-SANZU_API_URL=https://sanzu.onrender.com
+SANZU_API_URL=https://sanzu.onrender.com   # URL de Sanzu (http://localhost:3000 en desarrollo)
+SANZU_API_KEY=sz_live_...                 # Clave de integración partner (X-Api-Key)
+SANZU_TIMEOUT_MS=8000                     # Tiempo límite por petición en ms
 ```
+
+### Capacidades del Cliente Centralizado (`sanzuClient.js`)
+
+1. **Gestión de Sesión y Autenticación:** Transmite de forma segura la API key en el encabezado `X-Api-Key` exclusivamente desde el backend de Haitani (nunca se expone al navegador).
+2. **Resiliencia y Reintentos Seguros:** Aplica reintentos limitados con retroceso exponencial (`exponential backoff`) únicamente para errores transitorios de red o códigos 408/429/503.
+3. **Cancelación Automática:** Implementa `AbortController` cancelando peticiones que excedan `SANZU_TIMEOUT_MS`.
+4. **Protección de Secretos:** Sanitiza automáticamente trazas y mensajes de error impidiendo la filtración de tokens, contraseñas o hashes en logs y respuestas.
+5. **Modo Local Offline:** Si Sanzu no está disponible o la API Key no está configurada, Haitani conmuta transparentemente a respuestas deterministas locales calculadas con PostgreSQL.
+6. **Diccionario Especializado:** Endpoint `GET /api/assistant/dictionary` para consultar términos, sinónimos y conceptos de 15 categorías clave de ingeniería de software.
+
 
 ## Gestión de Sprints y Metodología Ágil (SB-03, SB-05)
 

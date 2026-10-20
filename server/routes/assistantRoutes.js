@@ -4,5 +4,7 @@ const { getPlan } = require('../middleware/planMiddleware');
 const controller = require('../controllers/assistantController');
 
 router.post('/chat', requireAuth, requireAdmin, async (req, res, next) => { try { req.plan = await getPlan(req); next(); } catch (error) { next(error); } }, controller.chat);
+router.get('/dictionary', requireAuth, controller.searchDictionary);
+router.get('/dictionary/:term', requireAuth, controller.getDictionaryTerm);
 
-module.exports = router;
+module.exports = router;

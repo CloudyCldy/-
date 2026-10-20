@@ -63,15 +63,59 @@ async function chat(req, res) {
       });
     }
     await sanzuService.syncProject(project, creds);
-    const result = await sanzuService.askSanzu(project, message, req.body.conversationId, { methodology_id: project.methodology_id, requirements: project.requirements }, creds);
+    const result = await sanzuService.askSanzu(
+      project,
+      message,
+      req.body.conversationId,
+      {
+        methodology_id: project.methodology_id,
+        requirements: project.requirements,
+        tasks: context.tasks,
+        users: context.users
+      },
+      creds
+    );
     const answer = result.response || result.answer || result.reply || result.message;
     if (!answer) throw new Error('La respuesta de Sanzu no tiene un formato compatible.');
-    return res.json({ answer, source: 'sanzu', context });
+    return res.json({
+      answer,
+      source: 'sanzu',
+      sources: result.sources || [],
+      suggestions: result.suggestions || [],
+      metadata: result.metadata,
+      context
+    });
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const rawReason = error instanceof Error ? error.message : String(error);
+    const { sanitize } = require('../services/sanzuClient');
+    const reason = sanitize(rawReason);
     console.warn(`Sanzu no disponible: ${reason}`);
     return res.json({ answer: localAnswer(message, context), source: 'local', warning: `Sanzu no está disponible: ${reason}`, context });
   }
 }
 
-module.exports = { chat };
+async function searchDictionary(req, res) {
+  try {
+    const database = req.app.locals.database;
+    const creds = await sanzuService.resolveOrganizationCredentials(database, req.session?.user?.organization_id);
+    const { defaultClient } = require('../services/sanzuClient');
+    const data = await defaultClient.searchDictionary(req.query, { apiUrl: creds.apiUrl });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(502).json({ success: false, error: 'No fue posible consultar el diccionario en Sanzu.', details: error.message });
+  }
+}
+
+async function getDictionaryTerm(req, res) {
+  try {
+    const database = req.app.locals.database;
+    const creds = await sanzuService.resolveOrganizationCredentials(database, req.session?.user?.organization_id);
+    const { defaultClient } = require('../services/sanzuClient');
+    const data = await defaultClient.getDictionaryTerm(req.params.term, { apiUrl: creds.apiUrl });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(502).json({ success: false, error: 'No fue posible obtener el término de Sanzu.', details: error.message });
+  }
+}
+
+module.exports = { chat, searchDictionary, getDictionaryTerm, localAnswer, projectContext };
