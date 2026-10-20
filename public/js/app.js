@@ -160,16 +160,25 @@ let fileUploaderFilter = '';
 let ganttStatusFilter = '';
 let ganttAssigneeFilter = '';
 let ganttProjectId = '';
-let ganttTimeScale = 'day';
+let ganttTimeScale = 'week';
 let ganttShowCriticalPath = false;
 let ganttShowBaselines = false;
 let ganttCollapsedTasks = new Set();
 let ganttDataCache = null;
 let ganttCalendarCollapsed = false;
-let ganttActiveTab = 'gantt'; // 'gantt' | 'resources'
+let ganttActiveTab = 'gantt'; // 'gantt' (Cronograma) | 'calendar' (Calendario) | 'resources' (Recursos)
+let ganttViewLeftDate = null;       // fecha que estaba en el borde izquierdo antes de redibujar
+let ganttRenderedDayWidth = null;   // ancho de día con el que se dibujó la última vez
+let ganttPendingScrollDate = null;  // fecha a la que hay que ir al abrir el cronograma
+let ganttMenuCloserReady = false;
+let ganttQuickFilter = '';          // '' | 'overdue' | 'soon' | 'progress' (tarjetas de resumen)
+let ganttTaskIndex = new Map();     // tareas dibujadas, para el globo de información
+let ganttCalendarMode = 'deadlines'; // 'deadlines' (fechas de entrega) | 'duration' (duración completa)
+let ganttCalendarSelected = null;    // día elegido en el calendario (AAAA-MM-DD)
+let ganttSprints = [];               // sprints del proyecto para pintarlos en el cronograma
 let ganttSelectedTaskId = null;
 let ganttSearchFilter = '';
-let ganttTableWidth = 360;
+let ganttTableWidth = 460;
 let ganttCalendarMonth = (() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d })();
 let ganttChartZoom = 32;
 let ganttChartMinDate = null;
@@ -2629,7 +2638,7 @@ function renderGanttCalendarHtml(scheduledTasks, monthDate, today) {
     const barsHtml = bars.map(bar => {
       const prog = bar.task.progress ?? (bar.task.status === 'completada' ? 100 : (bar.task.status === 'en_proceso' ? 50 : 0));
       const milestoneIcon = bar.task.is_milestone ? `${icon('flag')} ` : '';
-      const critClass = bar.task.isCritical ? 'is-critical' : '';
+      const critClass = `${bar.task.isCritical ? 'is-critical' : ''} ${bar.task.status !== 'completada' && bar.task.dueDate < today ? 'is-overdue' : ''}`;
       return `
         <div class="gantt-cal-bar ${bar.task.status} ${critClass}"
              draggable="true"
@@ -2722,6 +2731,16 @@ async function gantt() {
   const criticalTaskIds = new Set(ganttData.criticalPathTaskIds || []);
   const users = state.user.role === 'admin' ? await api('/users').catch(() => []) : [];
 
+  // Sprints: se pintan en el cronograma cuando se ve un solo proyecto
+  const sprintProjectIds = ganttProjectId
+    ? [ganttProjectId]
+    : [...new Set([...projects.map(p => p.id), ...allTasksRaw.map(t => t.project_id)].filter(Boolean).map(String))];
+  const sprintLists = sprintProjectIds.length <= 8
+    ? await Promise.all(sprintProjectIds.map(id => api(`/projects/${id}/sprints`).catch(() => [])))
+    : [];
+  const withSprints = sprintLists.filter(list => Array.isArray(list) && list.length);
+  ganttSprints = withSprints.length === 1 ? withSprints[0].filter(s => s.start_date && s.end_date) : [];
+
   const dayMs = 86400000;
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
@@ -2736,8 +2755,16 @@ async function gantt() {
       const matchWbs = (t.wbs || '').toLowerCase().includes(q);
       if (!matchTitle && !matchAssignee && !matchWbs) return false;
     }
+    if (ganttQuickFilter && !ganttMatchesQuickFilter(t, today)) return false;
     return true;
   });
+
+  // Orden en escalera: cada tarea va debajo de la que empieza antes
+  const ganttSortKey = d => (parseGanttDate(d) || new Date(8640000000000000)).getTime();
+  filteredTasks.sort((a, b) =>
+    ganttSortKey(a.start_date || a.due_date) - ganttSortKey(b.start_date || b.due_date)
+    || ganttSortKey(a.due_date) - ganttSortKey(b.due_date)
+    || a.id - b.id);
 
   // Estructura jerárquica WBS
   const wbsOrderedTasks = buildGanttWbsTree(filteredTasks);
@@ -2786,11 +2813,38 @@ async function gantt() {
     </section>
   ` : '';
 
+  // Resumen (tarjetas que también sirven de filtro rápido)
+  const summaryHtml = ganttActiveTab === 'resources' ? '' : ganttSummaryHtml(ganttSummary(allTasksRaw, today));
+
+  // Una sola vista a la vez: Cronograma, Calendario o Recursos
+  const viewTabs = [
+    ['gantt', 'Cronograma', 'gantt'],
+    ['calendar', 'Calendario', 'calendar'],
+    ['resources', 'Recursos', 'users']
+  ];
+  let viewHtml;
+  if (ganttActiveTab === 'calendar') {
+    ganttCalendarCollapsed = false; // en su propia pestaña el calendario siempre se ve completo
+    viewHtml = ganttCalendarViewHtml(scheduledTasks, today);
+  } else {
+    viewHtml = ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies, criticalTaskIds, users, activeProjectName, projectOptions, assigneeOptions, criticalCount);
+  }
+
   return `
-    ${heading('Gantt Haitani Suite', 'Gestión avanzada de proyectos estilo Gantt Haitani: estructura WBS, dependencias, ruta crítica CPM, diagrama de recursos y líneas base.')}
-    ${renderGanttCalendarHtml(scheduledTasks, ganttCalendarMonth, today)}
-    ${ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies, criticalTaskIds, users, activeProjectName, projectOptions, assigneeOptions, criticalCount)}
-    ${unscheduledHtml}
+    <div class="gv-page">
+      ${heading('Gantt', 'Cronograma, entregas y carga de trabajo del equipo.',
+        `<button type="button" class="btn" id="gtc-new-task">${icon('plus')} Nueva tarea</button>`)}
+      <div class="gv-tabs" role="tablist" aria-label="Vistas del Gantt">
+        ${viewTabs.map(([key, label, ic]) => `
+          <button type="button" class="gv-tab ${ganttActiveTab === key ? 'active' : ''}" data-gv-tab="${key}" role="tab" aria-selected="${ganttActiveTab === key}">
+            ${icon(ic)} ${label}
+          </button>
+        `).join('')}
+      </div>
+      ${summaryHtml}
+      ${viewHtml}
+      ${ganttActiveTab === 'gantt' ? unscheduledHtml : ''}
+    </div>
   `;
 }
 
@@ -3089,6 +3143,10 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
     let contentHtml = '';
     if (ganttTimeScale === 'month') {
       contentHtml = date.getDate() === 1 ? `<span class="gtc-day-num">1</span>` : '';
+    } else if (ganttTimeScale === 'week') {
+      contentHtml = (date.getDay() === 1 || isToday)
+        ? `<span class="gtc-day-dow">${isToday ? 'Hoy' : 'Lu'}</span><span class="gtc-day-num">${date.getDate()}</span>`
+        : '';
     } else {
       contentHtml = `
         <span class="gtc-day-dow">${dow}</span>
@@ -3104,12 +3162,12 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
   const taskRowIndexMap = new Map();
   rows.forEach((t, idx) => taskRowIndexMap.set(t.id, idx));
 
-  // Lado Izquierdo: Tabla WBS jerárquica
+  // Lado Izquierdo: lista de tareas (nombre, responsable, fechas y avance)
+  ganttTaskIndex = new Map(rows.map(t => [t.id, t]));
   const labelsHtml = rows.map(t => {
-    const durDays = t.is_milestone ? 0 : Math.max(1, Math.round((t.dueDate - t.startDate) / dayMs) + 1);
-    const prog = t.progress ?? (t.status === 'completada' ? 100 : (t.status === 'en_proceso' ? 50 : 0));
+    const prog = ganttTaskProgress(t);
     const isCrit = ganttShowCriticalPath && t.isCritical;
-    const isOverdue = t.status !== 'completada' && t.dueDate && t.dueDate < today;
+    const info = ganttDeadlineInfo(t, today);
     const isSelected = ganttSelectedTaskId === t.id;
 
     const indents = '<span class="gtc-tree-indent"></span>'.repeat(t.depth || 0);
@@ -3123,17 +3181,20 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
            data-id="${t.id}"
            onclick="selectGanttTask(${t.id})"
            ondblclick="openGanttQuickEdit(${t.id})">
-        <div class="gtc-col-wbs" title="Código WBS ${t.wbs || ''}">${t.wbs || ''}</div>
         <div class="gtc-col-title" title="${esc(t.title)}">
           ${indents}${treeToggle}${milestoneSymbol}
-          <span>${esc(t.title)}</span>
+          <i class="gv-status-dot ${info.risk ? 'riesgo' : info.key}" title="${info.risk ? 'En riesgo' : info.label}"></i>
+          <span class="gv-task-name">${esc(t.title)}</span>
         </div>
-        <div class="gtc-col-dates" title="Inicio: ${t.start_date || 'Sin definir'}">${formatGanttDate(t.start_date)}</div>
-        <div class="gtc-col-dates ${isOverdue ? 'is-overdue' : ''}" title="${isOverdue ? '¡Vencida! Límite: ' + (t.due_date || '') : 'Fin: ' + (t.due_date || 'Sin definir')}">
-          ${isOverdue ? '⚠️ ' : ''}${formatGanttDate(t.due_date)}
+        <div class="gv-col-who">${ganttAvatarHtml(t)}</div>
+        <div class="gv-col-when ${info.key} ${info.soon ? 'is-soon' : ''} ${info.risk ? 'is-risk' : ''}" title="Inicio: ${formatGanttDate(t.start_date, true)} · Fin: ${formatGanttDate(t.due_date, true)}">
+          <span>${formatGanttDate(t.start_date)} – ${formatGanttDate(t.due_date)}</span>
+          ${info.note ? `<small>${info.note}</small>` : ''}
         </div>
-        <div class="gtc-col-dur" title="Duración">${durDays}d</div>
-        <div class="gtc-col-prog" title="Avance">${prog}%</div>
+        <div class="gv-col-prog" title="Avance ${prog}%">
+          <span class="gv-mini-bar"><i style="width:${prog}%"></i></span>
+          <b>${prog}%</b>
+        </div>
       </div>
     `;
   }).join('');
@@ -3142,7 +3203,12 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
   const tracksHtml = rows.map((t, idx) => {
     const offset = Math.round((t.startDate - min) / dayMs);
     const span = Math.max(1, Math.round((t.dueDate - t.startDate) / dayMs) + 1);
-    const prog = t.progress ?? (t.status === 'completada' ? 100 : (t.status === 'en_proceso' ? 50 : 0));
+    const prog = ganttTaskProgress(t);
+    const barInfo = ganttDeadlineInfo(t, today);
+    // Botones que aparecen en la orilla cuando la barra queda fuera de la vista
+    const edgeChips = `
+      <button type="button" class="gv-edge left" data-goto="${t.start_date || ''}" title="Ir a esta tarea">‹ ${formatGanttDate(t.start_date)}</button>
+      <button type="button" class="gv-edge right" data-goto="${t.start_date || ''}" title="Ir a esta tarea">${formatGanttDate(t.start_date)} ›</button>`;
     const isCrit = ganttShowCriticalPath && t.isCritical;
     const isOverdue = t.status !== 'completada' && t.dueDate && t.dueDate < today;
     const barWidth = Math.max(dayWidth - 4, span * dayWidth - 4);
@@ -3173,6 +3239,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
           <span class="gtc-bar-label" style="position:absolute;left:${leftPx + dayWidth + 4}px;top:10px;font-size:11px;font-weight:600;pointer-events:none;white-space:nowrap">
             ${esc(t.title)} <span class="gtc-date-tag">${formatGanttDate(t.start_date)}</span>
           </span>
+          ${edgeChips}
         </div>
       `;
     }
@@ -3190,25 +3257,30 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
           <span class="gtc-bar-label" style="position:absolute;left:${leftPx + barWidth + 6}px;top:13px;font-size:11px;font-weight:600;pointer-events:none">
             ${esc(t.title)} (${prog}%)
           </span>
+          ${edgeChips}
         </div>
       `;
     }
 
     // Barra estándar de tarea
+    const roomy = barWidth >= 110;
     return `
       <div class="gp-row-track gtc-row" data-row-id="${t.id}" data-row-idx="${idx}">
         ${baselineHtml}
-        <div class="gtc-bar ${t.status} ${isCrit ? 'is-critical' : ''}"
+        <div class="gtc-bar ${t.status} ${isCrit ? 'is-critical' : ''} ${isOverdue ? 'is-overdue' : ''} ${barInfo.risk ? 'is-risk' : ''}"
              data-id="${t.id}"
              data-start="${t.start_date || ''}"
              data-due="${t.due_date || ''}"
-             style="left:${leftPx}px;width:${barWidth}px"
-             title="${esc(t.title)} · ${formatGanttDate(t.start_date, true)} al ${formatGanttDate(t.due_date, true)} · ${esc(t.assignee_name || 'Sin asignar')} · ${prog}%${isOverdue ? ' · ¡Vencida!' : ''}">
+             style="left:${leftPx}px;width:${barWidth}px">
           <span class="gtc-bar-fill" style="width:${prog}%"></span>
+          ${barInfo.expected !== null && barInfo.expected < 100 && barInfo.key !== 'atrasada' ? `<span class="gv-expected" style="left:${barInfo.expected}%"></span>` : ''}
           <button type="button" class="gtc-bar-handle left" data-edge="start" aria-label="Ajustar inicio"></button>
-          <span class="gtc-bar-label">${esc(t.title)} <span class="gtc-bar-dates">(${formatGanttDate(t.start_date)} - ${formatGanttDate(t.due_date)})</span> (${prog}%)</span>
+          ${barWidth >= 60 ? ganttAvatarHtml(t, 'in-bar') : ''}
+          ${roomy ? `<span class="gtc-bar-label">${esc(t.title)}</span>` : ''}
           <button type="button" class="gtc-bar-handle right" data-edge="due" aria-label="Ajustar fin"></button>
         </div>
+        ${roomy ? '' : `<span class="gv-bar-outside" style="left:${leftPx + barWidth + 8}px">${esc(t.title)}</span>`}
+        ${edgeChips}
       </div>
     `;
   }).join('');
@@ -3274,364 +3346,818 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
     </svg>
   `;
 
-  // Diagrama de Recursos (si pestaña activa)
+  // Recursos: una fila por persona, sus tareas en carriles (sin encimarse),
+  // una franja de carga por día y un aviso si está sobrecargada o libre.
   let resourceLeftHtml = '';
   let resourceTimelineHtml = '';
+  let resourceSummaryHtml = '';
+  let resourceRowsHeight = 0;
   if (ganttActiveTab === 'resources') {
-    const activeUsers = users.length ? users : [{ id: 1, name: 'Equipo de Desarrollo', role: 'member' }];
-    resourceLeftHtml = activeUsers.map(u => {
-      const userTasks = scheduledTasks.filter(t => String(t.assigned_to) === String(u.id));
-      return `
-        <div class="gp-res-row-table">
-          <div style="display:flex;align-items:center;gap:6px;width:100%">
-            <div class="avatar mini" style="width:24px;height:24px;font-size:10px">${esc((u.name || 'U').slice(0, 2).toUpperCase())}</div>
-            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-              <strong>${esc(u.name)}</strong>
-              <small class="muted" style="display:block;font-size:10px">${esc(u.email || u.role)}</small>
-            </div>
-            <span class="badge ${userTasks.length > 2 ? 'yellow' : ''}" style="font-size:9.5px">${userTasks.length} ${userTasks.length === 1 ? 'tarea' : 'tareas'}</span>
-          </div>
+    const LANE_H = 30, HEAT_H = 8, PAD = 8;
+    const people = new Map();
+    users.filter(u => u.active !== 0).forEach(u => people.set(String(u.id), { id: String(u.id), name: u.name, email: u.email || '', tasks: [] }));
+    // Las tareas padre solo agrupan a sus subtareas: no se cuentan como trabajo aparte
+    scheduledTasks.filter(t => !t.has_children).forEach(t => {
+      const key = t.assigned_to ? String(t.assigned_to) : 'none';
+      if (!people.has(key)) people.set(key, { id: key, name: key === 'none' ? 'Sin responsable' : (t.assignee_name || 'Integrante'), email: '', tasks: [] });
+      people.get(key).tasks.push(t);
+    });
+
+    const dayIndex = d => Math.round((d - min) / dayMs);
+    const todayIdx = dayIndex(today);
+    const fmt = i => formatGanttDate(toISODate(new Date(min.getTime() + i * dayMs)));
+    let overloaded = 0, free = 0;
+
+    const rowsData = [...people.values()]
+      .filter(p => p.id !== 'none' || p.tasks.length)
+      .map(p => {
+        // Carriles: cada tarea va en el primer carril donde no choca con otra
+        const lanes = [];
+        const placed = [...p.tasks].sort((a, b) => a.startDate - b.startDate).map(t => {
+          const s = dayIndex(t.startDate), e = dayIndex(t.dueDate);
+          let lane = lanes.findIndex(end => end < s);
+          if (lane === -1) { lane = lanes.length; lanes.push(e); } else lanes[lane] = e;
+          return { t, s, e, lane };
+        });
+        // Carga por día (solo tareas sin terminar)
+        const load = new Array(totalDays).fill(0);
+        placed.forEach(({ t, s, e }) => {
+          if (t.status === 'completada') return;
+          for (let i = Math.max(0, s); i <= Math.min(totalDays - 1, e); i++) load[i]++;
+        });
+        // Aviso: sobrecarga desde hoy, o libre los próximos 7 días
+        let status = { tone: 'ok', text: 'Carga normal' };
+        let from = -1;
+        for (let i = Math.max(0, todayIdx); i < totalDays; i++) {
+          if (load[i] >= 3 && from === -1) from = i;
+          if (from !== -1 && (load[i] < 3 || i === totalDays - 1)) {
+            const to = load[i] < 3 ? i - 1 : i;
+            const peak = Math.max(...load.slice(from, to + 1));
+            status = { tone: 'bad', text: `Sobrecargado: ${peak} tareas a la vez del ${fmt(from)} al ${fmt(to)}` };
+            break;
+          }
+        }
+        const active = p.tasks.filter(t => t.status !== 'completada').length;
+        const nextWeek = load.slice(Math.max(0, todayIdx), Math.max(0, todayIdx) + 7);
+        if (status.tone !== 'bad') {
+          if (p.id === 'none') status = { tone: 'warn', text: 'Tareas que nadie tiene asignadas' };
+          else if (!nextWeek.some(n => n > 0)) status = { tone: 'calm', text: active ? 'Libre esta semana' : 'Sin tareas pendientes' };
+          else if (nextWeek.some(n => n === 2)) status = { tone: 'warn', text: 'Ocupado: 2 tareas a la vez esta semana' };
+        }
+        if (status.tone === 'bad') overloaded++;
+        if (status.tone === 'calm' && p.id !== 'none') free++;
+        const height = Math.max(1, lanes.length) * LANE_H + HEAT_H + PAD * 2;
+        return { p, placed, load, status, active, done: p.tasks.length - active, height };
+      });
+
+    resourceRowsHeight = rowsData.reduce((sum, r) => sum + r.height, 0);
+    const unassigned = rowsData.find(r => r.p.id === 'none')?.active || 0;
+
+    resourceLeftHtml = rowsData.map(r => `
+      <div class="gv-res-person" style="height:${r.height}px">
+        ${r.p.id === 'none' ? '<span class="gv-avatar is-empty">?</span>' : ganttAvatarHtml({ assignee_name: r.p.name, assigned_to: r.p.id })}
+        <div class="gv-res-info">
+          <strong>${esc(r.p.name)}</strong>
+          <span class="gv-res-status ${r.status.tone}">${esc(r.status.text)}</span>
         </div>
-      `;
+        <div class="gv-res-count" title="${r.active} sin terminar · ${r.done} terminadas">
+          <b>${r.active}</b><small>${r.active === 1 ? 'activa' : 'activas'}</small>
+        </div>
+      </div>
+    `).join('') || '<div class="empty" style="padding:24px">No hay tareas asignadas con fechas.</div>';
+
+    resourceTimelineHtml = rowsData.map(r => {
+      // Franja de carga: se juntan los días seguidos con el mismo nivel
+      const segments = [];
+      for (let i = 0; i < totalDays; i++) {
+        const level = Math.min(3, r.load[i]);
+        const last = segments[segments.length - 1];
+        if (last && last.level === level) last.to = i; else segments.push({ level, from: i, to: i });
+      }
+      const heat = segments.filter(sg => sg.level > 0).map(sg =>
+        `<span class="gv-heat l${sg.level}" style="left:${sg.from * dayWidth}px;width:${(sg.to - sg.from + 1) * dayWidth}px" title="${sg.level >= 3 ? '3 o más tareas a la vez' : `${sg.level} ${sg.level === 1 ? 'tarea' : 'tareas a la vez'}`}: ${fmt(sg.from)} al ${fmt(sg.to)}"></span>`).join('');
+      const bars = r.placed.map(({ t, s, e, lane }) => {
+        const info = ganttDeadlineInfo(t, today);
+        const width = Math.max(dayWidth - 4, (e - s + 1) * dayWidth - 4);
+        return `
+          <div class="gv-res-bar ${t.status} ${info.key === 'atrasada' ? 'is-overdue' : ''} ${info.risk ? 'is-risk' : ''}"
+               data-id="${t.id}" style="left:${s * dayWidth}px;width:${width}px;top:${PAD + lane * LANE_H}px">
+            <span>${t.is_milestone ? icon('flag') : ''}${esc(t.title)}</span>
+          </div>`;
+      }).join('');
+      return `
+        <div class="gv-res-track" style="height:${r.height}px">
+          ${bars}
+          <div class="gv-heat-row" style="top:${r.height - PAD - HEAT_H}px">${heat}</div>
+        </div>`;
     }).join('');
 
-    resourceTimelineHtml = activeUsers.map(u => {
-      const userTasks = scheduledTasks.filter(t => String(t.assigned_to) === String(u.id));
-      const bars = userTasks.map(t => {
-        const offset = Math.round((t.startDate - min) / dayMs);
-        const span = Math.max(1, Math.round((t.dueDate - t.startDate) / dayMs) + 1);
-        const isOver = t.status !== 'completada' && t.dueDate < today;
-        return `
-          <div class="gp-res-task-bar ${isOver ? 'overdue' : (t.status === 'completada' ? 'completed' : '')}"
-               style="left:${offset * dayWidth}px;width:${Math.max(dayWidth - 4, span * dayWidth - 4)}px"
-               onclick="openGanttQuickEdit(${t.id})"
-               title="${esc(t.title)} (${formatGanttDate(t.start_date)} - ${formatGanttDate(t.due_date)}) · ${t.status}">
-            ${t.is_milestone ? `${icon('flag')} ` : ''}${esc(t.title)}
-          </div>
-        `;
-      }).join('');
-      return `<div class="gp-res-track">${bars}</div>`;
-    }).join('');
+    resourceSummaryHtml = `
+      <div class="gv-res-summary">
+        <span class="${overloaded ? 'bad' : ''}"><b>${overloaded}</b> ${overloaded === 1 ? 'persona sobrecargada' : 'personas sobrecargadas'}</span>
+        <span><b>${free}</b> ${free === 1 ? 'persona libre' : 'personas libres'} esta semana</span>
+        <span class="${unassigned ? 'warn' : ''}"><b>${unassigned}</b> ${unassigned === 1 ? 'tarea sin responsable' : 'tareas sin responsable'}</span>
+      </div>`;
   }
 
-  const emptyState = rows.length ? '' : '<div class="empty" style="padding:40px;text-align:center">No hay tareas programadas para los filtros seleccionados.</div>';
+  const emptyState = rows.length ? '' : '<div class="empty" style="padding:40px;text-align:center">No hay tareas con fechas para los filtros seleccionados.</div>';
+  const overdueCount = scheduledTasks.filter(t => t.status !== 'completada' && t.dueDate < today).length;
+  const exportQuery = ganttProjectId ? `?project_id=${ganttProjectId}` : '';
+  const scaleBtn = (id, value, label) =>
+    `<button type="button" id="${id}" class="${ganttTimeScale === value ? 'active' : ''}" aria-pressed="${ganttTimeScale === value}">${label}</button>`;
 
-  return `
-    <div class="gp-window">
-      <!-- 1. Barra de Título de Aplicación -->
-      <div class="gp-titlebar">
-        <div class="gp-titlebar-title">
-          <span class="gp-titlebar-icon">${icon('calendar')}</span>
-          <span>Gantt Haitani - [${esc(activeProjectName)}]</span>
+  // Barra de herramientas: una sola línea con lo que se usa siempre; lo demás va en "Más"
+  const toolbarHtml = `
+    <div class="gv-toolbar gantt-gp-toolbar">
+      <div class="gv-group">
+        <select class="select gv-select" id="gantt-project-filter" aria-label="Proyecto">
+          <option value="">Proyecto: todos</option>
+          ${projectOptions}
+        </select>
+        <select class="select gv-select" id="gantt-status-filter" aria-label="Estado">
+          <option value="">Estado: todos</option>
+          <option value="pendiente" ${ganttStatusFilter === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+          <option value="en_proceso" ${ganttStatusFilter === 'en_proceso' ? 'selected' : ''}>En proceso</option>
+          <option value="en_revision" ${ganttStatusFilter === 'en_revision' ? 'selected' : ''}>En revisión</option>
+          <option value="bloqueada" ${ganttStatusFilter === 'bloqueada' ? 'selected' : ''}>Bloqueada</option>
+          <option value="completada" ${ganttStatusFilter === 'completada' ? 'selected' : ''}>Completada</option>
+        </select>
+        ${assigneeOptions ? `
+          <select class="select gv-select" id="gantt-assignee-filter" aria-label="Integrante">
+            <option value="">Responsable: todos</option>
+            ${assigneeOptions}
+          </select>` : ''}
+        <label class="gv-search">
+          ${icon('search')}
+          <input type="search" id="gp-search-input" placeholder="Buscar tarea…" value="${esc(ganttSearchFilter)}" aria-label="Buscar tarea">
+        </label>
+      </div>
+      <div class="gv-group">
+        <div class="gv-segmented" role="group" aria-label="Escala de tiempo">
+          ${scaleBtn('gtc-scale-day', 'day', 'Día')}
+          ${scaleBtn('gtc-scale-week', 'week', 'Semana')}
+          ${scaleBtn('gtc-scale-month', 'month', 'Mes')}
         </div>
-        <div class="gp-titlebar-controls">
-          <span class="gp-win-btn" title="Minimizar">${icon('chevronDown')}</span>
-          <span class="gp-win-btn" title="Maximizar">${icon('calendar')}</span>
-          <span class="gp-win-btn" title="Cerrar">${icon('close')}</span>
+        <button type="button" class="gv-btn" id="gtc-today-btn" title="Ir a la fecha de hoy">Hoy</button>
+      </div>
+      <div class="gv-group gv-group-end">
+        <details class="gv-more">
+          <summary class="gv-btn">Más ⋯</summary>
+          <div class="gv-menu" role="menu">
+            <div class="gv-menu-title">Crear</div>
+            <button type="button" id="gtc-new-milestone">${icon('flag')} Nuevo hito</button>
+            <div class="gv-menu-title">Vista</div>
+            ${ganttActiveTab === 'gantt' ? `
+              <button type="button" id="gtc-toggle-critical" class="${ganttShowCriticalPath ? 'is-on' : ''}" title="Marca en rojo las tareas que, si se retrasan, retrasan todo el proyecto">
+                <span class="gv-check" aria-hidden="true">${ganttShowCriticalPath ? '✓' : ''}</span> Ruta crítica${criticalCount > 0 ? ` <span class="gtc-critical-badge">${criticalCount}</span>` : ''}
+              </button>` : ''}
+            <button type="button" id="gtc-zoom-in">Acercar (días más anchos)</button>
+            <button type="button" id="gtc-zoom-out">Alejar (ver más días)</button>
+            ${ganttActiveTab === 'gantt' ? `
+              <div class="gv-menu-title">Tarea seleccionada <small>(primero haz clic en una fila)</small></div>
+              <button type="button" id="gp-tool-props">Editar tarea</button>
+              <button type="button" id="gp-btn-indent">Convertir en subtarea</button>
+              <button type="button" id="gp-btn-outdent">Subir de nivel</button>
+              <button type="button" id="gp-btn-link">Agregar dependencia</button>
+              <button type="button" id="gp-btn-unlink">Quitar dependencias</button>
+              <button type="button" id="gp-tool-delete" class="is-danger">Eliminar tarea</button>
+              <div class="gv-menu-title">Planeación</div>
+              <button type="button" id="gtc-toggle-baseline">${ganttShowBaselines ? 'Ocultar' : 'Mostrar'} línea base</button>
+              <button type="button" id="gtc-save-baseline">Guardar línea base</button>
+              <button type="button" id="gtc-auto-schedule">Acomodar fechas por dependencias</button>` : ''}
+            <div class="gv-menu-title">Archivo</div>
+            <a id="gtc-export-gan" href="/api/gantt/export/gan${exportQuery}" download>Exportar a GanttProject (.gan)</a>
+            <a id="gtc-export-csv" href="/api/gantt/export/csv${exportQuery}" download>Exportar a Excel (.csv)</a>
+            <button type="button" id="gtc-import-btn">Importar archivo .gan</button>
+          </div>
+        </details>
+      </div>
+    </div>
+  `;
+
+  const legendHtml = `
+    <div class="gv-legend">
+      <span><i class="gv-dot pendiente"></i>Pendiente</span>
+      <span><i class="gv-dot en_proceso"></i>En proceso</span>
+      <span><i class="gv-dot en_revision"></i>En revisión</span>
+      <span><i class="gv-dot bloqueada"></i>Bloqueada</span>
+      <span><i class="gv-dot completada"></i>Completada</span>
+      <span><i class="gv-dot atrasada"></i>Atrasada</span>
+      <span><i class="gv-dot riesgo"></i>En riesgo</span>
+      <span><i class="gv-expected-key"></i>Avance esperado a hoy</span>
+      ${ganttShowCriticalPath ? '<span><i class="gv-dot critica"></i>Ruta crítica</span>' : ''}
+      <span class="gv-legend-count">${scheduledTasks.length} ${scheduledTasks.length === 1 ? 'tarea' : 'tareas'}${overdueCount ? ` · <strong>${overdueCount} ${overdueCount === 1 ? 'atrasada' : 'atrasadas'}</strong>` : ''}</span>
+    </div>
+  `;
+
+  const timelineHeadHtml = clickable => `
+    ${sprintRowHtml}
+    <div class="gp-timeline-months gtc-months">
+      ${months.map(m => `<div class="gp-timeline-month gtc-month" style="width:${m.days * dayWidth}px"${clickable ? ` onclick="scrollToGanttDate('${m.isoDate}')" title="Ir a ${esc(m.label)}"` : ''}>${esc(m.label)}</div>`).join('')}
+    </div>
+    <div class="gp-timeline-days gtc-days">
+      ${dayCells.join('')}
+    </div>
+  `;
+  // Sprints: franja con su nombre arriba y sombra suave en las filas
+  const sprintBands = ganttSprints.map(s => {
+    const sStart = parseGanttDate(s.start_date), sEnd = parseGanttDate(s.end_date);
+    if (!sStart || !sEnd || sEnd < min || sStart > max) return null;
+    const from = Math.max(0, Math.round((sStart - min) / dayMs));
+    const to = Math.min(totalDays - 1, Math.round((sEnd - min) / dayMs));
+    const daysLeft = Math.round((sEnd - today) / dayMs);
+    const stateLabel = s.status === 'activo' ? (daysLeft >= 0 ? `activo · faltan ${daysLeft} ${daysLeft === 1 ? 'día' : 'días'}` : 'activo') : (s.status === 'cerrado' ? 'cerrado' : 'planificado');
+    return { left: from * dayWidth, width: (to - from + 1) * dayWidth, name: s.name, stateLabel, status: s.status };
+  }).filter(Boolean);
+  const sprintRowHtml = sprintBands.length ? `
+    <div class="gv-sprint-row">
+      ${sprintBands.map(b => `<div class="gv-sprint ${b.status}" style="left:${b.left}px;width:${b.width}px" title="${esc(b.name)} (${b.stateLabel})"><b>${esc(b.name)}</b><span>${b.stateLabel}</span></div>`).join('')}
+    </div>` : '';
+  const sprintShadeHtml = sprintBands.map((b, i) => `<div class="gv-sprint-shade ${b.status} ${i % 2 ? 'is-odd' : ''}" style="left:${b.left}px;width:${b.width}px"></div>`).join('');
+
+  const todayLineHtml = todayOffset >= 0 && todayOffset < totalDays
+    ? `<div class="gp-today-line gtc-today-line" style="left:${todayOffset * dayWidth}px" title="Hoy"></div>`
+    : '';
+
+  const ganttBodyHtml = rows.length ? `
+    <div class="gp-body gtc-wrap">
+      <div class="gp-left-panel gtc-labels" style="width:${ganttTableWidth}px">
+        <div class="gp-table-head gtc-labels-head">
+          <div class="gp-th-name">Tarea</div>
+          <div class="gv-th-who">Resp.</div>
+          <div class="gv-th-when">Fechas</div>
+          <div class="gv-th-prog">Avance</div>
+        </div>
+        <div style="flex:1;overflow-y:auto">
+          ${labelsHtml}
         </div>
       </div>
-
-      <!-- 2. Menú Superior de Escritorio -->
-      <div class="gp-menubar">
-        <div class="gp-menu-item" tabindex="0">
-          Proyecto
-          <div class="gp-menu-dropdown">
-            <div class="gp-menu-entry" onclick="openGanttCreateModal(false)"><span>+ Nueva Tarea</span><kbd>Ctrl+N</kbd></div>
-            <div class="gp-menu-entry" onclick="openGanttCreateModal(true)"><span>${icon('plus')} Nuevo Hito</span><kbd>Ctrl+H</kbd></div>
-            <div class="gp-menu-divider"></div>
-            <div class="gp-menu-entry" onclick="document.querySelector('#gtc-save-baseline')?.click()"><span>${icon('clock')} Fijar Línea Base</span></div>
-            <div class="gp-menu-entry" onclick="document.querySelector('#gtc-auto-schedule')?.click()"><span>${icon('calendar')} Auto-Alinear Cronograma</span></div>
-            <div class="gp-menu-divider"></div>
-            <a class="gp-menu-entry" href="/api/gantt/export/gan${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}" download><span>${icon('download')} Exportar .GAN (Gantt Haitani)</span></a>
-            <a class="gp-menu-entry" href="/api/gantt/export/csv${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}" download><span>${icon('download')} Exportar a CSV</span></a>
-            <div class="gp-menu-entry" onclick="openGanttImportModal()"><span>${icon('upload')} Importar .GAN...</span></div>
-          </div>
-        </div>
-        <div class="gp-menu-item" tabindex="0">
-          Editar
-          <div class="gp-menu-dropdown">
-            <div class="gp-menu-entry" onclick="document.querySelector('#gp-search-input')?.focus()"><span>Buscar tarea</span><kbd>Ctrl+F</kbd></div>
-            <div class="gp-menu-entry" onclick="deleteSelectedGanttTask()"><span>Eliminar selección</span><kbd>Del</kbd></div>
-            <div class="gp-menu-entry" onclick="editSelectedGanttTask()"><span>Propiedades de tarea</span><kbd>Enter</kbd></div>
-          </div>
-        </div>
-        <div class="gp-menu-item" tabindex="0">
-          Ver
-          <div class="gp-menu-dropdown">
-            <div class="gp-menu-entry" onclick="document.querySelector('#gtc-zoom-in')?.click()"><span>Acercar zoom</span><kbd>+</kbd></div>
-            <div class="gp-menu-entry" onclick="document.querySelector('#gtc-zoom-out')?.click()"><span>Alejar zoom</span><kbd>−</kbd></div>
-            <div class="gp-menu-entry" onclick="scrollToGanttDate(new Date())"><span>Ir a Hoy</span><kbd>H</kbd></div>
-            <div class="gp-menu-divider"></div>
-            <div class="gp-menu-entry" onclick="toggleGanttCriticalPath()"><span>${icon('activity')} Ruta Crítica (CPM)</span></div>
-            <div class="gp-menu-entry" onclick="toggleGanttBaselines()"><span>${icon('clock')} Líneas de Base</span></div>
-            <div class="gp-menu-entry" onclick="toggleGanttCalendar()"><span>${icon('calendar')} Calendario Mensual</span></div>
-          </div>
-        </div>
-        <div class="gp-menu-item" tabindex="0">
-          Tarea
-          <div class="gp-menu-dropdown">
-            <div class="gp-menu-entry" onclick="outdentSelectedGanttTask()"><span>${icon('chevronLeft')} Promover nivel</span></div>
-            <div class="gp-menu-entry" onclick="indentSelectedGanttTask()"><span>${icon('chevronRight')} Hacer subtarea</span></div>
-            <div class="gp-menu-entry" onclick="moveSelectedGanttTask(-1)"><span>${icon('chevronUp')} Mover arriba</span></div>
-            <div class="gp-menu-entry" onclick="moveSelectedGanttTask(1)"><span>${icon('chevronDown')} Mover abajo</span></div>
-            <div class="gp-menu-divider"></div>
-            <div class="gp-menu-entry" onclick="linkSelectedGanttTask()"><span>${icon('paperclip')} Vincular dependencia</span></div>
-            <div class="gp-menu-entry" onclick="unlinkSelectedGanttTask()"><span>${icon('trash')} Desvincular dependencias</span></div>
-          </div>
-        </div>
-        <div class="gp-menu-item" tabindex="0">
-          Recursos
-          <div class="gp-menu-dropdown">
-            <div class="gp-menu-entry" onclick="switchGanttTab('resources')"><span>Ver Diagrama de Recursos</span></div>
-            <div class="gp-menu-entry" onclick="switchGanttTab('gantt')"><span>Ver Diagrama Gantt</span></div>
-          </div>
-        </div>
-        <div class="gp-menu-item" tabindex="0">
-          Ayuda
-          <div class="gp-menu-dropdown">
-            <div class="gp-menu-entry" onclick="notify('Gantt Haitani: compatible con archivos .gan, WBS, CPM y Líneas Base.')"><span>Acerca de Gantt Haitani</span></div>
-          </div>
-        </div>
+      <div class="gp-splitter" id="gp-splitter" title="Arrastra para hacer más ancha la tabla">
+        <div class="gp-splitter-handle"></div>
       </div>
-
-      <!-- 3. Barra Principal de Iconos (Herramientas & Búsqueda) -->
-      <div class="gp-toolbar-main">
-        <div class="gp-toolbar-tools">
-          <button type="button" class="gp-tool-btn" id="gp-tool-open" title="Importar proyecto (.gan / .csv)">${icon('folder')}</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-save" title="Exportar a Gantt Haitani (.gan)">${icon('download')}</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-baseline" title="Fijar Línea Base actual">${icon('clock')}</button>
-          <button type="button" class="gp-tool-btn ${ganttActiveTab === 'resources' ? 'active' : ''}" id="gp-tool-resources" title="Ver Diagrama de Recursos">${icon('users')}</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-delete" title="Eliminar tarea seleccionada">${icon('trash')}</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-props" title="Propiedades de tarea">${icon('info')}</button>
-          <span class="gp-tool-sep"></span>
-          <button type="button" class="gp-tool-btn" id="gp-tool-cut" title="Cortar">${icon('trash')}</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-copy" title="Copiar">${icon('copy')}</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-paste" title="Pegar">${icon('clipboard')}</button>
-          <span class="gp-tool-sep"></span>
-          <button type="button" class="gp-tool-btn" id="gp-tool-undo" title="Deshacer">${icon('undo')}</button>
-          <button type="button" class="gp-tool-btn" id="gp-tool-redo" title="Rehacer">${icon('redo')}</button>
-        </div>
-        <div class="gp-search-wrap">
-          <input type="text" class="gp-search-input" id="gp-search-input" placeholder="Ctrl + F" value="${esc(ganttSearchFilter)}">
-          <span class="gp-search-icon">${icon('search')}</span>
-        </div>
-      </div>
-
-      <!-- 4. Pestañas de Navegación con Franja Amarilla y Azul -->
-      <div class="gp-tabs-bar">
-        <button type="button" class="gp-tab ${ganttActiveTab === 'gantt' ? 'active' : ''}" id="gp-tab-gantt">
-          <span class="gp-tab-icon">${icon('calendar')}</span> Gantt
-        </button>
-        <button type="button" class="gp-tab ${ganttActiveTab === 'resources' ? 'active' : ''}" id="gp-tab-resources">
-          <span class="gp-tab-icon">${icon('users')}</span> Diagrama de recursos
-        </button>
-      </div>
-      <div class="gp-accent-lines">
-        <div class="gp-accent-yellow"></div>
-        <div class="gp-accent-blue"></div>
-      </div>
-
-      <!-- 5. Sub-barra de Herramientas (WBS & Navegación Temporal) -->
-      <div class="gp-subtoolbar gantt-gp-toolbar">
-        <div class="gp-subtoolbar-left" style="width:${ganttTableWidth}px">
-          <button type="button" class="gp-sub-btn" id="gp-btn-outdent" title="Promover nivel">${icon('chevronLeft')}</button>
-          <button type="button" class="gp-sub-btn" id="gp-btn-indent" title="Hacer subtarea">${icon('chevronRight')}</button>
-          <button type="button" class="gp-sub-btn" id="gp-btn-moveup" title="Mover arriba">${icon('chevronUp')}</button>
-          <button type="button" class="gp-sub-btn" id="gp-btn-movedown" title="Mover abajo">${icon('chevronDown')}</button>
-          <button type="button" class="gp-sub-btn" id="gp-btn-link" title="Vincular dependencias">${icon('paperclip')}</button>
-          <button type="button" class="gp-sub-btn" id="gp-btn-unlink" title="Desvincular dependencias">${icon('trash')}</button>
-          <div style="margin-left:auto;display:flex;align-items:center;gap:3px">
-            <select class="select" id="gantt-project-filter" style="font-size:11px;padding:1px 4px;height:24px;max-width:115px">
-              <option value="">Proyectos</option>
-              ${projectOptions}
-            </select>
-            <select class="select" id="gantt-status-filter" style="font-size:11px;padding:1px 4px;height:24px;max-width:85px">
-              <option value="">Estado</option>
-              <option value="pendiente" ${ganttStatusFilter === 'pendiente' ? 'selected' : ''}>Pend.</option>
-              <option value="en_proceso" ${ganttStatusFilter === 'en_proceso' ? 'selected' : ''}>Proc.</option>
-              <option value="completada" ${ganttStatusFilter === 'completada' ? 'selected' : ''}>Comp.</option>
-            </select>
+      <div class="gp-right-panel gtc-scroll" id="gtc-scroll">
+        <div class="gtc-timeline" style="width:${totalDays * dayWidth}px">
+          ${timelineHeadHtml(true)}
+          <div class="gtc-rows-area" style="height:${rows.length * 42}px">
+            ${sprintShadeHtml}
+            ${todayLineHtml}
+            ${svgLayerHtml}
+            ${tracksHtml}
           </div>
-        </div>
-        <div class="gp-subtoolbar-right">
-          <!-- Navegador de Meses en la Barra de Tareas para mover entre fechas -->
-          <div class="gp-month-nav" title="Navegar entre meses del proyecto">
-            <button type="button" class="gp-month-nav-btn" id="gp-nav-prev-month" title="Mes anterior">${icon('chevronLeft')}</button>
-            <div class="gp-month-pills" id="gp-month-pills">
-              ${months.map(m => `
-                <button type="button" class="gp-month-pill" data-date="${m.isoDate}" title="Ir a ${esc(m.label)}">${esc(m.shortLabel)}</button>
-              `).join('')}
-            </div>
-            <button type="button" class="gp-month-nav-btn" id="gp-nav-next-month" title="Mes siguiente">${icon('chevronRight')}</button>
-            <select class="select gp-month-dropdown" id="gp-month-quick-select" title="Saltar rápidamente a un mes">
-              <option value="">Meses...</option>
-              ${months.map(m => `<option value="${m.isoDate}">${esc(m.label)}</option>`).join('')}
-            </select>
-          </div>
-
-          <div class="gp-sub-group">
-            <button type="button" class="gp-sub-btn" id="gtc-zoom-in" title="Acercar">${icon('search')} Acercar</button>
-            <button type="button" class="gp-sub-btn" id="gtc-zoom-out" title="Alejar">${icon('search')} Alejar</button>
-            <select class="select" id="gp-select-nav" style="font-size:11px;padding:1px 4px;height:24px">
-              <option value="project-start">Inicio del proyecto ▾</option>
-              <option value="today">Hoy</option>
-            </select>
-            <button type="button" class="gp-sub-btn" id="gp-btn-step-prev" title="Atrás 7 días">Atrás</button>
-            <button type="button" class="gp-sub-btn" id="gp-btn-step-next" title="Adelante 7 días">Adelante</button>
-          </div>
-          <div class="gp-sub-group">
-            <label class="gp-sub-label" title="Calcular y resaltar Ruta Crítica (CPM)">
-              <input type="checkbox" id="gtc-toggle-critical" ${ganttShowCriticalPath ? 'checked' : ''}>
-              <span>Ruta crítica</span>
-              ${criticalCount > 0 ? `<span class="gtc-critical-badge">${criticalCount}</span>` : ''}
-            </label>
-            <button type="button" class="gp-sub-btn ${ganttShowBaselines ? 'active' : ''}" id="gtc-toggle-baseline" title="Mostrar/ocultar comparativa de Línea Base">
-              Líneas de base...
-            </button>
-            <button type="button" class="gp-sub-btn" id="gantt-cal-toggle" title="Mostrar/ocultar calendario mensual">
-              📅 Calendario
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 6. Cuerpo Principal (Tabla WBS/Recursos + Divisor Splitter + Línea de Tiempo) -->
-      ${ganttActiveTab === 'gantt' ? `
-        ${rows.length ? `
-          <div class="gp-body gtc-wrap">
-            <!-- Panel Izquierdo: Tabla Jerárquica con Banner Gantt Haitani -->
-            <div class="gp-left-panel gtc-labels" style="width:${ganttTableWidth}px">
-              <div class="gp-banner">
-                <svg class="gp-banner-mesh" viewBox="0 0 360 38" preserveAspectRatio="none">
-                  <defs>
-                    <pattern id="gpHex" width="24" height="40" patternUnits="userSpaceOnUse">
-                      <polygon points="12,0 24,7 24,21 12,28 0,21 0,7" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" />
-                      <polygon points="12,20 24,27 24,41 12,48 0,41 0,27" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" />
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#gpHex)" />
-                </svg>
-                <div class="gp-banner-logo">
-                  <span class="gp-logo-gantt">Gantt</span>
-                  <span class="gp-logo-project">Haitani</span>
-                </div>
-              </div>
-              <div class="gp-table-head gtc-labels-head">
-                <div class="gp-th-name">Nombre</div>
-                <div class="gp-th-start">Fecha de i...</div>
-                <div class="gp-th-end">Fecha de fin</div>
-                <div class="gp-th-dur">Dur.</div>
-                <div class="gp-th-prog">%</div>
-              </div>
-              <div style="flex:1;overflow-y:auto">
-                ${labelsHtml}
-              </div>
-            </div>
-
-            <!-- Divisor Ajustable con Tirador -->
-            <div class="gp-splitter" id="gp-splitter" title="Arrastra para redimensionar tabla y cronograma">
-              <div class="gp-splitter-handle"></div>
-            </div>
-
-            <!-- Panel Derecho: Línea de Tiempo Gantt -->
-            <div class="gp-right-panel gtc-scroll" id="gtc-scroll">
-              <div class="gtc-timeline" style="width:${totalDays * dayWidth}px">
-                <div class="gp-timeline-months gtc-months">
-                  ${months.map(m => `<div class="gp-timeline-month gtc-month" style="width:${m.days * dayWidth}px;cursor:pointer" onclick="scrollToGanttDate('${m.isoDate}')" title="Saltar a ${esc(m.label)}">${esc(m.label)}</div>`).join('')}
-                </div>
-                <div class="gp-timeline-days gtc-days">
-                  ${dayCells.join('')}
-                </div>
-                <div class="gtc-rows-area" style="height:${rows.length * 42}px">
-                  ${todayOffset >= 0 && todayOffset < totalDays ? `<div class="gp-today-line gtc-today-line" style="left:${todayOffset * dayWidth}px"></div>` : ''}
-                  ${svgLayerHtml}
-                  ${tracksHtml}
-                </div>
-              </div>
-            </div>
-          </div>
-        ` : emptyState}
-      ` : `
-        <!-- Pestaña Diagrama de Recursos -->
-        <div class="gp-body gtc-wrap">
-          <div class="gp-left-panel" style="width:${ganttTableWidth}px">
-            <div class="gp-banner">
-              <svg class="gp-banner-mesh" viewBox="0 0 360 38" preserveAspectRatio="none">
-                <rect width="100%" height="100%" fill="rgba(255,255,255,0.06)" />
-              </svg>
-              <div class="gp-banner-logo">
-                <span class="gp-logo-gantt">Gantt</span>
-                <span class="gp-logo-project">Haitani</span>
-              </div>
-            </div>
-            <div class="gp-resource-head">
-              <div style="flex:1">Integrante / Recurso</div>
-              <div style="width:70px;text-align:right">Carga</div>
-            </div>
-            <div style="flex:1;overflow-y:auto">
-              ${resourceLeftHtml}
-            </div>
-          </div>
-          <div class="gp-splitter" id="gp-splitter">
-            <div class="gp-splitter-handle"></div>
-          </div>
-          <div class="gp-right-panel gtc-scroll" id="gtc-scroll">
-            <div class="gtc-timeline" style="width:${totalDays * dayWidth}px">
-              <div class="gp-timeline-months gtc-months">
-                ${months.map(m => `<div class="gp-timeline-month gtc-month" style="width:${m.days * dayWidth}px">${esc(m.label)}</div>`).join('')}
-              </div>
-              <div class="gp-timeline-days gtc-days">
-                ${dayCells.join('')}
-              </div>
-              <div class="gtc-rows-area" style="position:relative">
-                ${todayOffset >= 0 && todayOffset < totalDays ? `<div class="gp-today-line gtc-today-line" style="left:${todayOffset * dayWidth}px"></div>` : ''}
-                ${resourceTimelineHtml}
-              </div>
-            </div>
-          </div>
-        </div>
-      `}
-
-      <!-- 7. Barra de Estado Inferior -->
-      <div class="gp-statusbar">
-        <div class="gp-status-cloud connected">
-          <span class="gp-status-dot"></span>
-          <span>Nube: conectado a Haitani</span>
-        </div>
-        <div>
-          <span>${scheduledTasks.length} tareas programadas · ${dependencies.length} dependencias · ${criticalCount} en ruta crítica</span>
-        </div>
-        <div class="gp-status-right">
-          <span>RSS</span>
-          <span>Advertencia (0)</span>
-          <span>Errores (0)</span>
         </div>
       </div>
     </div>
+  ` : emptyState;
 
-    <!-- Contenedor de compatibilidad oculto para selectores nativos requeridos por eventos/tests -->
-    <div style="display:none">
-      <button type="button" id="gtc-scale-day"></button>
-      <button type="button" id="gtc-scale-week"></button>
-      <button type="button" id="gtc-scale-month"></button>
-      <button type="button" id="gtc-today-btn"></button>
-      <button type="button" id="gtc-save-baseline"></button>
-      <button type="button" id="gtc-auto-schedule"></button>
-      <button type="button" id="gtc-new-task"></button>
-      <button type="button" id="gtc-new-milestone"></button>
-      <a id="gtc-export-gan" href="/api/gantt/export/gan${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}"></a>
-      <a id="gtc-export-csv" href="/api/gantt/export/csv${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}"></a>
-      <button type="button" id="gtc-import-btn"></button>
+  const resourcesBodyHtml = `
+    <div class="gp-body gtc-wrap">
+      <div class="gp-left-panel" style="width:${ganttTableWidth}px">
+        <div class="gp-resource-head gtc-labels-head">
+          <div style="flex:1">Integrante</div>
+          <div style="width:70px;text-align:right">Tareas</div>
+        </div>
+        <div style="flex:1;overflow-y:auto">
+          ${resourceLeftHtml}
+        </div>
+      </div>
+      <div class="gp-splitter" id="gp-splitter">
+        <div class="gp-splitter-handle"></div>
+      </div>
+      <div class="gp-right-panel gtc-scroll" id="gtc-scroll">
+        <div class="gtc-timeline" style="width:${totalDays * dayWidth}px">
+          ${timelineHeadHtml(false)}
+          <div class="gtc-rows-area" style="position:relative;height:${resourceRowsHeight}px">
+            ${sprintShadeHtml}
+            ${todayLineHtml}
+            ${resourceTimelineHtml}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return `
+    <div class="gp-window gv-chart ${sprintBands.length ? 'has-sprints' : ''}">
+      ${toolbarHtml}
+      ${ganttActiveTab === 'resources' ? resourceSummaryHtml + resourcesBodyHtml : ganttBodyHtml}
+      ${ganttActiveTab === 'resources' ? `
+        <div class="gv-legend">
+          <span><i class="gv-heat-key l1"></i>1 tarea</span>
+          <span><i class="gv-heat-key l2"></i>2 tareas a la vez</span>
+          <span><i class="gv-heat-key l3"></i>3 o más (sobrecarga)</span>
+          <span class="gv-legend-count">La franja de abajo de cada persona muestra su carga por día</span>
+        </div>` : legendHtml}
+    </div>
+    <div hidden>
       <input type="date" id="gtc-jump-date">
-      <select id="gantt-assignee-filter">${assigneeOptions}</select>
     </div>
   `;
 }
 
+// ===== Apoyo del Gantt: estados, fechas límite, avatares, resumen y globo =====
+const GANTT_STATUS_LABELS = { pendiente: 'Pendiente', en_proceso: 'En proceso', en_revision: 'En revisión', bloqueada: 'Bloqueada', completada: 'Completada' };
+const GANTT_AVATAR_COLORS = ['#0ea5e9', '#a855f7', '#f97316', '#14b8a6', '#ec4899', '#84cc16', '#6366f1', '#eab308'];
+
+function ganttTaskProgress(t) {
+  if (t.status === 'completada') return 100;
+  const p = Number(t.progress);
+  return Number.isFinite(p) ? Math.max(0, Math.min(100, Math.round(p))) : 0;
+}
+
+// Dice si la tarea va bien, está en riesgo, vence pronto o ya está atrasada,
+// y arma una frase clara (verdict) para el globo de información.
+// "En riesgo": según el tiempo que ya pasó debería llevar cierto avance y va 25 puntos o más abajo.
+function ganttDeadlineInfo(t, today) {
+  const dayMs = 86400000;
+  const due = t.dueDate || parseGanttDate(t.due_date);
+  const start = t.startDate || parseGanttDate(t.start_date) || due;
+  const prog = ganttTaskProgress(t);
+  const plural = n => `${n} ${n === 1 ? 'día' : 'días'}`;
+  const base = { key: t.status || 'pendiente', label: GANTT_STATUS_LABELS[t.status] || 'Pendiente', note: '', soon: false, risk: false, expected: null, verdict: '', tone: 'calm' };
+
+  if (!due) return { ...base, verdict: 'No tiene fechas. Asígnale inicio y fin para darle seguimiento.' };
+
+  if (t.status === 'completada') {
+    const doneAt = t.completed_at ? new Date(t.completed_at) : null;
+    if (doneAt) doneAt.setHours(0, 0, 0, 0);
+    const late = doneAt ? Math.round((doneAt - due) / dayMs) : 0;
+    return { ...base, tone: 'ok', verdict: late > 0 ? `Terminada, ${plural(late)} después de su fecha de fin.` : 'Terminada a tiempo.' };
+  }
+
+  const diff = Math.round((due - today) / dayMs);
+  if (diff < 0) {
+    return { ...base, key: 'atrasada', label: 'Atrasada', expected: 100, tone: 'bad',
+      note: `${plural(-diff)} tarde`,
+      verdict: `Ya debería estar al 100% y lleva ${prog}%. Su fecha de fin fue hace ${plural(-diff)}.` };
+  }
+
+  if (start && today < start) {
+    const toStart = Math.round((start - today) / dayMs);
+    return { ...base, tone: 'calm', verdict: `Todavía no empieza: inicia en ${plural(toStart)}. Va tranquila.` };
+  }
+
+  const total = Math.round((due - start) / dayMs) + 1;
+  const elapsed = Math.round((today - start) / dayMs) + 1;
+  const expected = Math.round(Math.min(1, elapsed / Math.max(1, total)) * 100);
+  const risk = expected - prog >= 25;
+  const info = { ...base, expected, risk, note: risk ? 'en riesgo' : '' };
+  if (risk) {
+    info.tone = 'risk';
+    info.verdict = `Debería llevar ${expected}% y lleva ${prog}%. Si no se acelera, se va a atrasar.`;
+  } else if (prog >= expected) {
+    info.tone = 'ok';
+    info.verdict = `Va a tiempo: debería llevar ${expected}% y lleva ${prog}%.`;
+  } else {
+    info.tone = 'warn';
+    info.verdict = `Va un poco atrás: debería llevar ${expected}% y lleva ${prog}%.`;
+  }
+  if (diff === 0) return { ...info, soon: true, note: risk ? 'en riesgo' : 'vence hoy' };
+  if (diff <= 7) return { ...info, soon: true, note: risk ? 'en riesgo' : `vence en ${plural(diff)}` };
+  return info;
+}
+function ganttMatchesQuickFilter(t, today) {
+  const info = ganttDeadlineInfo(t, today);
+  if (ganttQuickFilter === 'overdue') return info.key === 'atrasada';
+  if (ganttQuickFilter === 'soon') return info.soon;
+  if (ganttQuickFilter === 'progress') return t.status === 'en_proceso';
+  if (ganttQuickFilter === 'risk') return info.risk;
+  return true;
+}
+
+function ganttAvatarHtml(t, extraClass = '') {
+  if (!t.assignee_name) return `<span class="gv-avatar is-empty ${extraClass}" title="Sin responsable">?</span>`;
+  const parts = String(t.assignee_name).trim().split(/\s+/).filter(Boolean);
+  const initials = ((parts[0] || '?')[0] + ((parts[1] || '')[0] || '')).toUpperCase();
+  const color = GANTT_AVATAR_COLORS[Math.abs(Number(t.assigned_to) || 0) % GANTT_AVATAR_COLORS.length];
+  return `<span class="gv-avatar ${extraClass}" style="--av:${color}" title="${esc(t.assignee_name)}">${esc(initials)}</span>`;
+}
+
+function ganttSummary(tasks, today) {
+  const s = { total: tasks.length, overdue: 0, soon: 0, inProgress: 0, done: 0, avg: 0, risk: 0 };
+  let sum = 0;
+  tasks.forEach(t => {
+    const info = ganttDeadlineInfo(t, today);
+    if (info.key === 'atrasada') s.overdue++;
+    if (info.soon) s.soon++;
+    if (info.risk) s.risk++;
+    if (t.status === 'en_proceso') s.inProgress++;
+    if (t.status === 'completada') s.done++;
+    sum += ganttTaskProgress(t);
+  });
+  s.avg = tasks.length ? Math.round(sum / tasks.length) : 0;
+  return s;
+}
+
+function ganttSummaryHtml(s) {
+  const card = (key, value, label, hint, tone) => `
+    <button type="button" class="gv-stat ${tone} ${ganttQuickFilter === key ? 'active' : ''}" data-quick="${key}" aria-pressed="${ganttQuickFilter === key}" title="${hint}">
+      <span class="gv-stat-value">${value}</span>
+      <span class="gv-stat-label">${label}</span>
+    </button>`;
+  const filterNames = { overdue: 'tareas atrasadas', risk: 'tareas en riesgo', soon: 'tareas que vencen esta semana', progress: 'tareas en proceso' };
+  return `
+    <div class="gv-summary">
+      ${card('overdue', s.overdue, s.overdue === 1 ? 'Tarea atrasada' : 'Tareas atrasadas', 'Ya pasó su fecha de fin y no están completadas.', 'is-warn')}
+      ${card('risk', s.risk, 'En riesgo', 'Por el tiempo que ya pasó deberían llevar más avance. Si no se atienden, se van a atrasar.', 'is-risk')}
+      ${card('soon', s.soon, 'Vencen esta semana', 'Terminan en los próximos 7 días.', 'is-soon')}
+      <div class="gv-stat is-progress" title="Promedio de avance de todas las tareas">
+        <span class="gv-stat-value">${s.avg}%</span>
+        <span class="gv-stat-label">Avance general <small>${s.done} de ${s.total} completadas</small></span>
+        <span class="gv-stat-bar"><i style="width:${s.avg}%"></i></span>
+      </div>
+    </div>
+    ${ganttQuickFilter ? `
+      <div class="gv-filter-note">
+        Mostrando solo <strong>${filterNames[ganttQuickFilter] || ''}</strong>
+        <button type="button" class="gv-link" data-quick="">Ver todas</button>
+      </div>` : ''}
+  `;
+}
+
+function ganttTipHtml(t, today) {
+  const info = ganttDeadlineInfo(t, today);
+  const prog = ganttTaskProgress(t);
+  const days = t.is_milestone ? 0 : Math.max(1, Math.round((t.dueDate - t.startDate) / 86400000) + 1);
+  const statusText = info.key === 'atrasada' ? `Atrasada · ${GANTT_STATUS_LABELS[t.status] || ''}` : info.label;
+  return `
+    <strong>${t.is_milestone ? 'Hito: ' : ''}${esc(t.title)}</strong>
+    <div class="gv-tip-row"><i class="gv-status-dot ${info.key}"></i>${statusText}</div>
+    <div class="gv-tip-row">${icon('calendar')} ${formatGanttDate(t.start_date, true)} → ${formatGanttDate(t.due_date, true)}${days ? ` · ${days} ${days === 1 ? 'día' : 'días'}` : ''}</div>
+    <div class="gv-tip-row">${icon('users')} ${esc(t.assignee_name || 'Sin responsable')}</div>
+    <div class="gv-tip-progress"><span><i style="width:${prog}%"></i></span>${prog}%</div>
+    ${info.verdict ? `<div class="gv-tip-verdict ${info.tone}">${info.verdict}</div>` : ''}
+    <div class="gv-tip-hint">Clic para editar · arrastra para mover</div>
+  `;
+}
+
+// Muestra el botón ‹ o › en las filas cuya barra quedó fuera de la vista
+function ganttUpdateEdgeChips(scrollEl) {
+  const left = scrollEl.scrollLeft;
+  const right = left + scrollEl.clientWidth;
+  document.querySelectorAll('.gtc-row[data-row-id]').forEach(row => {
+    const bar = row.querySelector('.gtc-bar, .gtc-milestone-diamond, .gtc-summary-bar');
+    if (!bar) return;
+    const start = bar.offsetLeft;
+    const end = start + bar.offsetWidth;
+    row.querySelector('.gv-edge.left')?.classList.toggle('is-visible', end < left + 12);
+    row.querySelector('.gv-edge.right')?.classList.toggle('is-visible', start > right - 12);
+    // Si la barra empieza antes de la vista, recorre su texto para que el nombre siga visible
+    if (bar.classList.contains('gtc-bar')) {
+      const hidden = left - start;
+      bar.style.paddingLeft = hidden > 0 && end - left > 40 ? `${hidden + 6}px` : '';
+    }
+  });
+  document.querySelectorAll('.gv-res-bar').forEach(bar => {
+    const start = bar.offsetLeft, end = start + bar.offsetWidth, hidden = left - start;
+    bar.style.paddingLeft = hidden > 0 && end - left > 40 ? `${hidden + 8}px` : '';
+  });
+}
+
+// ===== Calendario: fechas de entrega + panel del día =====
+const GANTT_MONTHS_LONG = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const GANTT_WEEKDAYS_LONG = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+function ganttCalendarViewHtml(tasks, today) {
+  ganttTaskIndex = new Map(tasks.map(t => [t.id, t]));
+  const todayIso = toISODate(today);
+  const selected = ganttCalendarSelected || todayIso;
+  const month = ganttCalendarMonth;
+  const monthLabel = `${GANTT_MONTHS_LONG[month.getMonth()].replace(/^./, c => c.toUpperCase())} ${month.getFullYear()}`;
+  const isDeadlines = ganttCalendarMode === 'deadlines';
+
+  // Tareas agrupadas por el día en que vencen
+  const byDue = new Map();
+  tasks.forEach(t => {
+    if (!t.dueDate) return;
+    const key = toISODate(t.dueDate);
+    if (!byDue.has(key)) byDue.set(key, []);
+    byDue.get(key).push(t);
+  });
+  const rank = t => { const k = ganttDeadlineInfo(t, today).key; return k === 'atrasada' ? 0 : (t.status === 'completada' ? 2 : 1); };
+  byDue.forEach(list => list.sort((a, b) => rank(a) - rank(b)));
+
+  const head = `
+    <div class="gvc-head">
+      <div class="gv-group">
+        <button type="button" class="gv-btn gvc-nav" data-cal-nav="-1" aria-label="Mes anterior" title="Mes anterior">‹</button>
+        <h3 class="gvc-month">${monthLabel}</h3>
+        <button type="button" class="gv-btn gvc-nav" data-cal-nav="1" aria-label="Mes siguiente" title="Mes siguiente">›</button>
+        <button type="button" class="gv-btn" data-cal-nav="0" title="Ir al día de hoy">Hoy</button>
+      </div>
+      <div class="gv-segmented" role="group" aria-label="Qué mostrar en el calendario">
+        <button type="button" data-cal-mode="deadlines" class="${isDeadlines ? 'active' : ''}" aria-pressed="${isDeadlines}" title="Cada tarea aparece solo el día en que vence">Fechas de entrega</button>
+        <button type="button" data-cal-mode="duration" class="${!isDeadlines ? 'active' : ''}" aria-pressed="${!isDeadlines}" title="Cada tarea ocupa todos los días que dura">Duración completa</button>
+      </div>
+    </div>
+  `;
+
+  let body;
+  if (isDeadlines) {
+    const first = new Date(month.getFullYear(), month.getMonth(), 1);
+    const offset = (first.getDay() + 6) % 7; // la semana empieza en lunes
+    const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+    const totalCells = Math.ceil((offset + daysInMonth) / 7) * 7;
+    const cells = [];
+    for (let i = 0; i < totalCells; i++) {
+      const date = new Date(month.getFullYear(), month.getMonth(), 1 - offset + i);
+      const key = toISODate(date);
+      const list = byDue.get(key) || [];
+      const isToday = key === todayIso;
+      const outside = date.getMonth() !== month.getMonth();
+      const weekend = date.getDay() === 0 || date.getDay() === 6;
+      const fullDate = `${GANTT_WEEKDAYS_LONG[date.getDay()]} ${date.getDate()} de ${GANTT_MONTHS_LONG[date.getMonth()]}`;
+      const chips = list.slice(0, 3).map(t => {
+        const info = ganttDeadlineInfo(t, today);
+        return `
+          <div class="gvc-chip ${info.key} ${t.status === 'completada' ? 'is-done' : ''}" draggable="true"
+               data-id="${t.id}" data-start="${t.start_date || ''}" data-due="${t.due_date || ''}">
+            <i class="gv-status-dot ${info.key}"></i>
+            <span class="gvc-chip-title">${t.is_milestone ? icon('flag') : ''}${t.status === 'completada' ? '✓ ' : ''}${esc(t.title)}</span>
+          </div>`;
+      }).join('');
+      const more = list.length > 3 ? `<button type="button" class="gvc-more" data-cal-day="${key}">+${list.length - 3} más</button>` : '';
+      cells.push(`
+        <div class="gvc-day ${outside ? 'is-out' : ''} ${isToday ? 'is-today' : ''} ${key === selected ? 'is-selected' : ''} ${weekend ? 'is-weekend' : ''}"
+             data-cal-day="${key}" tabindex="0" role="button"
+             aria-label="${fullDate}${list.length ? `, ${list.length} ${list.length === 1 ? 'entrega' : 'entregas'}` : ''}">
+          <div class="gvc-day-top">
+            <span class="gvc-num">${date.getDate()}</span>
+            ${isToday ? '<span class="gvc-today">Hoy</span>' : ''}
+          </div>
+          <div class="gvc-chips">${chips}${more}</div>
+        </div>`);
+    }
+    body = `
+      <div class="gvc-weekdays">${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => `<span>${d}</span>`).join('')}</div>
+      <div class="gvc-grid">${cells.join('')}</div>`;
+  } else {
+    body = `<div class="gvc-duration">${renderGanttCalendarHtml(tasks, month, today)}</div>`;
+  }
+
+  return `
+    <div class="gp-window gv-chart gvc">
+      ${head}
+      <div class="gvc-layout">
+        <div class="gvc-main">${body}</div>
+        ${ganttCalendarPanelHtml(tasks, byDue, selected, today)}
+      </div>
+    </div>
+  `;
+}
+
+// Panel derecho: qué vence y qué se está trabajando el día elegido
+function ganttCalendarPanelHtml(tasks, byDue, selected, today) {
+  const day = parseGanttDate(selected) || today;
+  const due = byDue.get(selected) || [];
+  const ongoing = tasks.filter(t => t.status !== 'completada' && t.startDate <= day && t.dueDate > day);
+  const isToday = toISODate(today) === selected;
+  const item = t => {
+    const info = ganttDeadlineInfo(t, today);
+    return `
+      <button type="button" class="gvc-item ${info.key}" data-edit-id="${t.id}" title="Clic para editar">
+        <i class="gv-status-dot ${info.key}"></i>
+        <span class="gvc-item-text">
+          <b>${t.is_milestone ? icon('flag') : ''}${esc(t.title)}</b>
+          <small>${info.key === 'atrasada' ? info.note : (info.note || info.label)} · ${ganttTaskProgress(t)}%</small>
+        </span>
+        ${ganttAvatarHtml(t)}
+      </button>`;
+  };
+  return `
+    <aside class="gvc-panel" aria-label="Detalle del día">
+      <div class="gvc-panel-date">
+        <span>${GANTT_WEEKDAYS_LONG[day.getDay()]}${isToday ? ' · <b class="gvc-today">Hoy</b>' : ''}</span>
+        <strong>${day.getDate()} de ${GANTT_MONTHS_LONG[day.getMonth()]}</strong>
+      </div>
+      <h4>Vencen este día <span>${due.length}</span></h4>
+      ${due.length ? due.map(item).join('') : '<p class="gvc-empty">Nada vence este día.</p>'}
+      <h4>Se trabajan este día <span>${ongoing.length}</span></h4>
+      ${ongoing.length ? ongoing.map(item).join('') : '<p class="gvc-empty">No hay tareas en curso este día.</p>'}
+      <div class="gvc-panel-actions">
+        <button type="button" class="btn" data-cal-new="${selected}">${icon('plus')} Tarea que venza este día</button>
+        <button type="button" class="gv-btn" data-cal-goto="${selected}">Ver este día en el cronograma</button>
+      </div>
+    </aside>
+  `;
+}
+
+async function ganttMoveTaskDates(id, start_date, due_date) {
+  try {
+    const task = await api(`/tasks/${id}`);
+    await api(`/tasks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: task.title,
+        description: task.description || '',
+        assigned_to: task.assigned_to || '',
+        priority: task.priority,
+        status: task.status,
+        start_date,
+        due_date
+      })
+    });
+    notify('Fechas actualizadas');
+  } catch (error) { notify(error.message); }
+  renderGantt();
+}
+
+function bindGanttCalendarView() {
+  if (!document.querySelector('.gvc')) return;
+
+  document.querySelectorAll('[data-cal-nav]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const step = Number(btn.dataset.calNav);
+      if (step === 0) {
+        ganttCalendarMonth = new Date(); ganttCalendarMonth.setDate(1); ganttCalendarMonth.setHours(0, 0, 0, 0);
+        ganttCalendarSelected = toISODate(new Date());
+      } else {
+        ganttCalendarMonth = new Date(ganttCalendarMonth.getFullYear(), ganttCalendarMonth.getMonth() + step, 1);
+      }
+      renderGantt();
+    });
+  });
+
+  document.querySelectorAll('[data-cal-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      ganttCalendarMode = btn.dataset.calMode;
+      renderGantt();
+    });
+  });
+
+  // Tocar un día (o "+N más") lo muestra en el panel
+  document.querySelectorAll('.gvc-day, .gvc-more').forEach(el => {
+    const select = e => {
+      if (e.target.closest('.gvc-chip') && el.classList.contains('gvc-day')) return;
+      e.stopPropagation();
+      ganttCalendarSelected = el.dataset.calDay;
+      renderGantt();
+    };
+    el.addEventListener('click', select);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(e); } });
+  });
+
+  // Tareas: clic para editar, arrastrar para cambiar el día de entrega
+  document.querySelectorAll('.gvc-chip').forEach(chip => {
+    chip.addEventListener('click', e => { e.stopPropagation(); openGanttQuickEdit(chip.dataset.id); });
+    chip.addEventListener('dragstart', e => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', chip.dataset.id);
+      chip.classList.add('is-dragging');
+      document.querySelector('#gv-tip')?.setAttribute('hidden', '');
+    });
+    chip.addEventListener('dragend', () => chip.classList.remove('is-dragging'));
+  });
+  document.querySelectorAll('.gvc-day').forEach(day => {
+    day.addEventListener('dragover', e => { e.preventDefault(); day.classList.add('drop-target'); });
+    day.addEventListener('dragleave', () => day.classList.remove('drop-target'));
+    day.addEventListener('drop', e => {
+      e.preventDefault();
+      day.classList.remove('drop-target');
+      const id = e.dataTransfer.getData('text/plain');
+      const chip = document.querySelector(`.gvc-chip[data-id="${id}"]`);
+      if (!chip || !chip.dataset.due) return;
+      const delta = Math.round((parseGanttDate(day.dataset.calDay) - parseGanttDate(chip.dataset.due)) / 86400000);
+      if (!delta) return;
+      const newStart = chip.dataset.start ? addDays(chip.dataset.start, delta) : day.dataset.calDay;
+      ganttCalendarSelected = day.dataset.calDay;
+      ganttMoveTaskDates(id, newStart, day.dataset.calDay);
+    });
+  });
+
+  // Panel del día
+  document.querySelectorAll('[data-edit-id]').forEach(btn => btn.addEventListener('click', () => openGanttQuickEdit(btn.dataset.editId)));
+  document.querySelector('[data-cal-new]')?.addEventListener('click', e => {
+    const date = e.currentTarget.dataset.calNew;
+    openGanttCreateModal(false);
+    const form = document.querySelector('#gantt-quick-create-form');
+    if (form?.elements.due_date) form.elements.due_date.value = date;
+    if (form?.elements.start_date && form.elements.start_date.value > date) form.elements.start_date.value = date;
+  });
+  document.querySelector('[data-cal-goto]')?.addEventListener('click', e => {
+    ganttPendingScrollDate = e.currentTarget.dataset.calGoto;
+    ganttRenderedDayWidth = null;
+    switchGanttTab('gantt');
+  });
+}
+
+// Ancho en pixeles de un día según la escala y el zoom actuales
+function ganttCurrentDayWidth() {
+  if (ganttTimeScale === 'week') return Math.max(14, Math.round(ganttChartZoom * 0.55));
+  if (ganttTimeScale === 'month') return Math.max(8, Math.round(ganttChartZoom * 0.3));
+  return ganttChartZoom;
+}
+
 async function renderGantt() {
+  // Antes de redibujar, recordar qué fecha se estaba viendo para no "brincar" al inicio
+  const dayMs = 86400000;
+  const prevScroll = document.querySelector('#gtc-scroll');
+  ganttViewLeftDate = prevScroll && ganttChartMinDate && ganttRenderedDayWidth
+    ? new Date(ganttChartMinDate.getTime() + Math.round(prevScroll.scrollLeft / ganttRenderedDayWidth) * dayMs)
+    : null;
+
   layout(await gantt());
   bindGanttEvents();
   bindGanttChartEvents();
+  bindGanttViewEvents();
+
+  // Al entrar (o al cambiar de pestaña) el diagrama abre en HOY; si ya se estaba viendo, se queda donde estaba
+  const scrollEl = document.querySelector('#gtc-scroll');
+  ganttRenderedDayWidth = ganttCurrentDayWidth();
+  if (!scrollEl || !ganttChartMinDate) return;
+  const target = ganttPendingScrollDate ? parseGanttDate(ganttPendingScrollDate) : null;
+  ganttPendingScrollDate = null;
+  if (target) {
+    scrollEl.scrollLeft = Math.max(0, Math.round((target - ganttChartMinDate) / dayMs) * ganttRenderedDayWidth - scrollEl.clientWidth * 0.25);
+  } else if (ganttViewLeftDate) {
+    scrollEl.scrollLeft = Math.max(0, Math.round((ganttViewLeftDate - ganttChartMinDate) / dayMs) * ganttRenderedDayWidth);
+  } else {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    scrollEl.scrollLeft = Math.max(0, Math.round((today - ganttChartMinDate) / dayMs) * ganttRenderedDayWidth - scrollEl.clientWidth * 0.25);
+  }
+  ganttUpdateEdgeChips(scrollEl);
+}
+
+// Pestañas (Cronograma / Calendario / Recursos) y menú "Más"
+function bindGanttViewEvents() {
+  document.querySelectorAll('[data-gv-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (ganttActiveTab === btn.dataset.gvTab) return;
+      ganttViewLeftDate = null;
+      ganttRenderedDayWidth = null; // al cambiar de vista se vuelve a abrir en hoy
+      switchGanttTab(btn.dataset.gvTab);
+    });
+  });
+  document.querySelectorAll('.gv-menu button, .gv-menu a').forEach(item => {
+    item.addEventListener('click', () => item.closest('details')?.removeAttribute('open'));
+  });
+  bindGanttCalendarView();
+
+  document.querySelectorAll('.gv-res-bar').forEach(bar => bar.addEventListener('click', () => openGanttQuickEdit(bar.dataset.id)));
+
+  // Tarjetas de resumen = filtro rápido
+  document.querySelectorAll('[data-quick]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.quick;
+      ganttQuickFilter = ganttQuickFilter === key ? '' : key;
+      renderGantt();
+    });
+  });
+
+  // Botones ‹ › para ir a una tarea que quedó fuera de la vista
+  const scrollEl = document.querySelector('#gtc-scroll');
+  if (scrollEl) {
+    let frame = 0;
+    scrollEl.addEventListener('scroll', () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => ganttUpdateEdgeChips(scrollEl));
+    });
+  }
+  document.querySelectorAll('.gv-edge').forEach(chip => {
+    chip.addEventListener('click', e => {
+      e.stopPropagation();
+      if (chip.dataset.goto) scrollToGanttDate(chip.dataset.goto);
+    });
+  });
+
+  // Globo con la información de la tarea al pasar el mouse
+  let tip = document.querySelector('#gv-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'gv-tip';
+    tip.className = 'gv-tip';
+    tip.setAttribute('role', 'tooltip');
+    document.body.appendChild(tip);
+  }
+  tip.hidden = true;
+  const tipToday = new Date(); tipToday.setHours(0, 0, 0, 0);
+  document.querySelectorAll('.gtc-bar, .gtc-milestone-diamond, .gtc-summary-bar, .gvc-chip, .gv-res-bar').forEach(el => {
+    el.removeAttribute('title');
+    el.addEventListener('pointerenter', () => {
+      const task = ganttTaskIndex.get(Number(el.dataset.id));
+      if (!task || el.classList.contains('is-dragging')) return;
+      tip.innerHTML = ganttTipHtml(task, tipToday);
+      tip.hidden = false;
+    });
+    el.addEventListener('pointermove', e => {
+      if (tip.hidden) return;
+      const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+      const below = e.clientY + 18 + tip.offsetHeight < window.innerHeight;
+      tip.style.left = `${Math.max(8, x)}px`;
+      tip.style.top = `${below ? e.clientY + 18 : e.clientY - tip.offsetHeight - 12}px`;
+    });
+    el.addEventListener('pointerleave', () => { tip.hidden = true; });
+    el.addEventListener('pointerdown', () => { tip.hidden = true; });
+  });
+
+  if (!ganttMenuCloserReady) {
+    ganttMenuCloserReady = true;
+    document.addEventListener('click', e => {
+      document.querySelectorAll('details.gv-more[open]').forEach(menu => {
+        if (!menu.contains(e.target)) menu.removeAttribute('open');
+      });
+    });
+  }
 }
 
 function bindGanttChartEvents() {
@@ -4055,7 +4581,16 @@ function bindGanttEvents() {
     day.addEventListener('click', e => {
       if (e.target.closest('.gantt-cal-bar')) return;
       const targetDate = day.dataset.date;
-      if (targetDate) scrollToGanttDate(targetDate);
+      if (!targetDate) return;
+      if (ganttActiveTab === 'calendar') {
+        ganttCalendarSelected = targetDate;
+        renderGantt();
+        return;
+      }
+      // Abre el cronograma justo en el día que se tocó
+      ganttPendingScrollDate = targetDate;
+      ganttRenderedDayWidth = null;
+      switchGanttTab('gantt');
     });
     day.addEventListener('dragover', event => {
       event.preventDefault();
