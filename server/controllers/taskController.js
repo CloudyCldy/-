@@ -1,5 +1,12 @@
 const pdfService = require('../services/pdfService');
 const TASK_STATUSES = new Set(['pendiente', 'en_proceso', 'en_revision', 'bloqueada', 'completada']);
+// Orden del flujo de una tarea. Un integrante solo puede avanzarla; regresarla a un estado
+// anterior queda reservado para administradores y project managers.
+const TASK_STATUS_ORDER = { pendiente: 0, en_proceso: 1, bloqueada: 1, en_revision: 2, completada: 3 };
+const canMoveTaskBack = role => role === 'admin' || role === 'project_manager';
+function isBackwardMove(from, to) {
+  return (TASK_STATUS_ORDER[to] ?? 0) < (TASK_STATUS_ORDER[from] ?? 0);
+}
 const TASK_PRIORITIES = new Set(['baja', 'media', 'alta', 'critica']);
 
 function valueFromQuery(value) {
@@ -275,6 +282,7 @@ async function update(req, res) {
   const task = await database.prepare('SELECT * FROM tasks WHERE id = ? AND organization_id = ?').get(id, req.session.user.organization_id);
   if (!task) return res.status(404).json({ error: 'La tarea no existe.' });
   if (req.session.user.role === 'member' && task.assigned_to !== req.session.user.id) return res.status(403).json({ error: 'Solo puedes modificar tus tareas.' });
+  if (req.body.status !== undefined && !canMoveTaskBack(req.session.user.role) && isBackwardMove(task.status, req.body.status)) return res.status(403).json({ error: 'Solo un administrador o project manager puede regresar una tarea a un estado anterior.' });
 
   let sprintId = task.sprint_id;
   if (req.body.sprint_id !== undefined) {
@@ -388,7 +396,9 @@ async function status(req, res) {
   if (!id) return;
   const task = await database.prepare('SELECT * FROM tasks WHERE id = ? AND organization_id = ?').get(id, req.session.user.organization_id);
   if (!task || (req.session.user.role === 'member' && task.assigned_to !== req.session.user.id)) return res.status(404).json({ error: 'La tarea no existe.' });
+  if (req.session.user.role === 'viewer') return res.status(403).json({ error: 'Tu rol solo permite consultar las tareas.' });
   if (!TASK_STATUSES.has(req.body.status)) return res.status(400).json({ error: 'Estado no válido.' });
+  if (!canMoveTaskBack(req.session.user.role) && isBackwardMove(task.status, req.body.status)) return res.status(403).json({ error: 'Solo un administrador o project manager puede regresar una tarea a un estado anterior.' });
   await database.prepare('UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP, completed_at = CASE WHEN ? = \'completada\' THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = ? AND organization_id = ?').run(req.body.status, req.body.status, id, req.session.user.organization_id);
   await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(req.session.user.organization_id, req.session.user.id, task.project_id, 'task.status_changed', `Estado de tarea cambiado a: ${req.body.status}`);
   res.json({ ok: true });
