@@ -1,11 +1,10 @@
 const sanzuService = require('../services/sanzuService');
 const { detectAndSyncEvents } = require('../services/eventService');
-
-const METHODOLOGIES = new Set(['AGILE', 'SCRUM', 'KANBAN', 'XP', 'LEAN', 'WATERFALL', 'HYBRID']);
+const { registry } = require('../services/methodologyRegistry');
 
 function methodology(value) {
   const normalized = String(value || 'AGILE').trim().toUpperCase();
-  return METHODOLOGIES.has(normalized) ? normalized : null;
+  return registry.has(normalized) ? normalized : null;
 }
 
 function syncProject(database, projectId, organizationId) {

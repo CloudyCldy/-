@@ -400,6 +400,9 @@ function sidebar(){
         ['/admin/dashboard','Dashboard','dashboard'],
         ['/admin/overview','Project Overview','pieChart'],
         ['/admin/tasks','Tareas','tasks','tasks'],
+        ['/admin/milestones','Hitos','flag'],
+        ['/admin/issues','Incidencias','alertTriangle'],
+        ['/admin/methodologies','Metodologías','bookOpen'],
         ['/admin/sprints','Sprints','progress'],
         ['/admin/backlog','Backlog','archive'],
         ['/admin/kanban','Kanban','kanban'],
@@ -445,6 +448,9 @@ function sidebar(){
         ['/member/dashboard','Dashboard','dashboard'],
         ['/member/overview','Project Overview','pieChart'],
         ['/member/tasks','Mis tareas','tasks','tasks'],
+        ['/member/milestones','Hitos','flag'],
+        ['/member/issues','Incidencias','alertTriangle'],
+        ['/member/methodologies','Metodologías','bookOpen'],
         ['/member/sprints','Sprints','progress'],
         ['/member/backlog','Backlog','archive'],
         ['/member/kanban','Kanban','kanban'],
@@ -544,7 +550,7 @@ function projectEditor(project){
     </form>
   `;
 }
-function methodologyWidgets(project){const method=project?.methodology_id;const links=[];links.push(`<a class="btn secondary" href="#/${state.user.role}/sprints">${icon('gantt')}Ver Sprints</a>`);if(['SCRUM','KANBAN','XP','AGILE'].includes(method))links.push(`<a class="btn secondary" href="#/${state.user.role}/kanban">${icon('kanban')}Abrir tablero</a>`);if(method==='WATERFALL'||method==='LEAN'||method==='HYBRID')links.push(`<a class="btn secondary" href="#/${state.user.role}/gantt">${icon('gantt')}Abrir hitos y Gantt</a>`);if(project?.id)links.push(`<button type="button" class="btn secondary" id="dash-new-project-task" data-project-id="${project.id}">${icon('plus')}Nueva tarea</button>`);return `<div class="actions mt-3"><span class="muted">${method?`Flujo recomendado: ${esc(method)}`:'Define una metodología'}</span>${links.join('')}</div>`}
+function methodologyWidgets(project){const method=project?.methodology_id;const links=[];links.push(`<a class="btn secondary" href="#/${state.user.role}/sprints">${icon('gantt')}Ver Sprints</a>`);if(['SCRUM','KANBAN','XP','AGILE'].includes(method))links.push(`<a class="btn secondary" href="#/${state.user.role}/kanban">${icon('kanban')}Abrir tablero</a>`);if(method==='WATERFALL'||method==='LEAN'||method==='HYBRID')links.push(`<a class="btn secondary" href="#/${state.user.role}/gantt">${icon('gantt')}Abrir hitos y Gantt</a>`);links.push(`<a class="btn secondary" href="#/${state.user.role}/milestones?project=${project?.id}">${icon('flag')}Hitos</a>`);if(project?.id)links.push(`<button type="button" class="btn secondary" id="dash-new-project-task" data-project-id="${project.id}">${icon('plus')}Nueva tarea</button>`);return `<div class="actions mt-3"><span class="muted">${method?`Flujo recomendado: ${esc(method)}`:'Define una metodología'}</span>${links.join('')}</div>`}
 function projectHealth(health){if(!health)return '';const statusLabel={saludable:'Saludable',atencion:'Requiere atención',riesgo:'En riesgo'}[health.status]||'Sin datos';const workload=health.workload||[];const activity=health.recentActivity||[];return `<section class="card project-health mt-4"><div class="project-health-head"><div><div class="eyebrow">Control operativo</div><h2>Salud del proyecto</h2><p class="muted">Lectura combinada de avance, planificación, riesgos y capacidad del equipo.</p></div><div class="health-score health-${esc(health.status)}"><strong>${health.score}</strong><span>/ 100</span><small>${statusLabel}</small></div></div><div class="health-overview"><div class="health-meter"><div class="health-meter-track"><i style="width:${health.score}%"></i></div><div class="health-meter-labels"><span>Riesgo</span><span>Atención</span><span>Saludable</span></div></div><div class="health-metrics"><div><strong>${health.overdue}</strong><span>Vencidas</span></div><div><strong>${health.dueSoon}</strong><span>Próximas 7 días</span></div><div><strong>${health.critical}</strong><span>Alta prioridad</span></div><div><strong>${health.unassigned}</strong><span>Sin responsable</span></div></div></div><div class="health-detail-grid"><div><h3>Calidad de planificación</h3><div class="health-progress-row"><span>Fechas definidas</span><strong>${health.dateCoverage}%</strong><i><b style="width:${health.dateCoverage}%"></b></i></div><div class="health-progress-row"><span>Responsables asignados</span><strong>${health.assignmentCoverage}%</strong><i><b style="width:${health.assignmentCoverage}%"></b></i></div><h3 class="health-subtitle">Recomendaciones</h3><ul class="health-list">${health.recommendations.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div><div><h3>Carga del equipo</h3>${workload.length?`<div class="health-workload">${workload.map(item=>{const percentage=item.total?Math.round(item.completed/item.total*100):0;return `<div class="health-workload-row"><span>${esc(item.name)}</span><strong>${item.total} <small>${percentage}% completado</small></strong><i><b style="width:${percentage}%"></b></i></div>`}).join('')}</div>`:'<div class="empty">No hay integrantes activos.</div>'}<h3 class="health-subtitle">Actividad reciente</h3>${activity.length?`<div class="health-activity">${activity.map(item=>`<div><strong>${esc(item.action)}</strong><small>${esc(item.description||'Actualización registrada')}</small></div>`).join('')}</div>`:'<div class="empty">No hay actividad reciente.</div>'}</div></div></section>`}
 async function dashboard(){
   state.dashboard=await api('/dashboard');
@@ -5944,6 +5950,9 @@ async function render(){
     if(route.includes('absences'))return renderAbsences();
     if(route.includes('assistant'))return state.user.role==='admin'?renderAssistant():renderDashboard();
     if(route.includes('backlog'))return renderBacklog();
+    if(route.includes('issues'))return renderIssues();
+    if(route.includes('methodologies'))return renderMethodologies();
+    if(route.includes('milestones'))return renderMilestones();
     if(route.includes('sprints'))return renderSprints();
     if(route.includes('kanban'))return renderKanban();
     if(route.includes('gantt'))return renderGantt();
@@ -6894,6 +6903,8 @@ async function renderOverview() {
   try {
     overviewData = await api(`/projects/${selectedProjectId}/overview`);
     intelData = await api(`/projects/${selectedProjectId}/intelligence`).catch(() => null);
+    const projectMilestones = await api(`/projects/${selectedProjectId}/milestones`).catch(() => []);
+    const projectIssues = await api(`/projects/${selectedProjectId}/issues`).catch(() => []);
   } catch (err) {
     return layout(`
       ${heading('Project Overview', 'Control operativo y ejecutivo')}
@@ -7077,6 +7088,42 @@ async function renderOverview() {
       <div style="display:grid;gap:var(--sp-4)">
         <div class="card p-4">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+            <div style="display:flex;align-items:center;gap:var(--sp-2)">
+              ${icon('flag')}
+              <h3 style="margin:0">Hitos del Proyecto (Milestones)</h3>
+            </div>
+            <div class="actions">
+              <a class="sub" href="#/${state.user.role}/milestones?project=${p.id}">Ver todos</a>
+              ${['admin', 'project_manager'].includes(state.user.role) ? `
+                <button class="btn mini secondary" id="overview-create-milestone-btn" data-project-id="${p.id}">
+                  ${icon('plus')} Nuevo Hito
+                </button>
+              ` : ''}
+            </div>
+          </div>
+          ${projectMilestones.length ? `
+            <div style="display:grid;gap:var(--sp-2)">
+              ${projectMilestones.slice(0, 5).map(m => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg-glass);border-radius:var(--r-sm);border:1px solid var(--line);gap:var(--sp-2);flex-wrap:wrap">
+                  <div>
+                    <strong style="font-size:0.92rem">${esc(m.title)}</strong>
+                    <div class="muted sub">${m.description ? esc(m.description) + ' · ' : ''}Fecha objetivo: <strong>${esc(String(m.due_date).slice(0, 10))}</strong></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:var(--sp-2)">
+                    ${milestoneStatusBadge(m.status)}
+                    ${['admin', 'project_manager'].includes(state.user.role) ? `
+                      <button class="icon-btn edit-milestone-btn" data-milestone-id="${m.id}" data-project-id="${p.id}" title="Editar hito">${icon('edit')}</button>
+                      <button class="icon-btn danger delete-milestone-btn" data-milestone-id="${m.id}" title="Eliminar hito">${icon('trash')}</button>
+                    ` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : '<div class="empty">No hay hitos registrados para este proyecto.</div>'}
+        </div>
+
+        <div class="card p-4">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
             <h3 style="margin:0">Riesgos Principales</h3>
             <a class="sub" href="#/${state.user.role}/risks">Gestionar Riesgos</a>
           </div>
@@ -7110,6 +7157,7 @@ async function renderOverview() {
             <a class="btn secondary" href="#/${state.user.role}/gantt">${icon('gantt')} Diagrama Gantt</a>
             <a class="btn secondary" href="#/${state.user.role}/sprints">${icon('progress')} Sprints</a>
             <a class="btn secondary" href="#/${state.user.role}/knowledge">${icon('bookOpen')} Documentos (${s.totalDocuments || 0})</a>
+            <a class="btn secondary" href="#/${state.user.role}/methodologies?project=${p.id}">${icon('bookOpen')} Metodologías</a>
           </div>
         </div>
       </div>
@@ -7120,6 +7168,40 @@ async function renderOverview() {
 
   document.querySelector('#overview-project-select')?.addEventListener('change', (e) => {
     location.hash = `#/${state.user.role}/overview?project=${e.target.value}`;
+  });
+
+  document.querySelector('#overview-create-milestone-btn')?.addEventListener('click', (e) => {
+    openMilestoneModal(e.currentTarget.dataset.projectId, null, () => renderOverview());
+  });
+  document.querySelectorAll('.edit-milestone-btn').forEach(btn => {
+    btn.onclick = async () => {
+      try {
+        const m = await api(`/milestones/${btn.dataset.milestoneId}`);
+        openMilestoneModal(btn.dataset.projectId, m, () => renderOverview());
+      } catch (err) { notify(err.message); }
+    };
+  });
+  document.querySelectorAll('.delete-milestone-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm('¿Eliminar este hito del proyecto?')) return;
+      try {
+        await api(`/milestones/${btn.dataset.milestoneId}`, { method: 'DELETE' });
+        notify('Hito eliminado correctamente');
+        renderOverview();
+      } catch (err) { notify(err.message); }
+    };
+  });
+
+  document.querySelector('#overview-create-issue-btn')?.addEventListener('click', (e) => {
+    openIssueModal(e.currentTarget.dataset.projectId, null, () => renderOverview());
+  });
+  document.querySelectorAll('.edit-issue-btn').forEach(btn => {
+    btn.onclick = async () => {
+      try {
+        const iss = await api(`/issues/${btn.dataset.issueId}`);
+        openIssueModal(btn.dataset.projectId, iss, () => renderOverview());
+      } catch (err) { notify(err.message); }
+    };
   });
 
   document.querySelector('#overview-sync-btn')?.addEventListener('click', async (e) => {
@@ -7506,9 +7588,11 @@ async function renderKnowledge() {
 async function renderRisks() {
   let overview = null;
   let projects = [];
+  let users = [];
   try {
     overview = await api('/risks/overview');
     projects = await api('/projects').catch(() => []);
+    users = await api('/users').catch(() => []);
   } catch (err) {
     return layout(`
       ${heading('Risk Center & Eventos', 'Monitoreo de riesgos y eventos')}
@@ -7516,33 +7600,46 @@ async function renderRisks() {
     `);
   }
 
-  const s = overview.summary || { totalRisks: 0, criticalRisks: 0, overloadedMembers: 0, activeEvents: 0 };
+  const s = overview.stats || overview.summary || { totalOpenRisks: 0, highSeverity: 0, mediumSeverity: 0, lowSeverity: 0 };
   const risks = overview.risks || [];
   const workload = overview.workload || [];
-  const events = overview.events || [];
+  const events = overview.activeEvents || overview.events || [];
+  const canManage = ['admin', 'project_manager'].includes(state.user.role);
+
+  const hashParams = new URLSearchParams((location.hash.split('?')[1]) || '');
+  const filterProject = hashParams.get('project') || '';
+  const filterStatus = hashParams.get('status') || '';
+
+  const filteredRisks = risks.filter(r => {
+    if (filterProject && String(r.project_id) !== String(filterProject)) return false;
+    if (filterStatus && r.status !== filterStatus) return false;
+    return true;
+  });
 
   const markup = `
-    ${heading('Risk Center & Eventos', 'Monitoreo proactivo de riesgos de proyecto, eventos del sistema y capacidad del equipo', `
+    ${heading('Risk Center & Eventos', 'Gestión proactiva de riesgos de proyecto con severidad calculada automáticamente', `
       <div class="actions">
         <button class="btn secondary" id="detect-events-btn">
-          ${icon('activity')} Detectar Eventos del Sistema
+          ${icon('activity')} Detectar Anomalías
         </button>
-        <button class="btn" id="open-risk-modal">
-          ${icon('plus')} Registrar Riesgo
-        </button>
+        ${canManage ? `
+          <button class="btn" id="open-risk-modal">
+            ${icon('plus')} Registrar Riesgo
+          </button>
+        ` : ''}
       </div>
     `)}
 
     <div class="grid stats dashboard-stats mt-4">
       <div class="card stat stat-primary">
-        <div class="stat-header"><div class="label">Riesgos Activos</div>${icon('alertTriangle')}</div>
-        <div class="num">${s.totalRisks}</div>
+        <div class="stat-header"><div class="label">Riesgos Abiertos</div>${icon('alertTriangle')}</div>
+        <div class="num">${s.totalOpenRisks || risks.filter(r => r.status === 'open').length}</div>
         <div class="stat-footer-sub">En todos los proyectos</div>
       </div>
       <div class="card stat">
-        <div class="stat-header"><div class="label">Riesgos Críticos</div>${icon('shield')}</div>
-        <div class="num" style="color:${s.criticalRisks > 0 ? 'var(--pink)' : 'inherit'}">${s.criticalRisks}</div>
-        <div class="stat-footer-sub">Severidad ≥ 15 (Prob x Imp)</div>
+        <div class="stat-header"><div class="label">Severidad Alta / Crítica</div>${icon('shield')}</div>
+        <div class="num" style="color:var(--pink)">${s.highSeverity || risks.filter(r => r.severity_score >= 60).length}</div>
+        <div class="stat-footer-sub">Calculada automáticamente</div>
       </div>
       <div class="card stat">
         <div class="stat-header"><div class="label">Eventos del Sistema</div>${icon('bell')}</div>
@@ -7550,12 +7647,91 @@ async function renderRisks() {
         <div class="stat-footer-sub">Alertas operativas pendientes</div>
       </div>
       <div class="card stat">
-        <div class="stat-header"><div class="label">Integrantes en Sobrecarga</div>${icon('users')}</div>
-        <div class="num" style="color:${s.overloadedMembers > 0 ? 'var(--pink)' : 'inherit'}">${s.overloadedMembers}</div>
-        <div class="stat-footer-sub">Capacidad asignada > 100%</div>
+        <div class="stat-header"><div class="label">Mitigados / Cerrados</div>${icon('check')}</div>
+        <div class="num green">${risks.filter(r => r.status === 'mitigated' || r.status === 'closed').length}</div>
+        <div class="stat-footer-sub">Riesgos controlados</div>
       </div>
     </div>
 
+    <!-- Filtros de proyecto y estado -->
+    <div class="card p-3 mt-4" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--sp-2)">
+      <div style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap">
+        <span class="muted sub">Filtrar por proyecto:</span>
+        <select class="select mini" id="filter-risk-project" style="min-width:180px">
+          <option value="">Todos los proyectos</option>
+          ${projects.map(p => `<option value="${p.id}" ${String(p.id) === filterProject ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        </select>
+        <span class="muted sub" style="margin-left:8px">Estado:</span>
+        <button class="btn mini ${!filterStatus ? '' : 'secondary'} risk-filter-status" data-status="">Todos</button>
+        <button class="btn mini ${filterStatus === 'open' ? '' : 'secondary'} risk-filter-status" data-status="open">Abiertos</button>
+        <button class="btn mini ${filterStatus === 'mitigated' ? '' : 'secondary'} risk-filter-status" data-status="mitigated">Mitigados</button>
+        <button class="btn mini ${filterStatus === 'accepted' ? '' : 'secondary'} risk-filter-status" data-status="accepted">Aceptados</button>
+        <button class="btn mini ${filterStatus === 'closed' ? '' : 'secondary'} risk-filter-status" data-status="closed">Cerrados</button>
+      </div>
+      <span class="muted sub">${filteredRisks.length} riesgo(s) visualizado(s)</span>
+    </div>
+
+    <!-- Matriz de Riesgos -->
+    <div class="card p-4 mt-4">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <div style="display:flex;align-items:center;gap:var(--sp-2)">
+          ${icon('alertTriangle')}
+          <h3 style="margin:0">Matriz de Riesgos (${filteredRisks.length})</h3>
+        </div>
+      </div>
+      ${filteredRisks.length ? `
+        <div style="display:grid;gap:var(--sp-3)">
+          ${filteredRisks.map(r => `
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px;background:var(--bg-glass);border-radius:var(--r-md);border:1px solid var(--line);flex-wrap:wrap;gap:var(--sp-3)">
+              <div style="max-width:70%">
+                <div style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:4px">
+                  <strong style="font-size:1.05rem">${esc(r.title)}</strong>
+                  ${riskSeverityBadge(r.severity, r.severity_score)}
+                  ${riskStatusBadge(r.status)}
+                </div>
+                ${r.description ? `<p class="muted" style="margin:4px 0">${esc(r.description)}</p>` : ''}
+                <div style="font-size:0.88rem;margin-top:6px;display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center">
+                  <span><strong>Probabilidad:</strong> ${esc(r.probability)}</span> ·
+                  <span><strong>Impacto:</strong> ${esc(r.impact)}</span>
+                  ${r.project_name ? ` · Proyecto: <strong>${esc(r.project_name)}</strong>` : ''}
+                  · Responsable: <strong style="color:var(--text)">${esc(r.assigned_name || 'Sin asignar')}</strong>
+                </div>
+                ${r.mitigation ? `
+                  <div style="font-size:0.88rem;margin-top:6px;padding:8px 12px;background:var(--bg, #111);border-radius:var(--r-sm);border-left:3px solid var(--primary, #0ea5e9)">
+                    <strong>Plan de Mitigación:</strong> ${esc(r.mitigation)}
+                  </div>
+                ` : ''}
+              </div>
+              ${canManage ? `
+                <div class="actions" style="display:flex;flex-direction:column;align-items:flex-end;gap:var(--sp-2)">
+                  <div style="display:flex;align-items:center;gap:var(--sp-1)">
+                    <span class="muted sub" style="font-size:0.8rem">Cambiar estado:</span>
+                    <select class="select mini quick-risk-status" data-risk-id="${r.id}">
+                      <option value="open" ${r.status === 'open' ? 'selected' : ''}>Abierto</option>
+                      <option value="mitigated" ${r.status === 'mitigated' ? 'selected' : ''}>Mitigado</option>
+                      <option value="accepted" ${r.status === 'accepted' ? 'selected' : ''}>Aceptado</option>
+                      <option value="closed" ${r.status === 'closed' ? 'selected' : ''}>Cerrado</option>
+                    </select>
+                  </div>
+                  <div style="display:flex;gap:var(--sp-1)">
+                    <button class="btn secondary mini edit-risk-modal-btn" data-risk-id="${r.id}">
+                      ${icon('edit')} Editar
+                    </button>
+                    <button class="btn secondary mini delete-risk-btn" data-risk-id="${r.id}" style="color:var(--pink)">
+                      ${icon('trash')}
+                    </button>
+                  </div>
+                </div>
+              ` : `
+                <div>${riskStatusBadge(r.status)}</div>
+              `}
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div class="empty">No hay riesgos registrados en la matriz para los filtros seleccionados.</div>'}
+    </div>
+
+    <!-- Eventos Automáticos del Sistema -->
     <div class="card p-4 mt-4">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
         <div style="display:flex;align-items:center;gap:var(--sp-2)">
@@ -7590,146 +7766,75 @@ async function renderRisks() {
       ` : '<div class="empty">No hay eventos pendientes. El sistema no detecta anomalías operativas.</div>'}
     </div>
 
-    <div class="card p-4 mt-4">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
-        <div>
-          <h3 style="margin:0">Team Workload & Capacidad Asignada</h3>
-          <p class="muted sub" style="margin:0">Distribución de tareas y porcentaje de capacidad operativa por integrante.</p>
-        </div>
-      </div>
-      ${workload.length ? `
-        <div class="grid" style="grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:var(--sp-3)">
-          ${workload.map(mem => {
-            const pct = mem.capacity_percentage || 0;
-            const barColor = pct > 100 ? 'var(--pink)' : pct >= 70 ? 'var(--yellow)' : 'var(--green)';
-            const statusBadge = mem.workload_status === 'overloaded' ? 'badge pink' : mem.workload_status === 'high' ? 'badge yellow' : 'badge green';
-            const statusText = mem.workload_status === 'overloaded' ? 'Sobrecargado' : mem.workload_status === 'high' ? 'Carga Alta' : 'Normal';
-            return `
-              <div style="padding:14px;background:var(--bg-glass);border-radius:var(--r-md);border:1px solid var(--line)">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                  <strong style="font-size:0.95rem">${esc(mem.name)}</strong>
-                  <span class="${statusBadge}">${statusText}</span>
-                </div>
-                <div class="muted sub" style="margin-bottom:8px">${esc(mem.email)} · ${mem.active_tasks} tareas activas</div>
-                <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px">
-                  <span>Capacidad Utilizada</span>
-                  <strong>${pct}%</strong>
-                </div>
-                <div class="health-meter-track" style="height:8px">
-                  <i style="width:min(100%, ${pct}%);background:${barColor}"></i>
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      ` : '<div class="empty">No hay integrantes registrados.</div>'}
-    </div>
-
-    <div class="card p-4 mt-4">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
-        <h3 style="margin:0">Matriz de Riesgos Identificados (${risks.length})</h3>
-      </div>
-      ${risks.length ? `
-        <div style="display:grid;gap:var(--sp-3)">
-          ${risks.map(r => {
-            const score = r.severity_score || (r.probability * r.impact) || 1;
-            const scoreBadge = score >= 15 ? 'badge pink' : score >= 8 ? 'badge yellow' : 'badge green';
-            const statusClass = r.status === 'cerrado' ? 'badge green' : r.status === 'mitigando' ? 'badge yellow' : 'badge';
-            return `
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg-glass);border-radius:var(--r-md);border:1px solid var(--line);flex-wrap:wrap;gap:var(--sp-2)">
-                <div style="max-width:70%">
-                  <div style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap">
-                    <strong style="font-size:1rem">${esc(r.title)}</strong>
-                    <span class="${scoreBadge}">Score: ${score}</span>
-                    <span class="${statusClass}">${esc(r.status.toUpperCase())}</span>
-                    <span class="badge">${esc(r.category)}</span>
-                  </div>
-                  <p class="muted" style="margin:4px 0">${esc(r.description || 'Sin descripción.')}</p>
-                  <div style="font-size:0.88rem;margin-top:4px">
-                    <span><strong>Probabilidad:</strong> ${r.probability}/5</span> ·
-                    <span><strong>Impacto:</strong> ${r.impact}/5</span>
-                    ${r.project_name ? ` · Proyecto: <strong>${esc(r.project_name)}</strong>` : ''}
-                  </div>
-                  ${r.mitigation ? `<div style="font-size:0.88rem;margin-top:4px;color:var(--text)"><strong>Plan de Mitigación:</strong> ${esc(r.mitigation)}</div>` : ''}
-                </div>
-                <div class="actions" style="display:flex;gap:var(--sp-2)">
-                  <button class="btn secondary toggle-risk-btn" data-risk-id="${r.id}" data-current-status="${r.status}">
-                    ${r.status === 'cerrado' ? 'Reabrir' : 'Mitigar/Cerrar'}
-                  </button>
-                  <button class="btn secondary delete-risk-btn" data-risk-id="${r.id}" style="color:var(--pink)">
-                    ${icon('trash')}
-                  </button>
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      ` : '<div class="empty">No hay riesgos registrados en la matriz.</div>'}
-    </div>
-
+    <!-- Modal para Registrar o Editar Riesgo -->
     <div class="status-overlay" id="risk-modal" style="display:none" role="dialog" aria-modal="true">
-      <div class="status-viewer admin-modal-panel">
+      <div class="status-viewer admin-modal-panel" style="max-width:540px">
         <div class="status-viewer-head">
-          <h3>Registrar Nuevo Riesgo</h3>
+          <h3 id="risk-modal-title">Registrar Nuevo Riesgo</h3>
           <button type="button" class="btn secondary mini close-risk-modal">${icon('close')}</button>
         </div>
         <form class="p-4" id="create-risk-form" style="display:grid;gap:var(--sp-3)">
+          <input type="hidden" name="id" id="risk-form-id" value="">
           <label>
             Título del Riesgo *
-            <input class="input" name="title" required placeholder="e.g. Demora en aprobación de requerimientos">
+            <input class="input" name="title" id="risk-form-title" required placeholder="Ej: Indisponibilidad de API de pagos en producción">
           </label>
           <label>
             Descripción
-            <textarea class="textarea" name="description" rows="2" placeholder="Detalle y contexto del riesgo..."></textarea>
+            <textarea class="textarea" name="description" id="risk-form-description" rows="2" placeholder="Detalle y contexto del riesgo..."></textarea>
           </label>
           <div class="grid" style="grid-template-columns:1fr 1fr;gap:var(--sp-2)">
             <label>
-              Categoría
-              <select class="select" name="category">
-                <option value="tecnico">Técnico</option>
-                <option value="alcance">Alcance</option>
-                <option value="tiempo">Tiempo / Cronograma</option>
-                <option value="recursos">Recursos / Equipo</option>
-                <option value="externo">Externo</option>
-              </select>
-            </label>
-            <label>
-              Proyecto
-              <select class="select" name="project_id">
-                <option value="">General / Ninguno</option>
+              Proyecto *
+              <select class="select" name="project_id" id="risk-form-project" required>
                 ${projects.map(pr => `<option value="${pr.id}">${esc(pr.name)}</option>`).join('')}
               </select>
             </label>
-          </div>
-          <div class="grid" style="grid-template-columns:1fr 1fr;gap:var(--sp-2)">
             <label>
-              Probabilidad (1 = Rara, 5 = Casi segura)
-              <select class="select" name="probability">
-                <option value="1">1 - Muy Baja</option>
-                <option value="2">2 - Baja</option>
-                <option value="3" selected>3 - Media</option>
-                <option value="4">4 - Alta</option>
-                <option value="5">5 - Muy Alta</option>
-              </select>
-            </label>
-            <label>
-              Impacto (1 = Mínimo, 5 = Crítico)
-              <select class="select" name="impact">
-                <option value="1">1 - Insignificante</option>
-                <option value="2">2 - Menor</option>
-                <option value="3" selected>3 - Moderado</option>
-                <option value="4">4 - Mayor</option>
-                <option value="5">5 - Crítico</option>
+              Responsable (Miembro del Proyecto)
+              <select class="select" name="assigned_to" id="risk-form-assigned">
+                <option value="">Sin asignar</option>
+                ${users.map(u => `<option value="${u.id}">${esc(u.name)} (${esc(u.role)})</option>`).join('')}
               </select>
             </label>
           </div>
+          <div class="grid" style="grid-template-columns:1fr 1fr 1fr;gap:var(--sp-2)">
+            <label>
+              Probabilidad
+              <select class="select" name="probability" id="risk-form-probability">
+                <option value="baja">Baja</option>
+                <option value="media" selected>Media</option>
+                <option value="alta">Alta</option>
+              </select>
+            </label>
+            <label>
+              Impacto
+              <select class="select" name="impact" id="risk-form-impact">
+                <option value="baja">Baja</option>
+                <option value="media" selected>Media</option>
+                <option value="alta">Alta</option>
+              </select>
+            </label>
+            <label>
+              Estado
+              <select class="select" name="status" id="risk-form-status">
+                <option value="open">Abierto (Open)</option>
+                <option value="mitigated">Mitigado (Mitigated)</option>
+                <option value="accepted">Aceptado (Accepted)</option>
+                <option value="closed">Cerrado (Closed)</option>
+              </select>
+            </label>
+          </div>
+          <p class="muted sub" style="margin:0;font-size:0.8rem">
+            * La severidad se calculará automáticamente en el backend a partir de la probabilidad y el impacto.
+          </p>
           <label>
-            Estrategia de Mitigación / Contingencia
-            <textarea class="textarea" name="mitigation" rows="3" placeholder="Acciones preventivas y correctivas..."></textarea>
+            Plan de Mitigación / Contingencia
+            <textarea class="textarea" name="mitigation" id="risk-form-mitigation" rows="3" placeholder="Acciones preventivas, responsables y contingencia..."></textarea>
           </label>
           <div class="actions" style="display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-2)">
             <button type="button" class="btn secondary close-risk-modal">Cancelar</button>
-            <button type="submit" class="btn">${icon('check')} Guardar Riesgo</button>
+            <button type="submit" class="btn" id="risk-form-submit-btn">${icon('check')} Guardar Riesgo</button>
           </div>
         </form>
       </div>
@@ -7740,10 +7845,26 @@ async function renderRisks() {
 
   const riskModal = document.querySelector('#risk-modal');
   document.querySelector('#open-risk-modal')?.addEventListener('click', () => {
+    document.querySelector('#risk-form-id').value = '';
+    document.querySelector('#risk-modal-title').textContent = 'Registrar Nuevo Riesgo';
+    document.querySelector('#create-risk-form').reset();
     riskModal.style.display = 'grid';
   });
+
   document.querySelectorAll('.close-risk-modal').forEach(btn => {
     btn.onclick = () => riskModal.style.display = 'none';
+  });
+
+  document.querySelector('#filter-risk-project')?.addEventListener('change', (e) => {
+    const p = e.target.value;
+    location.hash = `#/${state.user.role}/risks?${p ? 'project=' + p : ''}${filterStatus ? '&status=' + filterStatus : ''}`;
+  });
+
+  document.querySelectorAll('.risk-filter-status').forEach(btn => {
+    btn.onclick = () => {
+      const s = btn.dataset.status;
+      location.hash = `#/${state.user.role}/risks?${filterProject ? 'project=' + filterProject : ''}${s ? '&status=' + s : ''}`;
+    };
   });
 
   document.querySelector('#detect-events-btn')?.addEventListener('click', async (e) => {
@@ -7757,7 +7878,7 @@ async function renderRisks() {
     } catch (err) {
       notify('Error al ejecutar detección: ' + err.message);
       btn.disabled = false;
-      btn.innerHTML = `${icon('activity')} Detectar Eventos del Sistema`;
+      btn.innerHTML = `${icon('activity')} Detectar Anomalías`;
     }
   });
 
@@ -7776,16 +7897,26 @@ async function renderRisks() {
   document.querySelector('#create-risk-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const values = Object.fromEntries(new FormData(e.target));
-    values.probability = Number(values.probability);
-    values.impact = Number(values.impact);
-    if (!values.project_id) delete values.project_id;
+    const riskId = values.id;
+    delete values.id;
+    if (!values.assigned_to) delete values.assigned_to;
+
     try {
-      await api('/risks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values)
-      });
-      notify('Riesgo registrado en la matriz');
+      if (riskId) {
+        await api(`/risks/${riskId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values)
+        });
+        notify('Riesgo actualizado correctamente');
+      } else {
+        await api('/risks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values)
+        });
+        notify('Riesgo registrado en la matriz');
+      }
       riskModal.style.display = 'none';
       renderRisks();
     } catch (err) {
@@ -7793,17 +7924,38 @@ async function renderRisks() {
     }
   });
 
-  document.querySelectorAll('.toggle-risk-btn').forEach(btn => {
+  document.querySelectorAll('.edit-risk-modal-btn').forEach(btn => {
     btn.onclick = async () => {
-      const current = btn.dataset.currentStatus;
-      const next = current === 'identificado' ? 'mitigando' : current === 'mitigando' ? 'cerrado' : 'identificado';
       try {
-        await api(`/risks/${btn.dataset.riskId}`, {
+        const risk = await api(`/risks/${btn.dataset.riskId}`);
+        document.querySelector('#risk-form-id').value = risk.id;
+        document.querySelector('#risk-modal-title').textContent = 'Editar Riesgo';
+        document.querySelector('#risk-form-title').value = risk.title || '';
+        document.querySelector('#risk-form-description').value = risk.description || '';
+        document.querySelector('#risk-form-project').value = risk.project_id || '';
+        document.querySelector('#risk-form-assigned').value = risk.assigned_to || '';
+        document.querySelector('#risk-form-probability').value = risk.probability || 'media';
+        document.querySelector('#risk-form-impact').value = risk.impact || 'media';
+        document.querySelector('#risk-form-status').value = risk.status || 'open';
+        document.querySelector('#risk-form-mitigation').value = risk.mitigation || '';
+        riskModal.style.display = 'grid';
+      } catch (err) {
+        notify('Error al cargar datos del riesgo: ' + err.message);
+      }
+    };
+  });
+
+  document.querySelectorAll('.quick-risk-status').forEach(select => {
+    select.onchange = async () => {
+      const newStatus = select.value;
+      const riskId = select.dataset.riskId;
+      try {
+        await api(`/risks/${riskId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: next })
+          body: JSON.stringify({ status: newStatus })
         });
-        notify(`Estado de riesgo actualizado a: ${next}`);
+        notify(`Estado de riesgo actualizado a: ${newStatus}`);
         renderRisks();
       } catch (err) {
         notify('Error al actualizar estado: ' + err.message);
@@ -7822,6 +7974,697 @@ async function renderRisks() {
         notify('Error al eliminar: ' + err.message);
       }
     };
+  });
+}
+
+
+function issuePriorityBadge(priority) {
+  const p = String(priority || '').toLowerCase();
+  const map = {
+    critical: ['pink', 'Crítica'],
+    high: ['yellow', 'Alta'],
+    medium: ['lilac', 'Media'],
+    low: ['green', 'Baja']
+  };
+  const [cls, label] = map[p] || ['badge', priority || 'Media'];
+  return `<span class="badge ${cls}">${esc(label)}</span>`;
+}
+
+function issueStatusBadge(status) {
+  const s = String(status || '').toLowerCase();
+  const map = {
+    open: ['yellow', 'Abierta'],
+    in_progress: ['lilac', 'En progreso'],
+    resolved: ['green', 'Resuelta'],
+    closed: ['badge', 'Cerrada']
+  };
+  const [cls, label] = map[s] || ['badge', status || 'Abierta'];
+  return `<span class="badge ${cls}">${esc(label)}</span>`;
+}
+
+function openIssueModal(projectId, issue = null, onSaved = null) {
+  document.querySelectorAll('.issue-modal-overlay').forEach(n => n.remove());
+  const overlay = document.createElement('div');
+  overlay.className = 'file-viewer issue-modal-overlay';
+  const isEdit = Boolean(issue && issue.id);
+  const title = isEdit ? 'Editar Incidencia' : 'Reportar Nueva Incidencia';
+
+  let users = [];
+  try {
+    api('/users').then(res => {
+      users = res || [];
+      const sel = overlay.querySelector('#issue-form-assigned');
+      if (sel) {
+        sel.innerHTML = '<option value="">Sin asignar</option>' + users.map(u =>
+          `<option value="${u.id}" ${issue?.assigned_to === u.id ? 'selected' : ''}>${esc(u.name)} (${esc(u.role)})</option>`
+        ).join('');
+      }
+    }).catch(() => {});
+  } catch {}
+
+  overlay.innerHTML = `
+    <div class="file-viewer-panel" style="max-width:540px;height:auto;padding:var(--sp-4);background:var(--panel, #18181b);border-radius:var(--r-lg, 12px);border:1px solid var(--line, #27272a)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <h3 style="margin:0">${icon('alertTriangle')} ${title}</h3>
+        <button type="button" class="btn secondary close-issue-modal" style="width:32px;height:32px;padding:0">${icon('close')}</button>
+      </div>
+      <form id="issue-form" style="display:grid;gap:var(--sp-3)">
+        <input type="hidden" name="project_id" value="${projectId || issue?.project_id || ''}">
+        <label>Título de la Incidencia *
+          <input class="input" name="title" required value="${esc(issue?.title || '')}" placeholder="Ej: Error 500 al guardar factura / Botón desalineado en móvil">
+        </label>
+        <label>Descripción detallada *
+          <textarea class="textarea" name="description" rows="3" placeholder="Pasos para reproducir, comportamiento esperado vs obtenido...">${esc(issue?.description || '')}</textarea>
+        </label>
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:var(--sp-3)">
+          <label>Prioridad
+            <select class="select" name="priority">
+              <option value="low" ${issue?.priority === 'low' ? 'selected' : ''}>Baja (Low)</option>
+              <option value="medium" ${!issue || issue?.priority === 'medium' ? 'selected' : ''}>Media (Medium)</option>
+              <option value="high" ${issue?.priority === 'high' ? 'selected' : ''}>Alta (High)</option>
+              <option value="critical" ${issue?.priority === 'critical' ? 'selected' : ''}>Crítica (Critical)</option>
+            </select>
+          </label>
+          <label>Estado
+            <select class="select" name="status">
+              <option value="open" ${!issue || issue?.status === 'open' ? 'selected' : ''}>Abierta (Open)</option>
+              <option value="in_progress" ${issue?.status === 'in_progress' ? 'selected' : ''}>En progreso (In Progress)</option>
+              <option value="resolved" ${issue?.status === 'resolved' ? 'selected' : ''}>Resuelta (Resolved)</option>
+              <option value="closed" ${issue?.status === 'closed' ? 'selected' : ''}>Cerrada (Closed)</option>
+            </select>
+          </label>
+        </div>
+        <label>Asignado a (Responsable)
+          <select class="select" name="assigned_to" id="issue-form-assigned">
+            <option value="">Cargando usuarios...</option>
+          </select>
+        </label>
+        <div class="actions" style="display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-2)">
+          <button type="button" class="btn secondary close-issue-modal">Cancelar</button>
+          <button type="submit" class="btn">${icon('check')} ${isEdit ? 'Actualizar Incidencia' : 'Reportar Incidencia'}</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelectorAll('.close-issue-modal').forEach(btn => {
+    btn.onclick = () => overlay.remove();
+  });
+
+  const form = overlay.querySelector('#issue-form');
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const values = Object.fromEntries(new FormData(form));
+    if (!values.assigned_to) delete values.assigned_to;
+    try {
+      if (isEdit) {
+        await api(`/issues/${issue.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values)
+        });
+        notify('Incidencia actualizada correctamente');
+      } else {
+        await api('/issues', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values)
+        });
+        notify('Incidencia reportada con éxito');
+      }
+      overlay.remove();
+      if (onSaved) onSaved();
+    } catch (err) {
+      notify(err.message || 'Error al guardar la incidencia');
+    }
+  };
+}
+
+async function renderIssues() {
+  let projects = [];
+  let users = [];
+  try {
+    projects = await api('/projects');
+    users = await api('/users').catch(() => []);
+  } catch {}
+
+  if (!projects.length) {
+    return layout(`
+      ${heading('Incidencias (Issues)', 'Gestión y resolución de fallos y problemas operativos')}
+      <div class="card p-5 mt-4 text-center">
+        <h2>No hay proyectos registrados</h2>
+        <p class="muted">Crea un proyecto primero en el dashboard para gestionar sus incidencias.</p>
+        <a class="btn mt-3" href="#/${state.user.role}/dashboard">Ir al Dashboard</a>
+      </div>
+    `);
+  }
+
+  const hashParams = new URLSearchParams((location.hash.split('?')[1]) || '');
+  let selectedProjectId = Number(hashParams.get('project')) || projects[0].id;
+  if (!projects.some(p => p.id === selectedProjectId)) selectedProjectId = projects[0].id;
+  const statusFilter = hashParams.get('status') || '';
+  const priorityFilter = hashParams.get('priority') || '';
+  const assignedFilter = hashParams.get('assigned_to') || '';
+
+  const queryParams = new URLSearchParams({ project_id: selectedProjectId });
+  if (statusFilter) queryParams.set('status', statusFilter);
+  if (priorityFilter) queryParams.set('priority', priorityFilter);
+  if (assignedFilter) queryParams.set('assigned_to', assignedFilter);
+
+  let issues = [];
+  try {
+    issues = await api(`/issues?${queryParams.toString()}`);
+  } catch (err) {
+    return layout(`
+      ${heading('Incidencias (Issues)', 'Gestión y resolución de fallos y problemas operativos')}
+      <div class="alert mt-4">Error al cargar incidencias: ${esc(err.message)}</div>
+    `);
+  }
+
+  const canReport = state.user.role !== 'viewer';
+  const canManageAll = ['admin', 'project_manager'].includes(state.user.role);
+
+  const total = issues.length;
+  const openCount = issues.filter(i => i.status === 'open').length;
+  const inProgressCount = issues.filter(i => i.status === 'in_progress').length;
+  const resolvedCount = issues.filter(i => i.status === 'resolved' || i.status === 'closed').length;
+
+  const currentProject = projects.find(p => p.id === selectedProjectId);
+
+  const markup = `
+    ${heading('Incidencias (Issues)', 'Control, priorización y resolución de fallos reportados en los proyectos', `
+      <div class="actions">
+        <select class="select" id="issues-project-select" style="min-width:200px">
+          ${projects.map(p => `<option value="${p.id}" ${p.id === selectedProjectId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        </select>
+        ${canReport ? `
+          <button class="btn" id="open-report-issue-btn">
+            ${icon('plus')} Reportar Incidencia
+          </button>
+        ` : ''}
+      </div>
+    `)}
+
+    <div class="grid stats dashboard-stats mt-4">
+      <div class="card stat stat-primary">
+        <div class="stat-header"><div class="label">Total Incidencias</div>${icon('alertTriangle')}</div>
+        <div class="num">${total}</div>
+        <div class="stat-footer-sub">En proyecto: ${esc(currentProject?.name || '')}</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Abiertas</div>${icon('clock')}</div>
+        <div class="num yellow">${openCount}</div>
+        <div class="stat-footer-sub">Por atender</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">En Proceso</div>${icon('progress')}</div>
+        <div class="num lilac">${inProgressCount}</div>
+        <div class="stat-footer-sub">En investigación/arreglo</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Resueltas</div>${icon('check')}</div>
+        <div class="num green">${resolvedCount}</div>
+        <div class="stat-footer-sub">Subsanadas / Cerradas</div>
+      </div>
+    </div>
+
+    <!-- Barra de Filtros: Estado, Prioridad, Responsable -->
+    <div class="card p-3 mt-4" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--sp-2)">
+      <div style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap">
+        <span class="muted sub">Filtros:</span>
+        <select class="select mini" id="filter-issue-status" style="min-width:130px">
+          <option value="">Estado: Todos</option>
+          <option value="open" ${statusFilter === 'open' ? 'selected' : ''}>Abiertas</option>
+          <option value="in_progress" ${statusFilter === 'in_progress' ? 'selected' : ''}>En progreso</option>
+          <option value="resolved" ${statusFilter === 'resolved' ? 'selected' : ''}>Resueltas</option>
+          <option value="closed" ${statusFilter === 'closed' ? 'selected' : ''}>Cerradas</option>
+        </select>
+        <select class="select mini" id="filter-issue-priority" style="min-width:130px">
+          <option value="">Prioridad: Todas</option>
+          <option value="critical" ${priorityFilter === 'critical' ? 'selected' : ''}>Crítica</option>
+          <option value="high" ${priorityFilter === 'high' ? 'selected' : ''}>Alta</option>
+          <option value="medium" ${priorityFilter === 'medium' ? 'selected' : ''}>Media</option>
+          <option value="low" ${priorityFilter === 'low' ? 'selected' : ''}>Baja</option>
+        </select>
+        <select class="select mini" id="filter-issue-assigned" style="min-width:150px">
+          <option value="">Responsable: Todos</option>
+          ${users.map(u => `<option value="${u.id}" ${String(u.id) === assignedFilter ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}
+        </select>
+        ${(statusFilter || priorityFilter || assignedFilter) ? `
+          <button class="btn mini secondary" id="clear-issue-filters">Limpiar filtros</button>
+        ` : ''}
+      </div>
+      <span class="muted sub">${issues.length} incidencia(s) encontrada(s)</span>
+    </div>
+
+    <!-- Lista de Incidencias -->
+    <div class="card p-4 mt-4">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <h3 style="margin:0">Listado de Incidencias (${issues.length})</h3>
+      </div>
+      ${issues.length ? `
+        <div style="display:grid;gap:var(--sp-3)">
+          ${issues.map(iss => `
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px;background:var(--bg-glass);border-radius:var(--r-md);border:1px solid var(--line);gap:var(--sp-3);flex-wrap:wrap">
+              <div style="max-width:70%">
+                <div style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:4px">
+                  <strong style="font-size:1.05rem">${esc(iss.title)}</strong>
+                  ${issuePriorityBadge(iss.priority)}
+                  ${issueStatusBadge(iss.status)}
+                </div>
+                ${iss.description ? `<p class="muted" style="margin:4px 0">${esc(iss.description)}</p>` : ''}
+                <div style="font-size:0.88rem;margin-top:6px;display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center" class="muted">
+                  <span>Reportado por: <strong>${esc(iss.reporter_name || 'Anónimo')}</strong></span> ·
+                  <span>Asignado a: <strong style="color:var(--text)">${esc(iss.assigned_name || 'Sin asignar')}</strong></span> ·
+                  <span>Fecha: ${esc(new Date(iss.created_at).toLocaleDateString())}</span>
+                </div>
+              </div>
+              <div class="actions" style="display:flex;align-items:center;gap:var(--sp-2)">
+                ${canReport ? `
+                  <button class="btn secondary mini edit-issue-page-btn" data-issue-id="${iss.id}">
+                    ${icon('edit')} Editar
+                  </button>
+                ` : ''}
+                ${canManageAll ? `
+                  <button class="btn secondary mini delete-issue-page-btn" data-issue-id="${iss.id}" style="color:var(--pink)">
+                    ${icon('trash')}
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : `
+        <div class="empty">No se encontraron incidencias con los filtros seleccionados.</div>
+      `}
+    </div>
+  `;
+
+  layout(markup);
+
+  function applyFilters() {
+    const p = document.querySelector('#issues-project-select')?.value || selectedProjectId;
+    const st = document.querySelector('#filter-issue-status')?.value || '';
+    const pr = document.querySelector('#filter-issue-priority')?.value || '';
+    const as = document.querySelector('#filter-issue-assigned')?.value || '';
+    const q = new URLSearchParams({ project: p });
+    if (st) q.set('status', st);
+    if (pr) q.set('priority', pr);
+    if (as) q.set('assigned_to', as);
+    location.hash = `#/${state.user.role}/issues?${q.toString()}`;
+  }
+
+  document.querySelector('#issues-project-select')?.addEventListener('change', applyFilters);
+  document.querySelector('#filter-issue-status')?.addEventListener('change', applyFilters);
+  document.querySelector('#filter-issue-priority')?.addEventListener('change', applyFilters);
+  document.querySelector('#filter-issue-assigned')?.addEventListener('change', applyFilters);
+  document.querySelector('#clear-issue-filters')?.addEventListener('click', () => {
+    location.hash = `#/${state.user.role}/issues?project=${selectedProjectId}`;
+  });
+
+  document.querySelector('#open-report-issue-btn')?.addEventListener('click', () => {
+    openIssueModal(selectedProjectId, null, () => renderIssues());
+  });
+
+  document.querySelectorAll('.edit-issue-page-btn').forEach(btn => {
+    btn.onclick = async () => {
+      try {
+        const iss = await api(`/issues/${btn.dataset.issueId}`);
+        openIssueModal(selectedProjectId, iss, () => renderIssues());
+      } catch (err) { notify(err.message); }
+    };
+  });
+
+  document.querySelectorAll('.delete-issue-page-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm('¿Seguro que deseas eliminar esta incidencia?')) return;
+      try {
+        await api(`/issues/${btn.dataset.issueId}`, { method: 'DELETE' });
+        notify('Incidencia eliminada');
+        renderIssues();
+      } catch (err) { notify(err.message); }
+    };
+  });
+}
+
+
+async function renderMethodologies() {
+  const hash = location.hash || '';
+  const searchParams = new URLSearchParams(hash.split('?')[1] || '');
+  let selectedProjectId = searchParams.get('project') ? Number(searchParams.get('project')) : null;
+
+  let projects = [];
+  try {
+    projects = await api('/projects');
+  } catch (err) {
+    projects = [];
+  }
+
+  let methodologies = [];
+  try {
+    methodologies = await api('/methodologies');
+  } catch (err) {
+    methodologies = [];
+  }
+
+  if (projects.length && (!selectedProjectId || !projects.some(p => p.id === selectedProjectId))) {
+    selectedProjectId = projects[0].id;
+  }
+  const currentProject = projects.find(p => p.id === selectedProjectId) || null;
+  const isAdminOrPm = ['admin', 'project_manager'].includes(state.user.role);
+
+  const total = methodologies.length;
+  const agileCount = methodologies.filter(m => (m.category || '').toLowerCase() === 'agile').length;
+  const traditionalCount = methodologies.filter(m => (m.category || '').toLowerCase() === 'traditional').length;
+  const hybridCount = methodologies.filter(m => (m.category || '').toLowerCase() === 'hybrid').length;
+
+  const headerAction = isAdminOrPm ? `
+    <button class="btn" id="open-create-methodology-btn">
+      ${icon('plus')} Registrar Metodología
+    </button>
+  ` : '';
+
+  const markup = `
+    ${heading('Catálogo de Metodologías', 'Marcos de trabajo, principios de desarrollo y estándares de proyectos IT', headerAction)}
+
+    <!-- Selector de Proyecto y Contexto -->
+    <div class="card p-3 mb-4" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-3)">
+      <div style="display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap">
+        <label style="margin:0;font-weight:600;display:flex;align-items:center;gap:8px">
+          ${icon('folder')} Proyecto:
+          <select id="methodology-project-select" class="select" style="min-width:240px;margin:0">
+            ${projects.map(p => `<option value="${p.id}" ${p.id === selectedProjectId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+          </select>
+        </label>
+        ${currentProject ? `
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="muted sub">Metodología asignada:</span>
+            <span class="badge blue font-weight-bold">${esc(currentProject.methodology_id || 'AGILE')}</span>
+          </div>
+        ` : ''}
+      </div>
+      <div style="display:flex;gap:var(--sp-2)">
+        ${currentProject ? `
+          <a class="btn secondary mini" href="#/${state.user.role}/overview?project=${currentProject.id}">
+            ${icon('pieChart')} Volver al Proyecto
+          </a>
+        ` : ''}
+      </div>
+    </div>
+
+    <!-- Indicadores del Catálogo -->
+    <div class="grid-4 mb-4">
+      <div class="stat">
+        <div class="stat-header"><div class="label">Total Metodologías</div>${icon('bookOpen')}</div>
+        <div class="value">${total}</div>
+        <div class="stat-footer-sub">Catálogo extensible</div>
+      </div>
+      <div class="stat">
+        <div class="stat-header"><div class="label">Ágiles (Agile)</div>${icon('kanban')}</div>
+        <div class="value">${agileCount}</div>
+        <div class="stat-footer-sub">Scrum, Kanban, XP, Lean...</div>
+      </div>
+      <div class="stat">
+        <div class="stat-header"><div class="label">Tradicionales</div>${icon('gantt')}</div>
+        <div class="value">${traditionalCount}</div>
+        <div class="stat-footer-sub">Waterfall / Cascada</div>
+      </div>
+      <div class="stat">
+        <div class="stat-header"><div class="label">Híbridas</div>${icon('progress')}</div>
+        <div class="value">${hybridCount}</div>
+        <div class="stat-footer-sub">Adaptables y mixtas</div>
+      </div>
+    </div>
+
+    <!-- Grid de Tarjetas de Metodología -->
+    <div class="grid-2 mb-4" style="gap:var(--sp-4)">
+      ${methodologies.map(m => {
+        const isCurrent = currentProject && currentProject.methodology_id === m.id;
+        const catBadge = m.category === 'agile' ? 'green' : m.category === 'traditional' ? 'yellow' : 'blue';
+        const catLabel = m.category === 'agile' ? 'Ágil' : m.category === 'traditional' ? 'Tradicional' : 'Híbrida';
+        const principles = Array.isArray(m.principles) ? m.principles : [];
+        const practices = Array.isArray(m.practices) ? m.practices : [];
+
+        return `
+          <div class="card p-4" style="display:flex;flex-direction:column;justify-content:space-between;${isCurrent ? 'border-color:var(--color-primary, #627079);box-shadow:0 0 0 1px rgba(148,178,186,0.3)' : ''}">
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:var(--sp-2)">
+                <div>
+                  <h3 style="margin:0 0 4px 0;display:flex;align-items:center;gap:8px">
+                    ${esc(m.name)}
+                    <span class="badge ${catBadge}">${catLabel}</span>
+                    ${m.is_custom ? '<span class="badge pink">Personalizada</span>' : ''}
+                  </h3>
+                  <code style="font-size:0.8rem;color:var(--muted)">ID: ${esc(m.id)}</code>
+                </div>
+                ${isCurrent ? '<span class="badge green" style="white-space:nowrap">✓ Asignada</span>' : ''}
+              </div>
+
+              <p class="muted" style="font-size:0.9rem;line-height:1.5;margin-bottom:var(--sp-3)">
+                ${esc(m.description)}
+              </p>
+
+              ${principles.length ? `
+                <div style="margin-bottom:var(--sp-2)">
+                  <div class="sub muted" style="font-weight:600;margin-bottom:4px">Principios:</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:4px">
+                    ${principles.slice(0, 4).map(p => `<span class="badge" style="font-size:0.75rem">${esc(p)}</span>`).join('')}
+                    ${principles.length > 4 ? `<span class="badge" style="font-size:0.75rem">+${principles.length - 4} más</span>` : ''}
+                  </div>
+                </div>
+              ` : ''}
+
+              ${practices.length ? `
+                <div style="margin-bottom:var(--sp-3)">
+                  <div class="sub muted" style="font-weight:600;margin-bottom:4px">Prácticas clave:</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:4px">
+                    ${practices.slice(0, 4).map(pr => `<span class="badge" style="font-size:0.75rem">${esc(pr)}</span>`).join('')}
+                    ${practices.length > 4 ? `<span class="badge" style="font-size:0.75rem">+${practices.length - 4} más</span>` : ''}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="actions" style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--sp-3);padding-top:var(--sp-2);border-top:1px solid var(--line)">
+              <button class="btn secondary mini view-methodology-btn" data-method-id="${esc(m.id)}">
+                ${icon('eye')} Ver Detalle
+              </button>
+              ${isAdminOrPm ? `
+                <button class="btn mini ${isCurrent ? 'secondary' : ''} assign-methodology-btn" data-method-id="${esc(m.id)}" ${isCurrent ? 'disabled' : ''}>
+                  ${icon('check')} ${isCurrent ? 'Metodología Actual' : 'Asignar al Proyecto'}
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  layout(markup);
+
+  document.querySelector('#methodology-project-select')?.addEventListener('change', (e) => {
+    location.hash = `#/${state.user.role}/methodologies?project=${e.target.value}`;
+  });
+
+  document.querySelector('#open-create-methodology-btn')?.addEventListener('click', () => {
+    openCustomMethodologyModal(() => renderMethodologies());
+  });
+
+  document.querySelectorAll('.view-methodology-btn').forEach(btn => {
+    btn.onclick = async () => {
+      try {
+        const m = await api(`/methodologies/${btn.dataset.methodId}`);
+        openMethodologyDetailModal(m, projects, selectedProjectId, () => renderMethodologies());
+      } catch (err) {
+        notify(err.message);
+      }
+    };
+  });
+
+  document.querySelectorAll('.assign-methodology-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!selectedProjectId) {
+        notify('Por favor selecciona un proyecto primero.');
+        return;
+      }
+      const methodId = btn.dataset.methodId;
+      try {
+        await api(`/projects/${selectedProjectId}/methodology`, {
+          method: 'PUT',
+          body: { methodology_id: methodId }
+        });
+        notify(`Metodología ${methodId} asignada con éxito al proyecto.`);
+        renderMethodologies();
+      } catch (err) {
+        notify(err.message);
+      }
+    };
+  });
+}
+
+function openMethodologyDetailModal(methodology, projects, currentProjectId, onSaved) {
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop active';
+  const isAdminOrPm = ['admin', 'project_manager'].includes(state.user.role);
+  const principles = Array.isArray(methodology.principles) ? methodology.principles : [];
+  const practices = Array.isArray(methodology.practices) ? methodology.practices : [];
+
+  modal.innerHTML = `
+    <div class="modal card" style="max-width:650px;width:95%">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <div>
+          <h2 style="margin:0;display:flex;align-items:center;gap:8px">
+            ${icon('bookOpen')} ${esc(methodology.name)}
+          </h2>
+          <span class="badge blue sub mt-1">ID: ${esc(methodology.id)} · Categoría: ${esc(methodology.category || 'agile')}</span>
+        </div>
+        <button class="btn secondary mini close-modal-btn" type="button">${icon('close')}</button>
+      </div>
+
+      <div style="margin-bottom:var(--sp-4)">
+        <h4 style="margin:0 0 6px 0">Descripción del Marco</h4>
+        <p class="muted" style="line-height:1.6;font-size:0.95rem">${esc(methodology.description)}</p>
+      </div>
+
+      ${principles.length ? `
+        <div style="margin-bottom:var(--sp-4)">
+          <h4 style="margin:0 0 8px 0">Principios Rectores</h4>
+          <ul style="margin:0;padding-left:20px;font-size:0.9rem;line-height:1.6">
+            ${principles.map(p => `<li>${esc(p)}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${practices.length ? `
+        <div style="margin-bottom:var(--sp-4)">
+          <h4 style="margin:0 0 8px 0">Prácticas y Ceremonias Clave</h4>
+          <ul style="margin:0;padding-left:20px;font-size:0.9rem;line-height:1.6">
+            ${practices.map(pr => `<li>${esc(pr)}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${isAdminOrPm ? `
+        <div class="card p-3 mb-3" style="background:var(--bg-glass);border:1px solid var(--line)">
+          <h4 style="margin:0 0 8px 0">Asignar a un Proyecto</h4>
+          <div style="display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap">
+            <select id="modal-assign-project-id" class="select" style="flex:1;min-width:200px;margin:0">
+              ${projects.map(p => `<option value="${p.id}" ${p.id === currentProjectId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+            </select>
+            <button class="btn" id="modal-submit-assign-btn" type="button">
+              ${icon('check')} Asignar Metodología
+            </button>
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="actions" style="justify-content:flex-end">
+        <button class="btn secondary close-modal-btn" type="button">Cerrar</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => modal.remove();
+  modal.querySelectorAll('.close-modal-btn').forEach(b => b.onclick = closeModal);
+
+  modal.querySelector('#modal-submit-assign-btn')?.addEventListener('click', async () => {
+    const projId = modal.querySelector('#modal-assign-project-id')?.value;
+    if (!projId) return;
+    try {
+      await api(`/projects/${projId}/methodology`, {
+        method: 'PUT',
+        body: { methodology_id: methodology.id }
+      });
+      notify(`Metodología ${methodology.name} asignada exitosamente.`);
+      closeModal();
+      if (onSaved) onSaved();
+    } catch (err) {
+      notify(err.message);
+    }
+  });
+}
+
+function openCustomMethodologyModal(onCreated) {
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop active';
+
+  modal.innerHTML = `
+    <div class="modal card" style="max-width:560px;width:95%">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <h3 style="margin:0;display:flex;align-items:center;gap:8px">${icon('plus')} Registrar Metodología</h3>
+        <button class="btn secondary mini close-modal-btn" type="button">${icon('close')}</button>
+      </div>
+      <p class="muted sub" style="margin-bottom:var(--sp-3)">
+        El catálogo es extensible: agregar una metodología nueva no altera las rutas ni el esquema del sistema.
+      </p>
+
+      <form id="custom-methodology-form" class="form-grid">
+        <label>Nombre de la Metodología
+          <input class="input" name="name" placeholder="Ej. Shape Up, Crystal Clear..." required>
+        </label>
+        <label>Identificador (ID / Código)
+          <input class="input" name="id" placeholder="Ej. SHAPE_UP, CRYSTAL (opcional)">
+        </label>
+        <label>Categoría
+          <select class="select" name="category">
+            <option value="agile">Ágil (Agile)</option>
+            <option value="traditional">Tradicional (Secuencial)</option>
+            <option value="hybrid">Híbrida</option>
+          </select>
+        </label>
+        <label class="full">Descripción
+          <textarea class="textarea" name="description" rows="3" placeholder="Descripción del marco metodológico y cuándo es recomendado..." required></textarea>
+        </label>
+        <label class="full">Principios Rectores (separados por coma)
+          <input class="input" name="principles" placeholder="Ej. Ciclos de 6 semanas, Sin backlog infinito, Apuestas de valor">
+        </label>
+        <label class="full">Prácticas Clave (separadas por coma)
+          <input class="input" name="practices" placeholder="Ej. Shaping, Betting Table, Building, Cooldown">
+        </label>
+        <div class="actions full" style="justify-content:flex-end;margin-top:var(--sp-2)">
+          <button class="btn secondary close-modal-btn" type="button">Cancelar</button>
+          <button class="btn" type="submit">${icon('check')} Guardar en Catálogo</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => modal.remove();
+  modal.querySelectorAll('.close-modal-btn').forEach(b => b.onclick = closeModal);
+
+  modal.querySelector('#custom-methodology-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const principlesRaw = fd.get('principles') || '';
+    const practicesRaw = fd.get('practices') || '';
+
+    const payload = {
+      name: fd.get('name'),
+      id: fd.get('id') || undefined,
+      category: fd.get('category'),
+      description: fd.get('description'),
+      principles: principlesRaw ? principlesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+      practices: practicesRaw ? practicesRaw.split(',').map(s => s.trim()).filter(Boolean) : []
+    };
+
+    try {
+      await api('/methodologies', {
+        method: 'POST',
+        body: payload
+      });
+      notify('Metodología registrada en el catálogo extensible con éxito.');
+      closeModal();
+      if (onCreated) onCreated();
+    } catch (err) {
+      notify(err.message);
+    }
   });
 }
 

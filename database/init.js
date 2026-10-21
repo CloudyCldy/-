@@ -386,6 +386,17 @@ async function init() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS project_risks_org_project_idx ON project_risks (organization_id, project_id, status);
+    ALTER TABLE project_risks ADD COLUMN IF NOT EXISTS assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS project_risks_assigned_to_idx ON project_risks (assigned_to);
+    ALTER TABLE project_risks DROP CONSTRAINT IF EXISTS project_risks_status_check;
+    ALTER TABLE project_risks ADD CONSTRAINT project_risks_status_check
+      CHECK (status IN ('open', 'mitigated', 'accepted', 'closed'));
+    ALTER TABLE project_risks DROP CONSTRAINT IF EXISTS project_risks_probability_check;
+    ALTER TABLE project_risks ADD CONSTRAINT project_risks_probability_check
+      CHECK (probability IN ('muy_baja', 'baja', 'media', 'alta', 'muy_alta', '1', '2', '3', '4', '5'));
+    ALTER TABLE project_risks DROP CONSTRAINT IF EXISTS project_risks_impact_check;
+    ALTER TABLE project_risks ADD CONSTRAINT project_risks_impact_check
+      CHECK (impact IN ('muy_bajo', 'bajo', 'baja', 'medio', 'media', 'alto', 'alta', 'muy_alto', 'muy_alta', 'critico', 'critica', '1', '2', '3', '4', '5'));
 
     -- Sistema de Eventos (SB-09-ST061, SB-09-ST062)
     CREATE TABLE IF NOT EXISTS project_events (
@@ -423,6 +434,69 @@ async function init() {
     CREATE INDEX IF NOT EXISTS task_dep_task_idx ON task_dependencies (task_id);
     CREATE INDEX IF NOT EXISTS task_dep_pred_idx ON task_dependencies (predecessor_id);
     CREATE INDEX IF NOT EXISTS task_dep_org_proj_idx ON task_dependencies (organization_id, project_id);
+
+    -- Sprint 3: Gestión de Hitos (Milestones) del Proyecto
+    CREATE TABLE IF NOT EXISTS project_milestones (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      due_date DATE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pendiente' CHECK (status IN ('pendiente', 'en_progreso', 'completado')),
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS project_milestones_org_project_idx ON project_milestones (organization_id, project_id, status);
+    CREATE INDEX IF NOT EXISTS project_milestones_due_date_idx ON project_milestones (due_date);
+
+    -- Sprint 3: Gestión de Incidencias (Issues) del Proyecto
+    CREATE TABLE IF NOT EXISTS project_issues (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical', 'baja', 'media', 'alta', 'critica')),
+      status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+      reported_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS project_issues_org_proj_status_idx ON project_issues (organization_id, project_id, status);
+    CREATE INDEX IF NOT EXISTS project_issues_assigned_idx ON project_issues (assigned_to);
+    CREATE INDEX IF NOT EXISTS project_issues_reported_idx ON project_issues (reported_by);
+
+    -- Sprint 3: Catálogo de Metodologías Extensible
+    CREATE TABLE IF NOT EXISTS methodologies (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'agile',
+      principles JSONB DEFAULT '[]',
+      practices JSONB DEFAULT '[]',
+      is_custom BOOLEAN NOT NULL DEFAULT false,
+      organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS methodologies_org_idx ON methodologies (organization_id);
+
+    INSERT INTO methodologies (id, name, description, category, principles, practices, is_custom) VALUES
+      ('SCRUM', 'Scrum', 'Framework ágil iterativo basado en sprints de 1 a 4 semanas, con roles definidos (Scrum Master, Product Owner, Equipo de Desarrollo) y ceremonias estructuradas para entrega continua de valor.', 'agile', '["Transparencia", "Inspección", "Adaptación"]', '["Sprint Planning", "Daily Standup", "Sprint Review", "Sprint Retrospective"]', false),
+      ('KANBAN', 'Kanban', 'Método visual para gestionar y optimizar el flujo de trabajo continuo, enfocado en limitar el trabajo en curso (WIP) y maximizar la eficiencia y entrega rápida.', 'agile', '["Empezar con lo que haces ahora", "Perseguir el cambio evolutivo", "Respetar los procesos y roles actuales"]', '["Visualizar el flujo", "Limitar el WIP", "Gestionar el flujo", "Hacer políticas explícitas"]', false),
+      ('XP', 'Extreme Programming', 'Metodología ágil centrada en la excelencia técnica y las mejores prácticas de ingeniería de software para responder a requerimientos cambiantes con alta calidad.', 'agile', '["Comunicación", "Simplicidad", "Retroalimentación", "Coraje", "Respeto"]', '["TDD (Test-Driven Development)", "Pair Programming", "Integración Continua", "Refactorización constante"]', false),
+      ('LEAN', 'Lean Software Development', 'Filosofía orientada a la optimización del valor eliminando desperdicios (muda), acelerando tiempos de entrega y empoderando al equipo.', 'agile', '["Eliminar desperdicio", "Amplificar el aprendizaje", "Decidir lo más tarde posible", "Entregar lo más rápido posible"]', '["Mapeo del flujo de valor", "Sistemas pull", "Mejora continua (Kaizen)"]', false),
+      ('WATERFALL', 'Waterfall (Cascada)', 'Modelo secuencial tradicional dividido en fases claramente delimitadas: requerimientos, diseño, implementación, pruebas y despliegue, ideal para proyectos con especificaciones fijas.', 'traditional', '["Planificación rigurosa", "Secuencia estricta", "Documentación exhaustiva"]', '["Gantt estricto", "Firmas de aprobación por fase", "Gestión formal del cambio"]', false),
+      ('AGILE', 'Ágil Genérico', 'Enfoque centrado en la flexibilidad, colaboración activa con el cliente, entregas frecuentes de software funcional y adaptación ante el cambio.', 'agile', '["Individuos sobre procesos", "Software funcionando sobre documentación extensiva", "Colaboración con el cliente", "Respuesta ante el cambio"]', '["Iteraciones cortas", "Historias de usuario", "Feedback continuo"]', false),
+      ('HYBRID', 'Metodología Híbrida', 'Enfoque adaptativo que combina la estructura de planificación y control de Waterfall con la flexibilidad y velocidad de entrega iterativa de Scrum y Kanban.', 'hybrid', '["Gobernanza estructurada", "Ejecución flexible", "Adaptabilidad al contexto"]', '["Hitos y fases globales con sprints ágiles en desarrollo", "Control presupuestal con backlog iterativo"]', false)
+    ON CONFLICT (id) DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      category = EXCLUDED.category,
+      principles = EXCLUDED.principles,
+      practices = EXCLUDED.practices;
   `);
   console.log('PostgreSQL inicializado correctamente.');
 }
