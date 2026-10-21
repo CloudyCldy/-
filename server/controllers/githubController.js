@@ -61,9 +61,37 @@ async function send(operation, req, res, transform = value => value) {
 
 const repository = (req, res) => send(github.repository, req, res, result => result.data);
 const commits = (req, res) => send(github.commits, req, res, result => result.data.map(commit => ({ author: commit.commit.author?.name || 'No disponible', github_username: commit.author?.login || null, message: commit.commit.message, date: commit.commit.author?.date, sha: commit.sha.slice(0, 7), url: commit.html_url })));
-const branches = (req, res) => send(github.branches, req, res, result => result.data.map(branch => ({ name: branch.name, sha: branch.commit.sha, url: branch.commit.url })));
+// Dueño/repositorio a partir de una URL de la API (https://api.github.com/repos/dueño/repo/...)
+const repoFromApiUrl = url => (String(url || '').match(/\/repos\/([^/]+\/[^/]+)/) || [])[1] || '';
+const branches = (req, res) => send(github.branches, req, res, result => result.data.map(branch => {
+	const full = repoFromApiUrl(branch.commit.url);
+	return { name: branch.name, sha: branch.commit.sha.slice(0, 7), url: full ? `https://github.com/${full}/tree/${encodeURIComponent(branch.name)}` : '' };
+}));
+
+// Texto en español y enlace web de cada evento del repositorio
+function describeEvent(event) {
+	const full = event.repo?.name || '';
+	const web = `https://github.com/${full}`;
+	const p = event.payload || {};
+	const branch = String(p.ref || '').replace('refs/heads/', '');
+	const acciones = { opened: 'abrió', closed: 'cerró', reopened: 'reabrió', merged: 'fusionó', created: 'comentó', edited: 'editó' };
+	switch (event.type) {
+		case 'PushEvent': { const n = p.size ?? p.commits?.length ?? 0; return { text: `Subió ${n || ''} commit${n === 1 ? '' : 's'} a ${branch}`.replace('  ', ' '), url: `${web}/commits/${encodeURIComponent(branch)}` }; }
+		case 'PullRequestEvent': { const pr = p.pull_request || {}; const a = pr.merged ? 'fusionó' : (acciones[p.action] || p.action); return { text: `${a.charAt(0).toUpperCase() + a.slice(1)} el pull request #${pr.number}: ${pr.title || ''}`, url: pr.html_url || `${web}/pulls` }; }
+		case 'PullRequestReviewEvent': return { text: `Revisó el pull request #${p.pull_request?.number}`, url: p.pull_request?.html_url || `${web}/pulls` };
+		case 'CreateEvent': return { text: p.ref_type === 'repository' ? 'Creó el repositorio' : `Creó la ${p.ref_type === 'branch' ? 'rama' : 'etiqueta'} ${p.ref}`, url: p.ref ? `${web}/tree/${encodeURIComponent(p.ref)}` : web };
+		case 'DeleteEvent': return { text: `Eliminó la ${p.ref_type === 'branch' ? 'rama' : 'etiqueta'} ${p.ref}`, url: `${web}/branches` };
+		case 'IssuesEvent': return { text: `${(acciones[p.action] || p.action).replace(/^./, c => c.toUpperCase())} el issue #${p.issue?.number}: ${p.issue?.title || ''}`, url: p.issue?.html_url || `${web}/issues` };
+		case 'IssueCommentEvent': return { text: `Comentó en #${p.issue?.number}`, url: p.comment?.html_url || `${web}/issues` };
+		case 'ReleaseEvent': return { text: `Publicó la versión ${p.release?.tag_name || ''}`, url: p.release?.html_url || `${web}/releases` };
+		case 'MemberEvent': return { text: `Agregó a ${p.member?.login || 'un colaborador'}`, url: web };
+		case 'WatchEvent': return { text: 'Marcó el repositorio con estrella', url: web };
+		case 'ForkEvent': return { text: 'Hizo un fork del repositorio', url: p.forkee?.html_url || web };
+		default: return { text: event.type, url: web };
+	}
+}
 const pulls = (req, res) => send(github.pulls, req, res, result => result.data.map(pr => ({ number: pr.number, title: pr.title, author: pr.user?.login, state: pr.merged_at ? 'merged' : pr.state, source: pr.head.ref, target: pr.base.ref, date: pr.created_at, updated: pr.updated_at, url: pr.html_url })));
-const activity = (req, res) => send(github.activity, req, res, result => result.data.map(event => ({ user: event.actor?.login, action: event.type, date: event.created_at, url: event.repo?.url })));
+const activity = (req, res) => send(github.activity, req, res, result => result.data.map(event => { const d = describeEvent(event); return { user: event.actor?.login, action: d.text, date: event.created_at ? new Date(event.created_at).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : null, url: d.url }; }));
 const test = (req, res) => send(github.repository, req, res, () => ({ message: 'Conexión con GitHub establecida correctamente.' }));
 
 module.exports = { repository, commits, branches, activity, pulls, test, configure, config };

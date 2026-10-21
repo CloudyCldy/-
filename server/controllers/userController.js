@@ -72,4 +72,35 @@ async function remove(req, res) {
   if (!result.changes) return res.status(404).json({ error: 'El integrante no existe.' });
   res.json({ ok: true });
 }
-module.exports = { list, create, update, profile, profilePhoto, remove };
+// Eliminar mi cuenta (lo exige Google Play). Pide la contraseña para confirmar.
+// - Integrante / PM / lector: se borra su usuario. Los archivos que subió para el equipo pasan a un administrador.
+// - Único administrador: se borra la organización completa con todos sus datos (debe confirmarlo con delete_organization).
+async function deleteMe(req, res) {
+  const database = req.app.locals.database;
+  const organizationId = req.session.user.organization_id;
+  const user = await database.prepare('SELECT id, role, password FROM users WHERE id = ? AND organization_id = ?').get(req.session.user.id, organizationId);
+  if (!user) return res.status(404).json({ error: 'La cuenta no existe.' });
+  if (!req.body?.password || !bcrypt.compareSync(String(req.body.password), user.password)) return res.status(400).json({ error: 'La contraseña no es correcta.' });
+  const otherAdmin = await database.prepare("SELECT id FROM users WHERE organization_id = ? AND role = 'admin' AND id <> ? AND active = 1 ORDER BY id LIMIT 1").get(organizationId, user.id);
+  const transaction = database.transaction || require('../database').transaction;
+  if (user.role === 'admin' && !otherAdmin) {
+    if (req.body.delete_organization !== true) {
+      return res.status(409).json({ requires_organization_delete: true, error: 'Eres el único administrador. Si eliminas tu cuenta también se elimina la organización con todos sus proyectos, tareas y mensajes.' });
+    }
+    await transaction(async tx => {
+      await tx.query('DELETE FROM files WHERE organization_id = $1 OR uploaded_by IN (SELECT id FROM users WHERE organization_id = $1)', [organizationId]);
+      await tx.query('DELETE FROM users WHERE organization_id = $1', [organizationId]);
+      await tx.query('DELETE FROM organizations WHERE id = $1', [organizationId]);
+    });
+  } else {
+    const heir = otherAdmin || await database.prepare('SELECT id FROM users WHERE organization_id = ? AND id <> ? ORDER BY id LIMIT 1').get(organizationId, user.id);
+    await transaction(async tx => {
+      if (heir) await tx.query('UPDATE files SET uploaded_by = $1 WHERE uploaded_by = $2', [heir.id, user.id]);
+      else await tx.query('DELETE FROM files WHERE uploaded_by = $1', [user.id]);
+      await tx.query('DELETE FROM users WHERE id = $1 AND organization_id = $2', [user.id, organizationId]);
+    });
+  }
+  req.session.destroy(() => res.json({ ok: true, message: 'Tu cuenta fue eliminada.' }));
+}
+
+module.exports = { list, create, update, profile, profilePhoto, remove, deleteMe };

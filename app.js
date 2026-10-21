@@ -379,6 +379,9 @@ app.use('/api/risks', require('./server/routes/riskRoutes'));
 app.use('/api/events', require('./server/routes/eventRoutes'));
 app.use('/api/gantt', require('./server/routes/ganttRoutes'));
 app.use('/api/methodologies', require('./server/routes/methodologyRoutes'));
+const legalPages = require('./server/legalPages');
+app.get(['/privacidad', '/privacy'], legalPages.privacy);
+app.get(['/eliminar-cuenta', '/delete-account'], legalPages.deletion);
 app.get('*', (req, res) => {
   try {
     const indexPath = path.join(__dirname, 'public', 'index.html');
