@@ -3569,7 +3569,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
   `;
 
   const timelineHeadHtml = clickable => `
-    ${sprintRowHtml}
+    ${sprintRowHtml}${milestoneRowHtml}
     <div class="gp-timeline-months gtc-months">
       ${months.map(m => `<div class="gp-timeline-month gtc-month" style="width:${m.days * dayWidth}px"${clickable ? ` onclick="scrollToGanttDate('${m.isoDate}')" title="Ir a ${esc(m.label)}"` : ''}>${esc(m.label)}</div>`).join('')}
     </div>
@@ -3600,7 +3600,37 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
     const label = m.status === 'completado' ? 'completado' : m.status === 'en_progreso' ? 'en progreso' : 'pendiente';
     return { left: off * dayWidth + Math.round(dayWidth / 2), m, label };
   }).filter(Boolean);
-  const milestoneLinesHtml = milestoneMarks.map(({ left, m, label }) => `<div class="gv-hito-line ${esc(m.status || '')}" style="left:${left}px"><span class="gv-hito-flag" title="Hito: ${esc(m.title)} · ${esc(String(m.due_date).slice(0, 10))} · ${label}${m.project_name ? ' · ' + esc(m.project_name) : ''}">${icon('flag')}${esc(m.title)}</span></div>`).join('');
+  const milestoneLinesHtml = milestoneMarks.map(({ left, m }) => `<div class="gv-hito-line ${esc(m.status || '')}" style="left:${left}px"></div>`).join('');
+  // Fila "Hitos" en el encabezado: rombo en su fecha con "día mes · nombre" a un lado, repartidos en carriles para que no se encimen
+  const hitoLaneLast = [];
+  const MES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const hitoItems = [...milestoneMarks].sort((a, b) => a.left - b.left).map(mk => {
+    const iso = String(mk.m.due_date || '').slice(0, 10);
+    const fecha = `${Number(iso.slice(8, 10))} ${MES_CORTO[Number(iso.slice(5, 7)) - 1] || ''}`;
+    const dias = Math.round((parseGanttDate(iso) - today) / dayMs);
+    const cuando = mk.m.status === 'completado' ? 'completado' : dias < 0 ? `atrasado ${-dias} ${dias === -1 ? 'día' : 'días'}` : dias === 0 ? 'es hoy' : `faltan ${dias} ${dias === 1 ? 'día' : 'días'}`;
+    return { ...mk, fecha, cuando, width: Math.min(230, 30 + (fecha.length + 3 + String(mk.m.title || '').length) * 6.3) };
+  });
+  hitoItems.forEach(it => {
+    let lane = hitoLaneLast.findIndex(last => it.left - 8 > last.left + last.width);
+    if (lane === -1 && hitoLaneLast.length < 3) lane = hitoLaneLast.length;
+    if (lane === -1) {
+      // No cabe completo en ningún carril: se recorta el nombre anterior del carril con más espacio
+      lane = hitoLaneLast.reduce((best, last, i) => (it.left - last.left > it.left - hitoLaneLast[best].left ? i : best), 0);
+      const prev = hitoLaneLast[lane];
+      prev.width = Math.max(14, it.left - prev.left - 8);
+    }
+    it.lane = lane;
+    hitoLaneLast[lane] = it;
+  });
+  const hitoLanes = Math.max(1, hitoLaneLast.length);
+  const ganttHeadExtra = milestoneMarks.length ? hitoLanes * 20 + 8 : 0;
+  const milestoneRowHtml = milestoneMarks.length ? `<div class="gv-hito-row" style="height:${ganttHeadExtra}px">${hitoItems.map(({ left, m, label, lane, width, fecha, cuando }) => {
+    const tip = `Hito: ${m.title}\nFecha: ${fecha} (${cuando})\nEstado: ${label}${m.project_name ? `\nProyecto: ${m.project_name}` : ''}${m.description ? `\n${m.description}` : ''}`;
+    return `<span class="gv-hito gv-hito-date ${esc(m.status || '')}" style="left:${left - 6}px;top:${4 + lane * 20}px;max-width:${width}px" title="${esc(tip)}"><i></i>${width > 30 ? `<em>${esc(fecha)}</em><b>${esc(m.title)}</b>` : ''}</span>`;
+  }).join('')}</div>` : '';
+  const ganttHeadStyle = ganttHeadExtra ? ` style="height:${67 + (sprintBands.length ? 26 : 0) + ganttHeadExtra}px"` : '';
+  const ganttHeadHitoLabel = ganttHeadExtra ? `<span class="gv-hito-head-label" style="top:${sprintBands.length ? 26 : 0}px;height:${ganttHeadExtra}px"><i></i>Hitos del proyecto</span>` : '';
   const sprintShadeHtml = sprintBands.map((b, i) => `<div class="gv-sprint-shade ${b.status} ${i % 2 ? 'is-odd' : ''}" style="left:${b.left}px;width:${b.width}px"></div>`).join('');
 
   const todayLineHtml = todayOffset >= 0 && todayOffset < totalDays
@@ -3610,7 +3640,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
   const ganttBodyHtml = rows.length ? `
     <div class="gp-body gtc-wrap">
       <div class="gp-left-panel gtc-labels" style="width:${ganttTableWidth}px">
-        <div class="gp-table-head gtc-labels-head">
+        <div class="gp-table-head gtc-labels-head"${ganttHeadStyle}>${ganttHeadHitoLabel}
           <div class="gp-th-name">Tarea</div>
           <div class="gv-th-who">Resp.</div>
           <div class="gv-th-when">Fechas</div>
@@ -3640,7 +3670,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
   const resourcesBodyHtml = `
     <div class="gp-body gtc-wrap">
       <div class="gp-left-panel" style="width:${ganttTableWidth}px">
-        <div class="gp-resource-head gtc-labels-head">
+        <div class="gp-resource-head gtc-labels-head"${ganttHeadStyle}>${ganttHeadHitoLabel}
           <div style="flex:1">Integrante</div>
           <div style="width:70px;text-align:right">Tareas</div>
         </div>

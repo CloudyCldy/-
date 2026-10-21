@@ -7351,3 +7351,31 @@ button.gv-stat:hover{transform:translateY(-1px);border-color:#627079}
 .gv-hito-line:has(.gv-hito-flag:hover){z-index:6}
 .gv-hito-flag .icon-svg{width:11px;height:11px;flex:0 0 11px}
 .gv-hito-key{display:inline-block;width:0;height:12px;border-left:2px dashed #e5484d;margin-right:6px;vertical-align:middle}
+
+/* Hitos en el Gantt (v2): fila propia en el encabezado y líneas suaves en las filas */
+.gv-hito-row{position:relative;border-bottom:1px solid #2A3541;background:#0f1a24}
+.gv-hito{position:absolute;display:inline-flex;align-items:center;gap:6px;height:16px;white-space:nowrap;overflow:hidden;font-size:11px;line-height:16px;color:#FEFCEA;cursor:default}
+.gv-hito i{flex:0 0 9px;width:9px;height:9px;margin-left:2px;border-radius:2px;transform:rotate(45deg);background:#e5484d;box-shadow:0 0 0 2px #0f1a24}
+.gv-hito.en_progreso i{background:#ECD88C}
+.gv-hito.completado i{background:#3A856F}
+.gv-hito b{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.gv-hito.completado b{color:#94B2BA}
+.gv-hito-line{border-left:1px dashed rgba(229,72,77,.55);z-index:1}
+.gv-hito-line.en_progreso{border-left-color:rgba(236,216,140,.6)}
+.gv-hito-line.completado{border-left-color:rgba(58,133,111,.65)}
+.gv-hito-flag{display:none}
+.gv-hito-key{width:9px;height:9px;border:0;border-radius:2px;margin:0 7px 0 2px;background:#e5484d;transform:rotate(45deg)}
+:root[data-theme="steep"] .gv-hito-row{background:#f8fafc;border-color:#e2e8f0}
+:root[data-theme="steep"] .gv-hito{color:#0f172a}
+:root[data-theme="steep"] .gv-hito.completado b{color:#475569}
+:root[data-theme="steep"] .gv-hito i{box-shadow:0 0 0 2px #f8fafc}
+
+/* Hitos en el Gantt (v3): fecha visible y título de la fila */
+.gv-chart .gp-table-head,.gv-chart .gp-resource-head{position:relative}
+.gv-hito-head-label{position:absolute;left:0;right:0;display:flex;align-items:center;gap:9px;padding:0 14px;border-bottom:1px solid #2A3541;background:#0f1a24;color:#94B2BA;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;box-sizing:border-box}
+.gv-hito-head-label i{flex:0 0 9px;width:9px;height:9px;border-radius:2px;transform:rotate(45deg);background:#e5484d}
+.gv-hito em{font-style:normal;font-weight:700;color:#ECD88C}
+.gv-hito em::after{content:" ·";color:#94B2BA;font-weight:400}
+.gv-hito.completado em{color:#7fb6a2}
+:root[data-theme="steep"] .gv-hito-head-label{background:#f8fafc;border-color:#e2e8f0;color:#475569}
+:root[data-theme="steep"] .gv-hito em{color:#a16207}
