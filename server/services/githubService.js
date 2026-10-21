@@ -53,6 +53,7 @@ async function request(name, work, overrides) {
     cache.set(key, { at: Date.now(), value });
     return value;
   } catch (error) {
+    console.error('[GitHub]', name, error.status || '', error.message);
     return { configured: true, error: friendlyError(error, connection.config) };
   }
 }
@@ -71,6 +72,6 @@ const repository = overrides => request('repo', (api, c) => api.repos.get({ owne
 const commits = overrides => request('commits', (api, c) => api.repos.listCommits({ owner: c.owner, repo: c.repo, per_page: 30 }), overrides);
 const branches = overrides => request('branches', (api, c) => api.repos.listBranches({ owner: c.owner, repo: c.repo, per_page: 100 }), overrides);
 const pulls = overrides => request('pulls', (api, c) => api.pulls.list({ owner: c.owner, repo: c.repo, state: 'all', per_page: 30 }), overrides);
-const activity = overrides => request('activity', (api, c) => api.repos.listEvents({ owner: c.owner, repo: c.repo, per_page: 30 }), overrides);
+const activity = overrides => request('activity', (api, c) => api.activity.listRepoEvents({ owner: c.owner, repo: c.repo, per_page: 30 }), overrides);
 
 module.exports = { settings, parseRepoUrl, repository, commits, branches, pulls, activity, clearCache, setOctokitForTests };
