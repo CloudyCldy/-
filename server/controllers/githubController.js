@@ -55,6 +55,7 @@ async function send(operation, req, res, transform = value => value) {
 		if (result.error) return res.json({ configured: true, error: result.error });
 		res.json({ configured: true, data: transform(result.data) });
 	} catch (error) {
+		console.error('[GitHub]', req.path, error.status || '', error.message);
 		res.json({ configured: true, error: 'No fue posible conectarse con GitHub.' });
 	}
 }
@@ -91,7 +92,7 @@ function describeEvent(event) {
 	}
 }
 const pulls = (req, res) => send(github.pulls, req, res, result => result.data.map(pr => ({ number: pr.number, title: pr.title, author: pr.user?.login, state: pr.merged_at ? 'merged' : pr.state, source: pr.head.ref, target: pr.base.ref, date: pr.created_at, updated: pr.updated_at, url: pr.html_url })));
-const activity = (req, res) => send(github.activity, req, res, result => result.data.map(event => { const d = describeEvent(event); return { user: event.actor?.login, action: d.text, date: event.created_at ? new Date(event.created_at).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : null, url: d.url }; }));
+const activity = (req, res) => send(github.activity, req, res, result => result.data.map(event => { let d; try { d = describeEvent(event); } catch (problem) { d = { text: event.type || 'Actividad', url: `https://github.com/${event.repo?.name || ''}` }; } return { user: event.actor?.login, action: d.text, date: event.created_at ? new Date(event.created_at).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : null, url: d.url }; }));
 const test = (req, res) => send(github.repository, req, res, () => ({ message: 'Conexión con GitHub establecida correctamente.' }));
 
 module.exports = { repository, commits, branches, activity, pulls, test, configure, config };
