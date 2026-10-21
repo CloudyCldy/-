@@ -7341,3 +7341,13 @@ button.gv-stat:hover{transform:translateY(-1px);border-color:#627079}
 :root[data-theme="steep"] .gv-res-status.warn{color:#a16207}
 :root[data-theme="steep"] .gv-res-status.bad{color:#dc2626}
 :root[data-theme="steep"] .gv-chart .gp-resource-head{background:#f8fafc;color:#475569;border-color:#e2e8f0}
+
+/* Hitos del proyecto dentro del cronograma del Gantt */
+.gv-hito-line{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed #e5484d;z-index:3;pointer-events:none}
+.gv-hito-line.completado{border-left-color:#3A856F}
+.gv-hito-flag{position:absolute;top:2px;left:4px;display:inline-flex;align-items:center;gap:3px;max-width:150px;opacity:.94;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:600;line-height:1.3;padding:2px 7px;border-radius:6px;background:#e5484d;color:#fff;pointer-events:auto;cursor:default;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.gv-hito-line.completado .gv-hito-flag{background:#3A856F}
+.gv-hito-flag:hover{max-width:none;opacity:1;z-index:5}
+.gv-hito-line:has(.gv-hito-flag:hover){z-index:6}
+.gv-hito-flag .icon-svg{width:11px;height:11px;flex:0 0 11px}
+.gv-hito-key{display:inline-block;width:0;height:12px;border-left:2px dashed #e5484d;margin-right:6px;vertical-align:middle}

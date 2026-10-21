@@ -4,7 +4,7 @@ async function list(req, res, next) {
   try {
     const database = req.app.locals.database;
     const orgId = req.session.user.organization_id;
-    const projectId = req.query.project_id || req.params.projectId || null;
+    const projectId = req.params.projectId || req.params.id || req.query.project_id || null;
     const status = req.query.status || null;
 
     const risks = await riskService.listRisks(database, orgId, projectId, status);
@@ -38,7 +38,7 @@ async function create(req, res, next) {
 
     const data = {
       ...req.body,
-      project_id: req.params.projectId || req.body.project_id
+      project_id: req.params.projectId || req.params.id || req.body.project_id
     };
 
     const risk = await riskService.createRisk(database, orgId, userId, data);

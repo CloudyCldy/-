@@ -175,6 +175,7 @@ let ganttQuickFilter = '';          // '' | 'overdue' | 'soon' | 'progress' (tar
 let ganttTaskIndex = new Map();     // tareas dibujadas, para el globo de información
 let ganttCalendarMode = 'deadlines'; // 'deadlines' (fechas de entrega) | 'duration' (duración completa)
 let ganttCalendarSelected = null;    // día elegido en el calendario (AAAA-MM-DD)
+let ganttMilestones = [];            // hitos del proyecto (tabla project_milestones) para el cronograma
 let ganttSprints = [];               // sprints del proyecto para pintarlos en el cronograma
 let ganttSelectedTaskId = null;
 let ganttSearchFilter = '';
@@ -2754,6 +2755,8 @@ async function gantt() {
     : [];
   const withSprints = sprintLists.filter(list => Array.isArray(list) && list.length);
   ganttSprints = withSprints.length === 1 ? withSprints[0].filter(s => s.start_date && s.end_date) : [];
+  ganttMilestones = await api(`/milestones${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}`).catch(() => []);
+  if (!Array.isArray(ganttMilestones)) ganttMilestones = [];
 
   const dayMs = 86400000;
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -3560,6 +3563,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
       <span><i class="gv-dot riesgo"></i>En riesgo</span>
       <span><i class="gv-expected-key"></i>Avance esperado a hoy</span>
       ${ganttShowCriticalPath ? '<span><i class="gv-dot critica"></i>Ruta crítica</span>' : ''}
+      ${ganttMilestones.length ? '<span><i class="gv-hito-key"></i>Hito del proyecto</span>' : ''}
       <span class="gv-legend-count">${scheduledTasks.length} ${scheduledTasks.length === 1 ? 'tarea' : 'tareas'}${overdueCount ? ` · <strong>${overdueCount} ${overdueCount === 1 ? 'atrasada' : 'atrasadas'}</strong>` : ''}</span>
     </div>
   `;
@@ -3587,6 +3591,16 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
     <div class="gv-sprint-row">
       ${sprintBands.map(b => `<div class="gv-sprint ${b.status}" style="left:${b.left}px;width:${b.width}px" title="${esc(b.name)} (${b.stateLabel})"><b>${esc(b.name)}</b><span>${b.stateLabel}</span></div>`).join('')}
     </div>` : '';
+
+  // Hitos del proyecto (tabla project_milestones): línea punteada y etiqueta en su fecha
+  const milestoneMarks = (ganttMilestones || []).map(m => {
+    const d = parseGanttDate(String(m.due_date || '').slice(0, 10));
+    if (!d || d < min || d > max) return null;
+    const off = Math.round((d - min) / dayMs);
+    const label = m.status === 'completado' ? 'completado' : m.status === 'en_progreso' ? 'en progreso' : 'pendiente';
+    return { left: off * dayWidth + Math.round(dayWidth / 2), m, label };
+  }).filter(Boolean);
+  const milestoneLinesHtml = milestoneMarks.map(({ left, m, label }) => `<div class="gv-hito-line ${esc(m.status || '')}" style="left:${left}px"><span class="gv-hito-flag" title="Hito: ${esc(m.title)} · ${esc(String(m.due_date).slice(0, 10))} · ${label}${m.project_name ? ' · ' + esc(m.project_name) : ''}">${icon('flag')}${esc(m.title)}</span></div>`).join('');
   const sprintShadeHtml = sprintBands.map((b, i) => `<div class="gv-sprint-shade ${b.status} ${i % 2 ? 'is-odd' : ''}" style="left:${b.left}px;width:${b.width}px"></div>`).join('');
 
   const todayLineHtml = todayOffset >= 0 && todayOffset < totalDays
@@ -3613,7 +3627,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
         <div class="gtc-timeline" style="width:${totalDays * dayWidth}px">
           ${timelineHeadHtml(true)}
           <div class="gtc-rows-area" style="height:${rows.length * 42}px">
-            ${sprintShadeHtml}
+            ${sprintShadeHtml}${milestoneLinesHtml}
             ${todayLineHtml}
             ${svgLayerHtml}
             ${tracksHtml}
@@ -3641,7 +3655,7 @@ function ganttChartMarkup(scheduledTasks, unscheduledTasks, dependencies = [], c
         <div class="gtc-timeline" style="width:${totalDays * dayWidth}px">
           ${timelineHeadHtml(false)}
           <div class="gtc-rows-area" style="position:relative;height:${resourceRowsHeight}px">
-            ${sprintShadeHtml}
+            ${sprintShadeHtml}${milestoneLinesHtml}
             ${todayLineHtml}
             ${resourceTimelineHtml}
           </div>
@@ -6907,16 +6921,54 @@ async function renderOverview() {
 
   let overviewData = null;
   let intelData = null;
+  let projectMilestones = [];
+  let projectIssues = [];
   try {
     overviewData = await api(`/projects/${selectedProjectId}/overview`);
     intelData = await api(`/projects/${selectedProjectId}/intelligence`).catch(() => null);
-    const projectMilestones = await api(`/projects/${selectedProjectId}/milestones`).catch(() => []);
-    const projectIssues = await api(`/projects/${selectedProjectId}/issues`).catch(() => []);
+    projectMilestones = await api(`/projects/${selectedProjectId}/milestones`).catch(() => []);
+    projectIssues = await api(`/projects/${selectedProjectId}/issues`).catch(() => []);
+    if (!Array.isArray(projectMilestones)) projectMilestones = [];
+    if (!Array.isArray(projectIssues)) projectIssues = [];
   } catch (err) {
     return layout(`
       ${heading('Project Overview', 'Control operativo y ejecutivo')}
       <div class="alert mt-4">Error al cargar datos del proyecto: ${esc(err.message)}</div>
     `);
+  }
+
+  // Compatibilidad: /api/projects/:id/overview regresa { health, tasks, risks: { items }, sprints, documentsCount }
+  // y esta vista espera { progress, summary, blockedTasks, overdueTasks, risks: [], workload, sprint }.
+  if (overviewData && overviewData.tasks && !Array.isArray(overviewData.tasks) && !overviewData.summary) {
+    const tk = overviewData.tasks;
+    const ovTasks = ((await api(`/gantt?project_id=${selectedProjectId}`).catch(() => null)) || {}).tasks || [];
+    const open = ovTasks.filter(t => t.status !== 'completada');
+    const pct = (n, d) => d ? Math.round(n * 100 / d) : 100;
+    const byPerson = new Map();
+    ovTasks.filter(t => t.assigned_to).forEach(t => {
+      const w = byPerson.get(t.assigned_to) || { name: t.assignee_name || 'Sin nombre', total: 0, completed: 0, active: 0 };
+      w.total++; if (t.status === 'completada') w.completed++; else w.active++;
+      byPerson.set(t.assigned_to, w);
+    });
+    const overdueList = tk.overdueList || [];
+    overviewData.progress = overviewData.health?.progress ?? (tk.total ? Math.round(tk.completed * 100 / tk.total) : 0);
+    overviewData.summary = { totalTasks: tk.total || 0, completedTasks: tk.completed || 0, totalDocuments: overviewData.documentsCount || 0 };
+    overviewData.blockedTasks = tk.blockedList || [];
+    overviewData.overdueTasks = overdueList;
+    overviewData.health = {
+      ...(overviewData.health || {}),
+      overdue: tk.overdueCount || 0,
+      critical: overdueList.filter(t => ['alta', 'urgente', 'critica', 'crítica'].includes(String(t.priority || '').toLowerCase())).length,
+      dateCoverage: pct(open.filter(t => t.start_date && t.due_date).length, open.length),
+      assignmentCoverage: pct(open.filter(t => t.assigned_to).length, open.length),
+      recommendations: overviewData.health?.recommendations || [],
+    };
+    overviewData.risks = Array.isArray(overviewData.risks) ? overviewData.risks : (overviewData.risks?.items || []);
+    overviewData.workload = byPerson.size ? [...byPerson.values()] : (overviewData.workload || []).map(w => ({ name: w.name, total: w.activeTasks || 0, completed: 0, active: w.activeTasks || 0 }));
+    overviewData.sprint = overviewData.sprints?.active || null;
+  }
+  if (overviewData && !overviewData.sanzuSync && intelData?.sanzuSync) {
+    overviewData.sanzuSync = { status: intelData.sanzuSync.status, synced_at: intelData.sanzuSync.syncedAt || intelData.sanzuSync.synced_at };
   }
 
   const p = overviewData.project || {};
@@ -8316,6 +8368,252 @@ async function renderIssues() {
   });
 }
 
+
+// ---------- Hitos (Milestones) ----------
+function milestoneStatusBadge(status) {
+  const map = { pendiente: ['yellow', 'Pendiente'], en_progreso: ['lilac', 'En progreso'], completado: ['green', 'Completado'] };
+  const [cls, label] = map[String(status || '').toLowerCase()] || ['badge', status || 'Pendiente'];
+  return `<span class="badge ${cls}">${esc(label)}</span>`;
+}
+
+function milestoneDate(value) {
+  return String(value || '').slice(0, 10);
+}
+
+// Días que faltan (negativo = atrasado) para un hito que no está completado
+function milestoneDaysLeft(m) {
+  const d = milestoneDate(m.due_date);
+  if (!d) return null;
+  const [y, mo, da] = d.split('-').map(Number);
+  const due = new Date(y, mo - 1, da);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.round((due - today) / 86400000);
+}
+
+function milestoneTimingBadge(m) {
+  if (m.status === 'completado') return '';
+  const left = milestoneDaysLeft(m);
+  if (left === null) return '';
+  if (left < 0) return `<span class="badge pink">Atrasado ${-left} ${-left === 1 ? 'día' : 'días'}</span>`;
+  if (left === 0) return '<span class="badge yellow">Vence hoy</span>';
+  if (left <= 7) return `<span class="badge yellow">Faltan ${left} ${left === 1 ? 'día' : 'días'}</span>`;
+  return `<span class="muted sub">Faltan ${left} días</span>`;
+}
+
+function openMilestoneModal(projectId, milestone = null, onSaved = null) {
+  document.querySelectorAll('.milestone-modal-overlay').forEach(n => n.remove());
+  const overlay = document.createElement('div');
+  overlay.className = 'file-viewer milestone-modal-overlay';
+  const isEdit = Boolean(milestone && milestone.id);
+  overlay.innerHTML = `
+    <div class="file-viewer-panel" style="max-width:520px;height:auto;padding:var(--sp-4);background:var(--panel, #18181b);border-radius:var(--r-lg, 12px);border:1px solid var(--line, #27272a)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)">
+        <h3 style="margin:0">${icon('flag')} ${isEdit ? 'Editar hito' : 'Nuevo hito'}</h3>
+        <button type="button" class="btn secondary close-milestone-modal" style="width:32px;height:32px;padding:0">${icon('close')}</button>
+      </div>
+      <form id="milestone-form" style="display:grid;gap:var(--sp-3)">
+        <input type="hidden" name="project_id" value="${esc(projectId || milestone?.project_id || '')}">
+        <label>Nombre del hito *
+          <input class="input" name="title" required maxlength="160" value="${esc(milestone?.title || '')}" placeholder="Ej: Entrega del prototipo / Sprint review 4">
+        </label>
+        <label>Descripción
+          <textarea class="textarea" name="description" rows="3" placeholder="Qué se entrega o qué debe estar listo en esta fecha">${esc(milestone?.description || '')}</textarea>
+        </label>
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:var(--sp-3)">
+          <label>Fecha objetivo *
+            <input class="input" type="date" name="due_date" required value="${esc(milestoneDate(milestone?.due_date))}">
+          </label>
+          <label>Estado
+            <select class="select" name="status">
+              <option value="pendiente" ${!milestone || milestone.status === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+              <option value="en_progreso" ${milestone?.status === 'en_progreso' ? 'selected' : ''}>En progreso</option>
+              <option value="completado" ${milestone?.status === 'completado' ? 'selected' : ''}>Completado</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions" style="display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-2)">
+          <button type="button" class="btn secondary close-milestone-modal">Cancelar</button>
+          <button type="submit" class="btn">${icon('check')} ${isEdit ? 'Guardar cambios' : 'Crear hito'}</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelectorAll('.close-milestone-modal').forEach(btn => { btn.onclick = () => overlay.remove(); });
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  const form = overlay.querySelector('#milestone-form');
+  let sending = false;
+  form.onsubmit = async e => {
+    e.preventDefault();
+    if (sending) return;
+    sending = true;
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.disabled = true;
+    const values = Object.fromEntries(new FormData(form));
+    try {
+      if (isEdit) {
+        delete values.project_id;
+        await api(`/milestones/${milestone.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
+        notify('Hito actualizado');
+      } else {
+        await api('/milestones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
+        notify('Hito creado');
+      }
+      overlay.remove();
+      if (onSaved) onSaved();
+    } catch (err) {
+      notify(err.message);
+      sending = false;
+      if (submit) submit.disabled = false;
+    }
+  };
+}
+
+async function renderMilestones() {
+  let projects = [];
+  try { projects = await api('/projects'); } catch {}
+  const title = 'Hitos del proyecto';
+  const subtitle = 'Entregas importantes con su fecha objetivo y su estado';
+  if (!projects.length) {
+    return layout(`
+      ${heading(title, subtitle)}
+      <div class="card p-5 mt-4 text-center">
+        <h2>No hay proyectos registrados</h2>
+        <p class="muted">Crea un proyecto primero para registrar sus hitos.</p>
+        <a class="btn mt-3" href="#/${state.user.role}/dashboard">Ir al Dashboard</a>
+      </div>`);
+  }
+  const hashParams = new URLSearchParams((location.hash.split('?')[1]) || '');
+  let selectedProjectId = Number(hashParams.get('project')) || projects[0].id;
+  if (!projects.some(p => p.id === selectedProjectId)) selectedProjectId = projects[0].id;
+  const statusFilter = hashParams.get('status') || '';
+
+  let milestones = [];
+  try {
+    milestones = await api(`/projects/${selectedProjectId}/milestones`);
+  } catch (err) {
+    return layout(`${heading(title, subtitle)}<div class="alert mt-4">Error al cargar los hitos: ${esc(err.message)}</div>`);
+  }
+  const canManage = ['admin', 'project_manager'].includes(state.user.role);
+  const late = milestones.filter(m => m.status !== 'completado' && milestoneDaysLeft(m) < 0);
+  const count = s => milestones.filter(m => m.status === s).length;
+  const shown = statusFilter === 'atrasado' ? late : statusFilter ? milestones.filter(m => m.status === statusFilter) : milestones;
+  const next = milestones.filter(m => m.status !== 'completado' && milestoneDaysLeft(m) >= 0).sort((a, b) => milestoneDate(a.due_date).localeCompare(milestoneDate(b.due_date)))[0];
+  const currentProject = projects.find(p => p.id === selectedProjectId);
+
+  layout(`
+    ${heading(title, subtitle, `
+      <div class="actions">
+        <select class="select" id="milestones-project-select" style="min-width:200px">
+          ${projects.map(p => `<option value="${p.id}" ${p.id === selectedProjectId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        </select>
+        <a class="btn secondary" href="#/${state.user.role}/gantt">${icon('gantt')} Ver en el Gantt</a>
+        ${canManage ? `<button class="btn" id="open-new-milestone-btn">${icon('plus')} Nuevo hito</button>` : ''}
+      </div>`)}
+
+    <div class="grid stats dashboard-stats mt-4">
+      <div class="card stat stat-primary">
+        <div class="stat-header"><div class="label">Hitos</div>${icon('flag')}</div>
+        <div class="num">${milestones.length}</div>
+        <div class="stat-footer-sub">En ${esc(currentProject?.name || '')}</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Completados</div>${icon('check')}</div>
+        <div class="num green">${count('completado')}</div>
+        <div class="stat-footer-sub">${milestones.length ? Math.round(count('completado') * 100 / milestones.length) : 0} % del total</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Atrasados</div>${icon('alertTriangle')}</div>
+        <div class="num ${late.length ? 'yellow' : ''}">${late.length}</div>
+        <div class="stat-footer-sub">Fecha vencida sin completar</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Próximo hito</div>${icon('calendar')}</div>
+        <div class="num num-sm">${next ? esc(milestoneDate(next.due_date)) : '—'}</div>
+        <div class="stat-footer-sub">${next ? esc(next.title) : 'Sin hitos pendientes'}</div>
+      </div>
+    </div>
+
+    <div class="card p-3 mt-4" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--sp-2)">
+      <div style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap">
+        <span class="muted sub">Mostrar:</span>
+        <select class="select mini" id="filter-milestone-status" style="min-width:160px">
+          <option value="">Todos</option>
+          <option value="pendiente" ${statusFilter === 'pendiente' ? 'selected' : ''}>Pendientes</option>
+          <option value="en_progreso" ${statusFilter === 'en_progreso' ? 'selected' : ''}>En progreso</option>
+          <option value="completado" ${statusFilter === 'completado' ? 'selected' : ''}>Completados</option>
+          <option value="atrasado" ${statusFilter === 'atrasado' ? 'selected' : ''}>Atrasados</option>
+        </select>
+      </div>
+      <span class="muted sub">${shown.length} hito(s)</span>
+    </div>
+
+    <div class="card p-4 mt-4">
+      ${shown.length ? `
+        <div style="display:grid;gap:var(--sp-3)">
+          ${shown.map(m => `
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px;background:var(--bg-glass);border-radius:var(--r-md);border:1px solid var(--line);gap:var(--sp-3);flex-wrap:wrap">
+              <div style="display:flex;gap:var(--sp-3);align-items:flex-start;max-width:75%">
+                <div style="min-width:64px;text-align:center;padding:6px 8px;border-radius:var(--r-sm);border:1px solid var(--line)">
+                  <div class="muted sub">${esc(new Date(milestoneDate(m.due_date) + 'T12:00:00').toLocaleDateString('es-MX', { month: 'short' }))}</div>
+                  <strong style="font-size:1.4rem">${esc(milestoneDate(m.due_date).slice(8, 10))}</strong>
+                </div>
+                <div>
+                  <div style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:4px">
+                    <strong style="font-size:1.05rem">${esc(m.title)}</strong>
+                    ${milestoneStatusBadge(m.status)}
+                    ${milestoneTimingBadge(m)}
+                  </div>
+                  ${m.description ? `<p class="muted" style="margin:4px 0">${esc(m.description)}</p>` : ''}
+                  <div class="muted sub">Fecha objetivo: <strong>${esc(milestoneDate(m.due_date))}</strong>${m.creator_name ? ` · Registrado por ${esc(m.creator_name)}` : ''}</div>
+                </div>
+              </div>
+              ${canManage ? `
+                <div class="actions" style="display:flex;align-items:center;gap:var(--sp-2)">
+                  ${m.status !== 'completado' ? `<button class="btn secondary mini complete-milestone-btn" data-milestone-id="${m.id}">${icon('check')} Completar</button>` : ''}
+                  <button class="btn secondary mini edit-milestone-page-btn" data-milestone-id="${m.id}">${icon('edit')} Editar</button>
+                  <button class="btn secondary mini delete-milestone-page-btn" data-milestone-id="${m.id}" style="color:var(--pink)">${icon('trash')}</button>
+                </div>` : ''}
+            </div>`).join('')}
+        </div>
+      ` : `<div class="empty">${milestones.length ? 'No hay hitos con ese filtro.' : `Este proyecto todavía no tiene hitos.${canManage ? ' Crea el primero con "Nuevo hito".' : ''}`}</div>`}
+    </div>
+  `);
+
+  const go = () => {
+    const q = new URLSearchParams({ project: document.querySelector('#milestones-project-select')?.value || selectedProjectId });
+    const st = document.querySelector('#filter-milestone-status')?.value;
+    if (st) q.set('status', st);
+    location.hash = `#/${state.user.role}/milestones?${q.toString()}`;
+  };
+  document.querySelector('#milestones-project-select')?.addEventListener('change', go);
+  document.querySelector('#filter-milestone-status')?.addEventListener('change', go);
+  document.querySelector('#open-new-milestone-btn')?.addEventListener('click', () => openMilestoneModal(selectedProjectId, null, () => renderMilestones()));
+  document.querySelectorAll('.edit-milestone-page-btn').forEach(btn => {
+    btn.onclick = async () => {
+      try { openMilestoneModal(selectedProjectId, await api(`/milestones/${btn.dataset.milestoneId}`), () => renderMilestones()); } catch (err) { notify(err.message); }
+    };
+  });
+  document.querySelectorAll('.complete-milestone-btn').forEach(btn => {
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try {
+        await api(`/milestones/${btn.dataset.milestoneId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completado' }) });
+        notify('Hito completado');
+        renderMilestones();
+      } catch (err) { notify(err.message); btn.disabled = false; }
+    };
+  });
+  document.querySelectorAll('.delete-milestone-page-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm('¿Eliminar este hito del proyecto?')) return;
+      try {
+        await api(`/milestones/${btn.dataset.milestoneId}`, { method: 'DELETE' });
+        notify('Hito eliminado');
+        renderMilestones();
+      } catch (err) { notify(err.message); }
+    };
+  });
+}
 
 async function renderMethodologies() {
   const hash = location.hash || '';

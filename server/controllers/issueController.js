@@ -6,7 +6,7 @@ async function list(req, res, next) {
     const orgId = req.session.user.organization_id;
 
     const filters = {
-      projectId: req.query.project_id || req.params.projectId || null,
+      projectId: req.params.projectId || req.params.id || req.query.project_id || null,
       status: req.query.status || null,
       priority: req.query.priority || null,
       assignedTo: req.query.assigned_to || null
@@ -43,7 +43,7 @@ async function create(req, res, next) {
 
     const data = {
       ...req.body,
-      project_id: req.params.projectId || req.body.project_id
+      project_id: req.params.projectId || req.params.id || req.body.project_id
     };
 
     const issue = await issueService.createIssue(database, orgId, userId, data);

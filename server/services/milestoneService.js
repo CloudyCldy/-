@@ -10,8 +10,9 @@ function isValidDate(dateStr) {
   if (!dateStr || typeof dateStr !== 'string') return false;
   const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return false;
-  const d = new Date(dateStr);
-  return !isNaN(d.getTime());
+  const iso = `${match[1]}-${match[2]}-${match[3]}`;
+  const d = new Date(`${iso}T00:00:00Z`);
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso;
 }
 
 async function listMilestones(database, orgId, projectId = null, status = null) {

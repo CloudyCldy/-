@@ -153,6 +153,9 @@ async function removeMember(req, res) {
 /**
  * Consolidación de relaciones y Project Overview (HB-03-ST020, HB-06-ST021)
  */
+// Fecha AAAA-MM-DD aunque PostgreSQL la regrese como objeto Date
+const isoDay = value => String(value instanceof Date ? value.toISOString() : value).slice(0, 10);
+
 async function overview(req, res) {
   const id = projectId(req, res);
   if (!id) return;
@@ -188,7 +191,7 @@ async function overview(req, res) {
   const inProgressTasks = tasks.filter(t => t.status === 'en_proceso').length;
   const pendingTasks = tasks.filter(t => t.status === 'pendiente').length;
   const blockedTasks = tasks.filter(t => t.status === 'bloqueada');
-  const overdueTasks = tasks.filter(t => t.status !== 'completada' && t.due_date && t.due_date < todayStr);
+  const overdueTasks = tasks.filter(t => t.status !== 'completada' && t.due_date && isoDay(t.due_date) < todayStr);
 
   const completionRate = totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0;
   const riskPenalty = Math.min(60, overdueTasks.length * 15 + blockedTasks.length * 20 + risks.filter(r => r.severity_score >= 65).length * 10);
@@ -293,7 +296,7 @@ async function intelligence(req, res) {
 
   const blocked = tasks.filter(t => t.status === 'bloqueada');
   const todayStr = new Date().toISOString().split('T')[0];
-  const overdue = tasks.filter(t => t.status !== 'completada' && t.due_date && t.due_date < todayStr);
+  const overdue = tasks.filter(t => t.status !== 'completada' && t.due_date && isoDay(t.due_date) < todayStr);
 
   const completed = tasks.filter(t => t.status === 'completada').length;
   const progress = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
