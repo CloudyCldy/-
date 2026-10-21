@@ -21,14 +21,20 @@ function projectId(req, res) {
   return id;
 }
 
+// Avance real del proyecto según sus tareas (promedio del avance de cada tarea; completada = 100)
+const PROJECT_PROGRESS_SQL = `
+  (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id) AS tasks_total,
+  (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id AND t.status = 'completada') AS tasks_done,
+  (SELECT COALESCE(ROUND(AVG(CASE WHEN t.status = 'completada' THEN 100 ELSE LEAST(100, GREATEST(0, COALESCE(t.progress, 0))) END))::integer, 0) FROM tasks t WHERE t.project_id = projects.id) AS tasks_progress`;
+
 async function list(req, res) {
-  res.json(await req.app.locals.database.prepare('SELECT projects.*, users.name AS manager_name FROM projects LEFT JOIN users ON users.id = projects.manager_id WHERE projects.organization_id = ? ORDER BY projects.created_at DESC').all(req.session.user.organization_id));
+  res.json(await req.app.locals.database.prepare(`SELECT projects.*, users.name AS manager_name, ${PROJECT_PROGRESS_SQL} FROM projects LEFT JOIN users ON users.id = projects.manager_id WHERE projects.organization_id = ? ORDER BY projects.created_at DESC`).all(req.session.user.organization_id));
 }
 
 async function get(req, res) {
   const id = projectId(req, res);
   if (!id) return;
-  const project = await req.app.locals.database.prepare('SELECT projects.*, users.name AS manager_name FROM projects LEFT JOIN users ON users.id = projects.manager_id WHERE projects.id = ? AND projects.organization_id = ?').get(id, req.session.user.organization_id);
+  const project = await req.app.locals.database.prepare(`SELECT projects.*, users.name AS manager_name, ${PROJECT_PROGRESS_SQL} FROM projects LEFT JOIN users ON users.id = projects.manager_id WHERE projects.id = ? AND projects.organization_id = ?`).get(id, req.session.user.organization_id);
   if (!project) return res.status(404).json({ error: 'El proyecto no existe.' });
   res.json(project);
 }

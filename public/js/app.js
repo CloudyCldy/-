@@ -900,8 +900,10 @@ async function renderAnnouncements(){
     }catch(error){notify(error.message)}
   });
 }
-async function githubView(section='repository'){const data=await api(`/github/${section==='pulls'?'pull-requests':section}`);let body='';if(!data.configured)body='<div class="empty">GitHub aún no está configurado.</div>';else if(data.error)body=`<div class="alert">${esc(data.error)}</div>`;else if(section==='repository'){const r=data.data;body=`<div class="grid stats"><div class="card stat"><div class="label">Nombre</div><div class="num">${esc(r.name)}</div></div><div class="card stat"><div class="label">Lenguaje</div><div class="num lilac">${esc(r.language||'No disponible')}</div></div><div class="card stat"><div class="label">Estrellas</div><div class="num yellow">${r.stargazers_count}</div></div><div class="card stat"><div class="label">Última actualización</div><div class="num num-sm">${new Date(r.updated_at).toLocaleDateString('es')}</div></div></div><section class="card mt-4"><h2>${esc(r.full_name)}</h2><p class="muted">${esc(r.description||'No disponible')}</p><a class="btn" href="${esc(r.html_url)}" target="_blank">Abrir en GitHub</a></section>`}else if(section==='commits'){body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Commit</th><th>Autor</th><th>Usuario GitHub</th><th>SHA</th><th>Fecha</th><th></th></tr></thead><tbody>${data.data.map(commit=>`<tr><td>${esc(commit.message)}</td><td>${esc(commit.author)}</td><td>${esc(commit.github_username||'No disponible')}</td><td><code>${esc(commit.sha)}</code></td><td>${esc(commit.date||'No disponible')}</td><td><a class="btn secondary" href="${esc(commit.url)}" target="_blank">Ver commit</a></td></tr>`).join('')||'<tr><td colspan="6" class="empty">No hay commits disponibles.</td></tr>'}</tbody></table></div></section>`}else{const rows=data.data;body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Actividad</th><th>Usuario</th><th>Fecha</th><th></th></tr></thead><tbody>${rows.map(item=>`<tr><td>${esc(item.message||item.title||item.action||item.name)}</td><td>${esc(item.github_username||item.author||item.user||'No disponible')}</td><td>${esc(item.date||item.updated||'No disponible')}</td><td>${item.url?`<a class="btn secondary" href="${esc(item.url)}" target="_blank">Ver en GitHub</a>`:''}</td></tr>`).join('')}</tbody></table></div></section>`}return `${heading(section==='commits'?'Commits':'GitHub','Información real del repositorio privado de Sakura Coffee.')}<div class="actions" style="margin-bottom:16px"><button class="btn secondary" data-gh="repository">Overview</button><button class="btn secondary" data-gh="commits">Commits</button><button class="btn secondary" data-gh="pulls">Pull Requests</button><button class="btn secondary" data-gh="branches">Branches</button><button class="btn secondary" data-gh="activity">Activity</button></div>${body}`}
-async function renderGithub(section='repository'){try{layout(await githubView(section));document.querySelectorAll('[data-gh]').forEach(b=>b.onclick=()=>renderGithub(b.dataset.gh))}catch(error){layout(`${heading('GitHub','La integración de GitHub requiere un plan compatible.')}<section class="card"><div class="alert">${esc(error.message)}</div>${state.user.role==='admin'?'<a class="btn" href="#/admin/billing">Ver planes</a>':''}</section>`)}}
+let githubProjectId=localStorage.getItem('haitani-github-project')||'';
+function githubConfigForm(){return `<form id="github-quick-config" class="form-grid mt-3"><label class="full">URL del repositorio<input class="input" name="url" placeholder="https://github.com/usuario/proyecto" required></label><label class="full">Token de GitHub (solo si el repositorio es privado)<input class="input" name="token" type="password" autocomplete="off" placeholder="Déjalo vacío si el repositorio es público"></label><div class="actions full"><button class="btn">${icon('check')} Vincular repositorio</button></div></form>`}
+async function githubView(section='repository'){const projects=await api('/projects').catch(()=>[]);if(!githubProjectId||!projects.some(p=>String(p.id)===String(githubProjectId)))githubProjectId=projects[0]?String(projects[0].id):'';const projectQuery=githubProjectId?`?project_id=${encodeURIComponent(githubProjectId)}`:'';const projectPicker=projects.length>1?`<select class="select" id="github-project" style="max-width:280px">${projects.map(p=>`<option value="${p.id}" ${String(p.id)===String(githubProjectId)?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`:'';const data=await api(`/github/${section==='pulls'?'pull-requests':section}${projectQuery}`);const canConfigure=state.user.role==='admin';let body='';if(!data.configured)body=`<section class="card"><div class="empty">Este proyecto aún no tiene un repositorio de GitHub vinculado.</div>${canConfigure?githubConfigForm():'<p class="muted">Pide al administrador que lo vincule.</p>'}</section>`;else if(data.error)body=`<section class="card"><div class="alert">${esc(data.error)}</div>${canConfigure?githubConfigForm():''}</section>`;else if(section==='repository'){const r=data.data;body=`<div class="grid stats"><div class="card stat"><div class="label">Nombre</div><div class="num">${esc(r.name)}</div></div><div class="card stat"><div class="label">Lenguaje</div><div class="num lilac">${esc(r.language||'No disponible')}</div></div><div class="card stat"><div class="label">Estrellas</div><div class="num yellow">${r.stargazers_count}</div></div><div class="card stat"><div class="label">Última actualización</div><div class="num num-sm">${new Date(r.updated_at).toLocaleDateString('es')}</div></div></div><section class="card mt-4"><h2>${esc(r.full_name)}</h2><p class="muted">${esc(r.description||'No disponible')}</p><a class="btn" href="${esc(r.html_url)}" target="_blank">Abrir en GitHub</a></section>`}else if(section==='commits'){body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Commit</th><th>Autor</th><th>Usuario GitHub</th><th>SHA</th><th>Fecha</th><th></th></tr></thead><tbody>${data.data.map(commit=>`<tr><td>${esc(commit.message)}</td><td>${esc(commit.author)}</td><td>${esc(commit.github_username||'No disponible')}</td><td><code>${esc(commit.sha)}</code></td><td>${esc(commit.date||'No disponible')}</td><td><a class="btn secondary" href="${esc(commit.url)}" target="_blank">Ver commit</a></td></tr>`).join('')||'<tr><td colspan="6" class="empty">No hay commits disponibles.</td></tr>'}</tbody></table></div></section>`}else{const rows=data.data;body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Actividad</th><th>Usuario</th><th>Fecha</th><th></th></tr></thead><tbody>${rows.map(item=>`<tr><td>${esc(item.message||item.title||item.action||item.name)}</td><td>${esc(item.github_username||item.author||item.user||'No disponible')}</td><td>${esc(item.date||item.updated||'No disponible')}</td><td>${item.url?`<a class="btn secondary" href="${esc(item.url)}" target="_blank">Ver en GitHub</a>`:''}</td></tr>`).join('')}</tbody></table></div></section>`}return `${heading(section==='commits'?'Commits':'GitHub','Repositorio vinculado al proyecto seleccionado.')}<div class="actions" style="margin-bottom:16px">${projectPicker}<button class="btn secondary" data-gh="repository">Overview</button><button class="btn secondary" data-gh="commits">Commits</button><button class="btn secondary" data-gh="pulls">Pull Requests</button><button class="btn secondary" data-gh="branches">Branches</button><button class="btn secondary" data-gh="activity">Activity</button></div>${body}`}
+async function renderGithub(section='repository'){try{layout(await githubView(section));document.querySelectorAll('[data-gh]').forEach(b=>b.onclick=()=>renderGithub(b.dataset.gh));document.querySelector('#github-project')?.addEventListener('change',e=>{githubProjectId=e.target.value;localStorage.setItem('haitani-github-project',githubProjectId);renderGithub(section)});document.querySelector('#github-quick-config')?.addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;try{const values=Object.fromEntries(new FormData(e.target));const result=await api('/github/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...values,project_id:githubProjectId})});notify(result.message||'Repositorio vinculado');renderGithub(section)}catch(error){notify(error.message);button.disabled=false}})}catch(error){layout(`${heading('GitHub','La integración de GitHub requiere un plan compatible.')}<section class="card"><div class="alert">${esc(error.message)}</div>${state.user.role==='admin'?'<a class="btn" href="#/admin/billing">Ver planes</a>':''}</section>`)}}
 async function tasksView(){
   const tasks=await api('/tasks');
   const users=['admin','project_manager'].includes(state.user.role)?await api('/users'):[];
@@ -2476,6 +2478,8 @@ async function renderMessages(){
   document.querySelector('#message-form')?.addEventListener('submit',async event=>{
     event.preventDefault();
     const form=event.target;
+    // Evita que un mensaje se mande varias veces si se presiona Enter o el botón mientras se envía
+    if(form.dataset.sending==='1')return;
     const formData=new FormData(form);
     const content=String(formData.get('content')||'').trim();
     if(!content && !(formData.get('file')&&formData.get('file').size))return;
@@ -2486,10 +2490,14 @@ async function renderMessages(){
       formData.append('user_id',selectedId||'');
       formData.set('content',content);
     }
+    form.dataset.sending='1';
+    const sendButton=form.querySelector('button[type="submit"], button:not([type])');
+    if(sendButton)sendButton.disabled=true;
     try{
       await api(groupId?`/messages/groups/${groupId}/messages`:'/messages',{method:'POST',body:formData});
       renderMessages();
     }catch(error){notify(error.message)}
+    finally{form.dataset.sending='';if(sendButton)sendButton.disabled=false}
   });
 }
 // =========================================================================
@@ -5045,9 +5053,9 @@ async function settings(){
       </div>
       <form id="github-settings" class="form-grid">
         <label>URL del repositorio<input class="input" name="url" placeholder="https://github.com/owner/repository" required></label>
-        <label>Owner<input class="input" name="owner" required></label>
-        <label>Repository<input class="input" name="repo" placeholder="CoffeeKorea" required></label>
-        <label>Token de GitHub<input class="input" name="token" type="password" required></label>
+        <label>Owner (opcional, se toma de la URL)<input class="input" name="owner"></label>
+        <label>Repository (opcional, se toma de la URL)<input class="input" name="repo" placeholder="CoffeeKorea"></label>
+        <label>Token de GitHub (solo si el repositorio es privado)<input class="input" name="token" type="password" autocomplete="off"></label>
         <div class="actions full"><button class="btn">${icon('check')} Guardar y probar conexión</button></div>
       </form>
     </section>
@@ -5128,9 +5136,8 @@ async function renderSettings(){
     try {
       const values = Object.fromEntries(new FormData(e.target));
       if (values.project_id) localStorage.setItem('haitani-github-project', values.project_id);
-      await api('/github/configure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
-      await api('/github/test');
-      notify('Conexión con GitHub establecida correctamente.');
+      const result = await api('/github/configure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
+      notify(result.message || 'Repositorio vinculado correctamente.');
     } catch (error) {
       notify(error.message);
     }
