@@ -47,6 +47,50 @@ async function ensureRuntimeSchema() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_username TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_token TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+      -- Enterprise Status & Verification
+      ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_status_check;
+      ALTER TABLE organizations ADD CONSTRAINT organizations_status_check
+        CHECK (status IN ('active', 'pending', 'approved', 'rejected', 'suspended'));
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS domain TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS website TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verification_notes TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_by INTEGER;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS official_registry_number TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS official_verified BOOLEAN DEFAULT false;
+
+      -- Granular roles
+      INSERT INTO roles (name, description) VALUES
+        ('platform_admin', 'Administración global de la plataforma y verificación empresarial'),
+        ('company_admin', 'Administración completa de la empresa'),
+        ('service_integration', 'Integración segura de servidor a servidor')
+      ON CONFLICT (name) DO NOTHING;
+
+      ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+      ALTER TABLE users ADD CONSTRAINT users_role_check
+        CHECK (role IN ('platform_admin', 'company_admin', 'admin', 'member', 'project_manager', 'viewer', 'service_integration'));
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_platform_admin BOOLEAN DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires TIMESTAMPTZ;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMPTZ;
+      UPDATE users SET is_platform_admin = true WHERE username = 'admin' AND is_platform_admin IS NOT TRUE;
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+        action TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT,
+        details JSONB DEFAULT '{}',
+        ip TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS audit_logs_org_idx ON audit_logs (organization_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs (action, created_at DESC);
       CREATE TABLE IF NOT EXISTS stored_assets (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
         uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL, kind TEXT NOT NULL, mime_type TEXT NOT NULL,
@@ -349,6 +393,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.get('/api/health', (req, res) => res.json({ ok: true, app: 'Haitani', project: 'Sakura Coffee' }));
 app.use('/api/billing', billingRoutes.router);
 app.use('/api/plans', require('./server/routes/planRoutes'));
+app.use('/api/admin', require('./server/routes/adminRoutes'));
 app.use('/api/organizations', require('./server/routes/organizationRoutes'));
 app.use('/api/projects', require('./server/routes/projectRoutes'));
 app.use('/api/backlog', require('./server/routes/backlogRoutes'));

@@ -26,7 +26,9 @@ async function init() {
     CREATE TABLE IF NOT EXISTS organizations (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
       email TEXT, description TEXT, github_url TEXT, github_owner TEXT,
-      github_repository TEXT, status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
+      github_repository TEXT, status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending', 'approved', 'rejected', 'suspended')),
+      domain TEXT, website TEXT, verification_notes TEXT, verified_at TIMESTAMPTZ, verified_by INTEGER,
+      official_registry_number TEXT, official_verified BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -40,6 +42,16 @@ async function init() {
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_connected BOOLEAN DEFAULT false;
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_last_tested_at TIMESTAMPTZ;
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
+    ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_status_check;
+    ALTER TABLE organizations ADD CONSTRAINT organizations_status_check
+      CHECK (status IN ('active', 'pending', 'approved', 'rejected', 'suspended'));
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS domain TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS website TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verification_notes TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_by INTEGER;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS official_registry_number TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS official_verified BOOLEAN DEFAULT false;
     ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_subscription_status_check;
     ALTER TABLE organizations ADD CONSTRAINT organizations_subscription_status_check
       CHECK (subscription_status IN ('active', 'pending', 'past_due', 'canceled'));
@@ -56,7 +68,7 @@ async function init() {
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, username TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL UNIQUE, password TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin', 'member', 'project_manager', 'viewer')), active INTEGER NOT NULL DEFAULT 1,
+      role TEXT NOT NULL CHECK (role IN ('platform_admin', 'company_admin', 'admin', 'member', 'project_manager', 'viewer', 'service_integration')), active INTEGER NOT NULL DEFAULT 1,
       github_username TEXT, gitlab_username TEXT, gitlab_token TEXT, profile_photo TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
 
@@ -77,6 +89,29 @@ async function init() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_username TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_token TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+    ALTER TABLE users ADD CONSTRAINT users_role_check
+      CHECK (role IN ('platform_admin', 'company_admin', 'admin', 'member', 'project_manager', 'viewer', 'service_integration'));
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_platform_admin BOOLEAN DEFAULT false;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires TIMESTAMPTZ;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMPTZ;
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+      action TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT,
+      details JSONB DEFAULT '{}',
+      ip TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS audit_logs_org_idx ON audit_logs (organization_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs (action, created_at DESC);
     INSERT INTO organizations (name, slug, email, description)
       VALUES ('Haitani', 'haitani', 'admin@haitani.local', 'Organización inicial de Haitani')
       ON CONFLICT (slug) DO NOTHING;

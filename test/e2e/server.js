@@ -9,20 +9,55 @@ process.env.PGPASSWORD = 'playwright';
 delete process.env.TEST_DATABASE_URL;
 
 const app = require('../../app');
+const bcrypt = require('bcryptjs');
+
+const testPasswordHash = bcrypt.hashSync('password123', 4);
 
 app.locals.database = {
   prepare(query) {
     const statement = query.toLowerCase().replace(/\s+/g, ' ');
     return {
-      async all() {
+      async all(...params) {
         if (statement.includes('from blocked_ips')) return [];
         return [];
       },
-      async get() {
+      async get(...params) {
+        if (statement.includes('from users') && statement.includes('where (username = ? or email = ?)')) {
+          const val = params[0];
+          if (val === 'pending-user@empresa.com') {
+            return {
+              id: 991,
+              username: 'pending-user',
+              email: 'pending-user@empresa.com',
+              password: testPasswordHash,
+              role: 'admin',
+              organization_id: 881,
+              active: 1
+            };
+          }
+          if (val === 'suspended-user@empresa.com') {
+            return {
+              id: 992,
+              username: 'suspended-user',
+              email: 'suspended-user@empresa.com',
+              password: testPasswordHash,
+              role: 'admin',
+              organization_id: 882,
+              active: 1
+            };
+          }
+          return null;
+        }
+        if (statement.includes('from organizations where id = ?')) {
+          const orgId = params[0];
+          if (orgId === 881) return { id: 881, status: 'pending', name: 'Pending Enterprise Inc.' };
+          if (orgId === 882) return { id: 882, status: 'suspended', name: 'Suspended Corp.' };
+          return { id: orgId, status: 'approved', name: 'Approved Org' };
+        }
         if (statement.includes('from users') && statement.includes('username = ?')) return null;
         return null;
       },
-      async run() {
+      async run(...params) {
         return { changes: 1 };
       }
     };

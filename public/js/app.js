@@ -5983,7 +5983,16 @@ async function render(){
     if(!state.user){
       if(location.hash.includes('login')) return loginView();
       if(location.hash.includes('register')) return registerView();
+      if(location.hash.includes('pending-verification')) return pendingVerificationView();
       return landingView();
+    }
+  }
+  if (state.user && !state.user.is_platform_admin) {
+    if (state.user.organization_status === 'pending' || location.hash.includes('pending-verification')) {
+      return pendingVerificationView();
+    }
+    if (state.user.organization_status === 'suspended') {
+      return suspendedOrganizationView();
     }
   }
   if(location.hash === '' || location.hash === '#' || location.hash === '#/' || location.hash === '#/landing'){
@@ -6746,6 +6755,66 @@ async function renderMemberAbsences(){
   });
 }
 async function renderAbsences(){return state.user.role==='admin'?renderAdminAbsences():renderMemberAbsences()}
+
+function pendingVerificationView() {
+  app.innerHTML = `
+    <main class="login">
+      <div class="auth-theme-bar">${themeToggle()}</div>
+      <div class="auth-stage">
+        <div class="login-box" id="pending-verification-box">
+          <div class="login-box-header">
+            <div class="brand">${brandLogo()}</div>
+            <div class="eyebrow">Verificación Empresarial</div>
+            <h1>Organización en revisión</h1>
+            <p class="muted">Tu cuenta ha sido creada exitosamente y se encuentra en estado <strong>Pendiente de Aprobación</strong>.</p>
+          </div>
+          <div class="alert alert-info" style="margin: 1.5rem 0; line-height: 1.6;">
+            Por políticas de seguridad empresarial y aislamiento multi-inquilino, un administrador global debe revisar y verificar los datos de tu empresa antes de habilitar el acceso a los servicios de Haitani y Sanzu.
+          </div>
+          <div class="auth-actions">
+            <button type="button" class="btn secondary btn-block" id="pending-logout-btn">Cerrar sesión</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  `;
+  bindTheme();
+  document.querySelector('#pending-logout-btn')?.addEventListener('click', async () => {
+    try { await api('/auth/logout', { method: 'POST' }); } catch {}
+    state.user = null;
+    location.hash = '#/login';
+    loginView();
+  });
+}
+
+function suspendedOrganizationView() {
+  app.innerHTML = `
+    <main class="login">
+      <div class="auth-theme-bar">${themeToggle()}</div>
+      <div class="auth-stage">
+        <div class="login-box" id="suspended-box">
+          <div class="login-box-header">
+            <div class="brand">${brandLogo()}</div>
+            <div class="eyebrow" style="color: var(--danger, #e53e3e);">Acceso Suspendido</div>
+            <h1>Organización suspendida</h1>
+            <p class="muted">El acceso para esta organización ha sido suspendido por un administrador.</p>
+          </div>
+          <div class="auth-actions">
+            <button type="button" class="btn secondary btn-block" id="suspended-logout-btn">Volver al inicio</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  `;
+  bindTheme();
+  document.querySelector('#suspended-logout-btn')?.addEventListener('click', async () => {
+    try { await api('/auth/logout', { method: 'POST' }); } catch {}
+    state.user = null;
+    location.hash = '#/login';
+    loginView();
+  });
+}
+
 async function registerView(error=''){
   let plans=[];
   try{plans=await api('/plans')}catch(requestError){error=requestError.message}
@@ -6784,6 +6853,15 @@ async function registerView(error=''){
             </label>
             <label class="full">Contraseña maestra
               <input class="input" name="password" type="password" minlength="8" placeholder="Mínimo 8 caracteres" required>
+            </label>
+                        <label>Dominio corporativo
+              <input class="input" name="domain" placeholder="empresa.com">
+            </label>
+            <label>Sitio web
+              <input class="input" name="website" placeholder="https://empresa.com">
+            </label>
+            <label class="full">Registro oficial / CIF / RFC
+              <input class="input" name="official_registry_number" placeholder="Identificador fiscal o legal de la empresa">
             </label>
             <label class="full">Descripción del proyecto
               <textarea class="textarea" name="description" rows="2" placeholder="Objetivo, stack o contexto de la organización"></textarea>
