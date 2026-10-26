@@ -282,9 +282,57 @@ async function init() {
       created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    
     ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_group_id_fkey;
     ALTER TABLE messages ADD CONSTRAINT messages_group_id_fkey FOREIGN KEY (group_id) REFERENCES chat_groups(id) ON DELETE CASCADE;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES messages(id) ON DELETE SET NULL;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS client_message_id TEXT;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type TEXT NOT NULL DEFAULT 'text';
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+    CREATE TABLE IF NOT EXISTS message_reactions (
+      id SERIAL PRIMARY KEY,
+      message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reaction TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT message_reactions_unique UNIQUE (message_id, user_id, reaction)
+    );
+    CREATE INDEX IF NOT EXISTS message_reactions_msg_idx ON message_reactions (message_id);
+
+    ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;
+    ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+    ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS description TEXT;
+
     CREATE TABLE IF NOT EXISTS chat_group_members (
+      group_id INTEGER NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
+      last_read_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (group_id, user_id)
+    );
+    ALTER TABLE chat_group_members ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ;
+
+    CREATE TABLE IF NOT EXISTS conversation_preferences (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      conversation_type TEXT NOT NULL CHECK (conversation_type IN ('direct', 'group')),
+      target_id INTEGER NOT NULL,
+      is_muted BOOLEAN NOT NULL DEFAULT false,
+      is_archived BOOLEAN NOT NULL DEFAULT false,
+      is_pinned BOOLEAN NOT NULL DEFAULT false,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, conversation_type, target_id)
+    );
+    CREATE INDEX IF NOT EXISTS conv_pref_user_idx ON conversation_preferences (user_id, organization_id);
+    CREATE INDEX IF NOT EXISTS messages_client_msg_id_idx ON messages (client_message_id);
+    /* existing chat_group_members handled */ CREATE TABLE IF NOT EXISTS chat_group_members_old (
       group_id INTEGER NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,

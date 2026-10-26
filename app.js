@@ -129,6 +129,47 @@ async function ensureRuntimeSchema() {
       CREATE INDEX IF NOT EXISTS tasks_org_status_due_idx ON tasks (organization_id, status, due_date);
       CREATE INDEX IF NOT EXISTS messages_org_receiver_status_idx ON messages (organization_id, receiver_id, delivery_status);
       CREATE INDEX IF NOT EXISTS messages_org_group_idx ON messages (organization_id, conversation_type, group_id, created_at DESC);
+
+      -- Advanced Messaging Enhancements
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES messages(id) ON DELETE SET NULL;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS client_message_id TEXT;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type TEXT NOT NULL DEFAULT 'text';
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+      CREATE TABLE IF NOT EXISTS message_reactions (
+        id SERIAL PRIMARY KEY,
+        message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reaction TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT message_reactions_unique UNIQUE (message_id, user_id, reaction)
+      );
+      CREATE INDEX IF NOT EXISTS message_reactions_msg_idx ON message_reactions (message_id);
+
+      ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;
+      ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+      ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS description TEXT;
+
+      ALTER TABLE chat_group_members ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ;
+
+      CREATE TABLE IF NOT EXISTS conversation_preferences (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        conversation_type TEXT NOT NULL CHECK (conversation_type IN ('direct', 'group')),
+        target_id INTEGER NOT NULL,
+        is_muted BOOLEAN NOT NULL DEFAULT false,
+        is_archived BOOLEAN NOT NULL DEFAULT false,
+        is_pinned BOOLEAN NOT NULL DEFAULT false,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, conversation_type, target_id)
+      );
+      CREATE INDEX IF NOT EXISTS conv_pref_user_idx ON conversation_preferences (user_id, organization_id);
+      CREATE INDEX IF NOT EXISTS messages_client_msg_id_idx ON messages (client_message_id);
+
       CREATE INDEX IF NOT EXISTS incidences_org_user_idx ON incidences (organization_id, user_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS files_org_created_idx ON files (organization_id, created_at DESC);
 
@@ -452,36 +493,10 @@ app.use((error, req, res, next) => {
 });
 
 const server = http.createServer(app);
-const webSocketServer = new WebSocket.Server({ server });
-const callClients = new Map();
-function sessionIdFromRequest(request) {
-  const value = request.headers.cookie?.split(';').map(item => item.trim()).find(item => item.startsWith('connect.sid='))?.split('=').slice(1).join('=');
-  if (!value?.startsWith('s:')) return null;
-  return signature.unsign(decodeURIComponent(value.slice(2)), process.env.SESSION_SECRET || 'change-this-secret');
-}
-webSocketServer.on('connection', (socket, request) => {
-  const sessionId = sessionIdFromRequest(request);
-  if (!sessionId) return socket.close(1008, 'Sesión requerida');
-  database.pool.query('SELECT sess FROM user_sessions WHERE sid = $1', [sessionId]).then(result => {
-    try { socket.session = JSON.parse(result.rows[0]?.sess || '{}'); } catch { socket.session = {}; }
-    if (!socket.session.user?.id) socket.close(1008, 'Sesión requerida');
-  }).catch(() => socket.close(1011, 'No fue posible validar la sesión'));
-  socket.on('message', raw => {
-    try {
-      const message = JSON.parse(raw.toString());
-      if (message.type === 'register' && Number.isInteger(Number(message.userId)) && socket.session?.user?.id === Number(message.userId)) {
-        socket.userId = Number(message.userId);
-        callClients.set(socket.userId, socket);
-        return;
-      }
-      if (!socket.userId) return;
-      const recipient = callClients.get(Number(message.to));
-      if (recipient?.readyState === WebSocket.OPEN) recipient.send(JSON.stringify({ ...message, from: socket.userId }));
-      else if (message.type === 'offer') database.prepare('UPDATE calls SET status = ? WHERE id = ? AND status = ?').run('missed', message.callId, 'initiated').catch(() => {});
-    } catch {}
-  });
-  socket.on('close', () => { if (socket.userId && callClients.get(socket.userId) === socket) callClients.delete(socket.userId); });
-});
+const wsHub = require('./server/services/websocketService');
+wsHub.init(server, app, database);
+app.locals.wsHub = wsHub;
+
 async function start() {
   await ensureRuntimeSchema();
   return new Promise((resolve) => {
