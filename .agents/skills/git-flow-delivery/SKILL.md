@@ -37,11 +37,17 @@ git commit -m "<tipo>(<alcance>): <descripcion concisa sin emojis>"
 - Tipos comunes: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
 - Regla: No usar emojis en los mensajes de commit.
 
-### Paso 3: Publicar rama y enlace a Pull Request
+### Paso 3: Publicar rama y crear Pull Request
 ```bash
 git push -u origin feature/<nombre-de-la-tarea>
 ```
-- La salida de Git proporciona el enlace directo para abrir el Pull Request hacia el repositorio.
+- La terminal genera el enlace directo de GitHub para abrir el Pull Request.
+- **Crear Pull Request a `main` y ramas correspondientes**:
+  - URL directa para abrir PR hacia `main`:
+    `https://github.com/CloudyCldy/-/compare/main...feature/<nombre-de-la-tarea>?expand=1`
+  - URL directa para abrir PR hacia `dev`:
+    `https://github.com/CloudyCldy/-/compare/dev...feature/<nombre-de-la-tarea>?expand=1`
+  - El agente siempre debe entregar al usuario los enlaces directos de Pull Request listos para su aprobacion.
 
 ### Paso 4: Integrar en rama `dev` (Cambios nuevos)
 ```bash
@@ -52,14 +58,18 @@ git push origin dev
 ```
 
 ### Paso 5: Integrar en rama `QA` (Pruebas)
+- Ejecutar pruebas automáticas antes de la integracion en QA:
 ```bash
+node --test
 git checkout QA
 git pull origin QA
 git merge --no-ff feature/<nombre-de-la-tarea> -m "Merge branch 'feature/<nombre-de-la-tarea>' into QA"
 git push origin QA
 ```
 
-### Paso 6: Integrar en `main` (Produccion)
+### Paso 6: Integrar en `main` (Produccion via Pull Request / Merge verificado)
+- Todo cambio destinado a `main` debe tener su Pull Request registrado en GitHub.
+- Tras la validación de pruebas y apertura de PR:
 ```bash
 git checkout main
 git pull origin main
@@ -67,6 +77,7 @@ git merge --no-ff feature/<nombre-de-la-tarea> -m "Merge branch 'feature/<nombre
 git push origin main
 ```
 
-## 3. Verificacion Final
-- Ejecutar `git status` para comprobar que el directorio de trabajo este limpio.
-- Ejecutar las suites de pruebas pertinentes (`node --test`) antes de fusionar en `QA` y `main`.
+## 3. Politica Obligatoria de Pull Requests
+1. **Ningun cambio directo a `main`**: Todos los cambios deben originarse en ramas `feature/*`.
+2. **Generacion de PR para cada cambio a `main`**: Al finalizar la tarea, siempre se proporciona el enlace directo para el Pull Request hacia `main`.
+3. **Trazabilidad en dev y QA**: Los cambios probados se sincronizan en `dev` y `QA`, manteniendo el historial con commits limpios y sin emojis.
