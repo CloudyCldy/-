@@ -35,6 +35,11 @@ async function init() {
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ;
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_project_id TEXT;
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_token TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_api_url TEXT DEFAULT 'https://sanzu.onrender.com';
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_connected BOOLEAN DEFAULT false;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_last_tested_at TIMESTAMPTZ;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
     ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_subscription_status_check;
     ALTER TABLE organizations ADD CONSTRAINT organizations_subscription_status_check
       CHECK (subscription_status IN ('active', 'pending', 'past_due', 'canceled'));
@@ -53,8 +58,18 @@ async function init() {
       email TEXT NOT NULL UNIQUE, password TEXT NOT NULL,
       role TEXT NOT NULL CHECK (role IN ('admin', 'member', 'project_manager', 'viewer')), active INTEGER NOT NULL DEFAULT 1,
       github_username TEXT, gitlab_username TEXT, gitlab_token TEXT, profile_photo TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+
+      -- OAuth connections table for GitHub and GitLab tokens
+      CREATE TABLE IF NOT EXISTS oauth_connections (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL CHECK (provider IN ('github','gitlab')),
+        access_token TEXT NOT NULL,
+        username TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT now(),
+        UNIQUE (user_id, provider)
+      );
     ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id INTEGER;
@@ -83,6 +98,11 @@ async function init() {
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS risks TEXT;
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS methodology_id TEXT;
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS requirements TEXT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS budget NUMERIC(14, 2) DEFAULT 0;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS scope TEXT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_synced_at TIMESTAMPTZ;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_sync_status TEXT DEFAULT 'pending';
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_sync_error TEXT;
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_external_ref TEXT;
     CREATE UNIQUE INDEX IF NOT EXISTS projects_sanzu_external_ref_idx ON projects (sanzu_external_ref) WHERE sanzu_external_ref IS NOT NULL;
     UPDATE projects SET methodology_id = 'AGILE' WHERE methodology_id IS NULL;
@@ -106,7 +126,41 @@ async function init() {
     ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_status_check;
     ALTER TABLE tasks ADD CONSTRAINT tasks_status_check CHECK (status IN ('pendiente', 'en_proceso', 'en_revision', 'bloqueada', 'completada'));
     ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_priority_check;
-    ALTER TABLE tasks ADD CONSTRAINT tasks_priority_check CHECK (priority IN ('baja', 'media', 'alta', 'critica'));
+    CREATE TABLE IF NOT EXISTS sprints (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      goal TEXT NOT NULL DEFAULT '',
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'planificado' CHECK (status IN ('planificado', 'activo', 'cerrado')),
+      started_at TIMESTAMPTZ,
+      closed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CHECK (end_date >= start_date)
+    );
+    CREATE INDEX IF NOT EXISTS sprints_org_project_idx ON sprints (organization_id, project_id, status);
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS tasks_org_sprint_idx ON tasks (organization_id, sprint_id);
+    CREATE TABLE IF NOT EXISTS backlog_items (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      type TEXT NOT NULL CHECK (type IN ('USER_STORY', 'BUG', 'TASK', 'FEATURE', 'IMPROVEMENT')),
+      priority TEXT NOT NULL DEFAULT 'MEDIUM' CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+      story_points INTEGER CHECK (story_points BETWEEN 0 AND 100),
+      status TEXT NOT NULL DEFAULT 'BACKLOGGED' CHECK (status IN ('BACKLOGGED', 'READY', 'IN_PROGRESS', 'DONE')),
+      acceptance_criteria TEXT NOT NULL DEFAULT '',
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS backlog_items_org_project_idx ON backlog_items (organization_id, project_id, status);
     CREATE TABLE IF NOT EXISTS project_members (
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -278,6 +332,171 @@ async function init() {
     CREATE INDEX IF NOT EXISTS incidences_org_user_idx ON incidences (organization_id, user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS files_org_created_idx ON files (organization_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS activities_organization_idx ON activities (organization_id, created_at DESC);
+
+    -- Knowledge Center & Relaciones Documentales (HB-08-ST051, ST052, ST053, SB-13-ST049, ST050)
+    ALTER TABLE files ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'general';
+    ALTER TABLE files ADD COLUMN IF NOT EXISTS phase TEXT DEFAULT 'execution';
+    ALTER TABLE files ADD COLUMN IF NOT EXISTS methodology TEXT DEFAULT 'AGILE';
+    ALTER TABLE files ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;
+    ALTER TABLE files ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE;
+    ALTER TABLE files ADD COLUMN IF NOT EXISTS task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE;
+    ALTER TABLE files ADD COLUMN IF NOT EXISTS tags TEXT;
+
+    CREATE TABLE IF NOT EXISTS project_documents (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(project_id, file_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS task_documents (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(task_id, file_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS methodology_documents (
+      id SERIAL PRIMARY KEY,
+      methodology TEXT NOT NULL,
+      file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(methodology, file_id)
+    );
+
+    -- Risk Center (SB-07-ST063, ST064, ST065)
+    CREATE TABLE IF NOT EXISTS project_risks (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      probability TEXT NOT NULL DEFAULT 'media' CHECK (probability IN ('baja', 'media', 'alta')),
+      impact TEXT NOT NULL DEFAULT 'media' CHECK (impact IN ('baja', 'media', 'alta')),
+      status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'mitigated', 'closed')),
+      mitigation TEXT NOT NULL DEFAULT '',
+      severity_score INTEGER NOT NULL DEFAULT 50,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS project_risks_org_project_idx ON project_risks (organization_id, project_id, status);
+    ALTER TABLE project_risks ADD COLUMN IF NOT EXISTS assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS project_risks_assigned_to_idx ON project_risks (assigned_to);
+    ALTER TABLE project_risks DROP CONSTRAINT IF EXISTS project_risks_status_check;
+    ALTER TABLE project_risks ADD CONSTRAINT project_risks_status_check
+      CHECK (status IN ('open', 'mitigated', 'accepted', 'closed'));
+    ALTER TABLE project_risks DROP CONSTRAINT IF EXISTS project_risks_probability_check;
+    ALTER TABLE project_risks ADD CONSTRAINT project_risks_probability_check
+      CHECK (probability IN ('muy_baja', 'baja', 'media', 'alta', 'muy_alta', '1', '2', '3', '4', '5'));
+    ALTER TABLE project_risks DROP CONSTRAINT IF EXISTS project_risks_impact_check;
+    ALTER TABLE project_risks ADD CONSTRAINT project_risks_impact_check
+      CHECK (impact IN ('muy_bajo', 'bajo', 'baja', 'medio', 'media', 'alto', 'alta', 'muy_alto', 'muy_alta', 'critico', 'critica', '1', '2', '3', '4', '5'));
+
+    -- Sistema de Eventos (SB-09-ST061, SB-09-ST062)
+    CREATE TABLE IF NOT EXISTS project_events (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL CHECK (event_type IN ('task_overdue', 'task_blocked', 'milestone_delayed', 'sprint_ending', 'member_overloaded', 'risk_created', 'deadline_approaching')),
+      severity TEXT NOT NULL DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      payload JSONB DEFAULT '{}',
+      resolved BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS project_events_org_proj_idx ON project_events (organization_id, project_id, resolved);
+
+    -- GanttProject enhancements: WBS hierarchy, milestones, baselines & dependencies
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL;
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_milestone BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS baseline_start_date DATE;
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS baseline_due_date DATE;
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS color TEXT;
+
+    CREATE TABLE IF NOT EXISTS task_dependencies (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      predecessor_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      dependency_type TEXT NOT NULL DEFAULT 'FS' CHECK (dependency_type IN ('FS', 'SS', 'FF', 'SF')),
+      lag_days INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (task_id, predecessor_id)
+    );
+    CREATE INDEX IF NOT EXISTS task_dep_task_idx ON task_dependencies (task_id);
+    CREATE INDEX IF NOT EXISTS task_dep_pred_idx ON task_dependencies (predecessor_id);
+    CREATE INDEX IF NOT EXISTS task_dep_org_proj_idx ON task_dependencies (organization_id, project_id);
+
+    -- Sprint 3: Gestión de Hitos (Milestones) del Proyecto
+    CREATE TABLE IF NOT EXISTS project_milestones (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      due_date DATE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pendiente' CHECK (status IN ('pendiente', 'en_progreso', 'completado')),
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS project_milestones_org_project_idx ON project_milestones (organization_id, project_id, status);
+    CREATE INDEX IF NOT EXISTS project_milestones_due_date_idx ON project_milestones (due_date);
+
+    -- Sprint 3: Gestión de Incidencias (Issues) del Proyecto
+    CREATE TABLE IF NOT EXISTS project_issues (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical', 'baja', 'media', 'alta', 'critica')),
+      status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+      reported_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS project_issues_org_proj_status_idx ON project_issues (organization_id, project_id, status);
+    CREATE INDEX IF NOT EXISTS project_issues_assigned_idx ON project_issues (assigned_to);
+    CREATE INDEX IF NOT EXISTS project_issues_reported_idx ON project_issues (reported_by);
+
+    -- Sprint 3: Catálogo de Metodologías Extensible
+    CREATE TABLE IF NOT EXISTS methodologies (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'agile',
+      principles JSONB DEFAULT '[]',
+      practices JSONB DEFAULT '[]',
+      is_custom BOOLEAN NOT NULL DEFAULT false,
+      organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS methodologies_org_idx ON methodologies (organization_id);
+
+    INSERT INTO methodologies (id, name, description, category, principles, practices, is_custom) VALUES
+      ('SCRUM', 'Scrum', 'Framework ágil iterativo basado en sprints de 1 a 4 semanas, con roles definidos (Scrum Master, Product Owner, Equipo de Desarrollo) y ceremonias estructuradas para entrega continua de valor.', 'agile', '["Transparencia", "Inspección", "Adaptación"]', '["Sprint Planning", "Daily Standup", "Sprint Review", "Sprint Retrospective"]', false),
+      ('KANBAN', 'Kanban', 'Método visual para gestionar y optimizar el flujo de trabajo continuo, enfocado en limitar el trabajo en curso (WIP) y maximizar la eficiencia y entrega rápida.', 'agile', '["Empezar con lo que haces ahora", "Perseguir el cambio evolutivo", "Respetar los procesos y roles actuales"]', '["Visualizar el flujo", "Limitar el WIP", "Gestionar el flujo", "Hacer políticas explícitas"]', false),
+      ('XP', 'Extreme Programming', 'Metodología ágil centrada en la excelencia técnica y las mejores prácticas de ingeniería de software para responder a requerimientos cambiantes con alta calidad.', 'agile', '["Comunicación", "Simplicidad", "Retroalimentación", "Coraje", "Respeto"]', '["TDD (Test-Driven Development)", "Pair Programming", "Integración Continua", "Refactorización constante"]', false),
+      ('LEAN', 'Lean Software Development', 'Filosofía orientada a la optimización del valor eliminando desperdicios (muda), acelerando tiempos de entrega y empoderando al equipo.', 'agile', '["Eliminar desperdicio", "Amplificar el aprendizaje", "Decidir lo más tarde posible", "Entregar lo más rápido posible"]', '["Mapeo del flujo de valor", "Sistemas pull", "Mejora continua (Kaizen)"]', false),
+      ('WATERFALL', 'Waterfall (Cascada)', 'Modelo secuencial tradicional dividido en fases claramente delimitadas: requerimientos, diseño, implementación, pruebas y despliegue, ideal para proyectos con especificaciones fijas.', 'traditional', '["Planificación rigurosa", "Secuencia estricta", "Documentación exhaustiva"]', '["Gantt estricto", "Firmas de aprobación por fase", "Gestión formal del cambio"]', false),
+      ('AGILE', 'Ágil Genérico', 'Enfoque centrado en la flexibilidad, colaboración activa con el cliente, entregas frecuentes de software funcional y adaptación ante el cambio.', 'agile', '["Individuos sobre procesos", "Software funcionando sobre documentación extensiva", "Colaboración con el cliente", "Respuesta ante el cambio"]', '["Iteraciones cortas", "Historias de usuario", "Feedback continuo"]', false),
+      ('HYBRID', 'Metodología Híbrida', 'Enfoque adaptativo que combina la estructura de planificación y control de Waterfall con la flexibilidad y velocidad de entrega iterativa de Scrum y Kanban.', 'hybrid', '["Gobernanza estructurada", "Ejecución flexible", "Adaptabilidad al contexto"]', '["Hitos y fases globales con sprints ágiles en desarrollo", "Control presupuestal con backlog iterativo"]', false)
+    ON CONFLICT (id) DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      category = EXCLUDED.category,
+      principles = EXCLUDED.principles,
+      practices = EXCLUDED.practices;
   `);
   console.log('PostgreSQL inicializado correctamente.');
 }

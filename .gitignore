@@ -6,3 +6,5 @@ database/*.db-wal
 uploads/*
 logs/
 *.tmp
+test-results/
+playwright-report/

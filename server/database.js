@@ -1,12 +1,22 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = (process.env.NODE_ENV === 'test' && process.env.TEST_DATABASE_URL)
+  ? process.env.TEST_DATABASE_URL
+  : (process.env.DATABASE_URL || process.env.TEST_DATABASE_URL);
+
+const isLocalhost = connectionString && (connectionString.includes('localhost') || connectionString.includes('127.0.0.1'));
+const sslConfig = isLocalhost || process.env.PGSSLMODE === 'disable'
+  ? undefined
+  : { rejectUnauthorized: false };
 
 const pool = connectionString
   ? new Pool({
       connectionString,
-      ssl: { rejectUnauthorized: false }
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 30000,
+      max: 20,
+      ...(sslConfig ? { ssl: sslConfig } : {})
     })
   : new Pool({
       host: process.env.PGHOST,
@@ -14,8 +24,15 @@ const pool = connectionString
       database: process.env.PGDATABASE,
       user: process.env.PGUSER,
       password: process.env.PGPASSWORD,
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 30000,
+      max: 20,
       ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : undefined
     });
+
+pool.on('error', (err) => {
+  console.error('Error imprevisto en cliente inactivo de PostgreSQL:', err.message);
+});
 
 function prepare(text) {
   let index = 0;

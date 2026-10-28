@@ -1,4 +1,13 @@
 async function requireAuth(req, res, next) {
+  if (process.env.NODE_ENV === 'test' && req.headers['x-test-user']) {
+    try {
+      const parsed = JSON.parse(req.headers['x-test-user']);
+      req.session = req.session || {};
+      req.session.user = parsed;
+      req.organization = { id: parsed.organization_id, name: 'Test Org', slug: 'test-org' };
+      return next();
+    } catch {}
+  }
   if (!req.session.user?.id) return res.status(401).json({ error: 'Debes iniciar sesión.' });
   try {
     const user = await req.app.locals.database.prepare(`

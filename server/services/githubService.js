@@ -1,23 +1,77 @@
+// Conexión con la API de GitHub.
+// - Los repositorios públicos funcionan sin token.
+// - Para repositorios privados se usa el token guardado en la configuración del proyecto.
+// - Las respuestas se guardan 2 minutos en memoria para no gastar el límite de consultas de GitHub.
+const cache = new Map();
+const CACHE_MS = 2 * 60 * 1000;
+let OctokitClass = null;
+
+/** "https://github.com/dueño/repo(.git)" o "dueño/repo" -> { owner, repo } */
+function parseRepoUrl(value) {
+  const text = String(value || '').trim();
+  const fromUrl = text.match(/github\.com[/:]([^/\s]+)\/([^/#?\s]+?)(?:\.git)?\/?(?:[#?].*)?$/i);
+  if (fromUrl) return { owner: fromUrl[1], repo: fromUrl[2] };
+  const short = text.match(/^([\w.-]+)\/([\w.-]+?)(?:\.git)?$/);
+  return short ? { owner: short[1], repo: short[2] } : null;
+}
+
 function settings(overrides = {}) {
-  const url = overrides.url;
-  const configuredRepo = overrides.repo;
-  const repoFromUrl = url?.match(/github\.com\/[^/]+\/([^/#]+?)(?:\.git)?$/i)?.[1];
-  return { owner: overrides.owner, repo: configuredRepo || repoFromUrl, url, token: overrides.token };
+  const fromUrl = parseRepoUrl(overrides.url) || {};
+  const owner = String(overrides.owner || fromUrl.owner || '').trim();
+  const repo = String(overrides.repo || fromUrl.repo || '').trim();
+  const token = String(overrides.token || '').trim();
+  return { owner, repo, url: owner && repo ? `https://github.com/${owner}/${repo}` : overrides.url || null, token };
 }
+
 async function client(overrides) {
-  const config = settings(overrides);
-  if (!config.owner || !config.repo || !config.token) return null;
-  const { Octokit } = await import('@octokit/rest');
-  return { api: new Octokit({ auth: config.token }), config };
+  const config = settings(overrides || {});
+  if (!config.owner || !config.repo) return null;
+  if (!OctokitClass) OctokitClass = (await import('@octokit/rest')).Octokit;
+  return { api: new OctokitClass(config.token ? { auth: config.token } : {}), config };
 }
-async function request(work, overrides) {
+
+function friendlyError(error, config) {
+  if (error.status === 404) {
+    return config.token
+      ? 'No se encontró el repositorio o el token no tiene acceso a él.'
+      : 'No se encontró el repositorio. Si es privado, agrega un token de GitHub en la configuración.';
+  }
+  if (error.status === 401) return 'El token de GitHub no es válido o ya expiró.';
+  if (error.status === 403 || error.status === 429) return 'GitHub limitó las consultas por ahora. Intenta en unos minutos o agrega un token.';
+  return 'No fue posible conectarse con GitHub.';
+}
+
+async function request(name, work, overrides) {
   const connection = await client(overrides);
   if (!connection) return { configured: false };
-  try { return { configured: true, data: await work(connection.api, connection.config) }; } catch (error) { return { configured: true, error: error.status === 404 ? 'El repositorio no existe o no tienes permisos.' : 'No fue posible conectarse con GitHub.' }; }
+  const { owner, repo, token } = connection.config;
+  const key = `${name}:${owner}/${repo}:${token ? token.slice(-6) : 'public'}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
+  try {
+    const value = { configured: true, data: await work(connection.api, connection.config) };
+    cache.set(key, { at: Date.now(), value });
+    return value;
+  } catch (error) {
+    console.error('[GitHub]', name, error.status || '', error.message);
+    return { configured: true, error: friendlyError(error, connection.config) };
+  }
 }
-const repository = overrides => request((api, config) => api.repos.get({ owner: config.owner, repo: config.repo }), overrides);
-const commits = overrides => request((api, config) => api.repos.listCommits({ owner: config.owner, repo: config.repo, per_page: 30 }), overrides);
-const branches = overrides => request((api, config) => api.repos.listBranches({ owner: config.owner, repo: config.repo, per_page: 100 }), overrides);
-const pulls = overrides => request((api, config) => api.pulls.list({ owner: config.owner, repo: config.repo, state: 'all', per_page: 30 }), overrides);
-const activity = overrides => request((api, config) => api.repos.listEvents({ owner: config.owner, repo: config.repo, per_page: 30 }), overrides);
-module.exports = { settings, repository, commits, branches, pulls, activity };
+
+function clearCache() {
+  cache.clear();
+}
+
+// Solo para pruebas: permite usar un cliente simulado.
+function setOctokitForTests(fake) {
+  OctokitClass = fake;
+  cache.clear();
+}
+
+const repository = overrides => request('repo', (api, c) => api.repos.get({ owner: c.owner, repo: c.repo }), overrides);
+const commits = overrides => request('commits', (api, c) => api.repos.listCommits({ owner: c.owner, repo: c.repo, per_page: 30 }), overrides);
+const branches = overrides => request('branches', (api, c) => api.repos.listBranches({ owner: c.owner, repo: c.repo, per_page: 100 }), overrides);
+const pulls = overrides => request('pulls', (api, c) => api.pulls.list({ owner: c.owner, repo: c.repo, state: 'all', per_page: 30 }), overrides);
+const activity = overrides => request('activity', (api, c) => api.activity.listRepoEvents({ owner: c.owner, repo: c.repo, per_page: 30 }), overrides);
+
+module.exports = { settings, parseRepoUrl, repository, commits, branches, pulls, activity, clearCache, setOctokitForTests };
