@@ -17,7 +17,7 @@ async function list(req, res) {
     } catch {}
   });
 
-  res.json({ messages: messages.count, tasks: tasks.count });
+  res.json({ messages: messages?.count || 0, tasks: tasks?.count || 0 });
 }
 
 module.exports = { list };

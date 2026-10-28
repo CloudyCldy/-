@@ -47,6 +47,50 @@ async function ensureRuntimeSchema() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_username TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_token TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+      -- Enterprise Status & Verification
+      ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_status_check;
+      ALTER TABLE organizations ADD CONSTRAINT organizations_status_check
+        CHECK (status IN ('active', 'pending', 'approved', 'rejected', 'suspended'));
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS domain TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS website TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verification_notes TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_by INTEGER;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS official_registry_number TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS official_verified BOOLEAN DEFAULT false;
+
+      -- Granular roles
+      INSERT INTO roles (name, description) VALUES
+        ('platform_admin', 'Administración global de la plataforma y verificación empresarial'),
+        ('company_admin', 'Administración completa de la empresa'),
+        ('service_integration', 'Integración segura de servidor a servidor')
+      ON CONFLICT (name) DO NOTHING;
+
+      ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+      ALTER TABLE users ADD CONSTRAINT users_role_check
+        CHECK (role IN ('platform_admin', 'company_admin', 'admin', 'member', 'project_manager', 'viewer', 'service_integration'));
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_platform_admin BOOLEAN DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires TIMESTAMPTZ;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMPTZ;
+      UPDATE users SET is_platform_admin = true WHERE username = 'admin' AND is_platform_admin IS NOT TRUE;
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+        action TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT,
+        details JSONB DEFAULT '{}',
+        ip TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS audit_logs_org_idx ON audit_logs (organization_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs (action, created_at DESC);
       CREATE TABLE IF NOT EXISTS stored_assets (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
         uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL, kind TEXT NOT NULL, mime_type TEXT NOT NULL,
@@ -85,6 +129,47 @@ async function ensureRuntimeSchema() {
       CREATE INDEX IF NOT EXISTS tasks_org_status_due_idx ON tasks (organization_id, status, due_date);
       CREATE INDEX IF NOT EXISTS messages_org_receiver_status_idx ON messages (organization_id, receiver_id, delivery_status);
       CREATE INDEX IF NOT EXISTS messages_org_group_idx ON messages (organization_id, conversation_type, group_id, created_at DESC);
+
+      -- Advanced Messaging Enhancements
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES messages(id) ON DELETE SET NULL;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS client_message_id TEXT;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type TEXT NOT NULL DEFAULT 'text';
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+      CREATE TABLE IF NOT EXISTS message_reactions (
+        id SERIAL PRIMARY KEY,
+        message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reaction TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT message_reactions_unique UNIQUE (message_id, user_id, reaction)
+      );
+      CREATE INDEX IF NOT EXISTS message_reactions_msg_idx ON message_reactions (message_id);
+
+      ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;
+      ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+      ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS description TEXT;
+
+      ALTER TABLE chat_group_members ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ;
+
+      CREATE TABLE IF NOT EXISTS conversation_preferences (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        conversation_type TEXT NOT NULL CHECK (conversation_type IN ('direct', 'group')),
+        target_id INTEGER NOT NULL,
+        is_muted BOOLEAN NOT NULL DEFAULT false,
+        is_archived BOOLEAN NOT NULL DEFAULT false,
+        is_pinned BOOLEAN NOT NULL DEFAULT false,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, conversation_type, target_id)
+      );
+      CREATE INDEX IF NOT EXISTS conv_pref_user_idx ON conversation_preferences (user_id, organization_id);
+      CREATE INDEX IF NOT EXISTS messages_client_msg_id_idx ON messages (client_message_id);
+
       CREATE INDEX IF NOT EXISTS incidences_org_user_idx ON incidences (organization_id, user_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS files_org_created_idx ON files (organization_id, created_at DESC);
 
@@ -349,6 +434,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.get('/api/health', (req, res) => res.json({ ok: true, app: 'Haitani', project: 'Sakura Coffee' }));
 app.use('/api/billing', billingRoutes.router);
 app.use('/api/plans', require('./server/routes/planRoutes'));
+app.use('/api/admin', require('./server/routes/adminRoutes'));
 app.use('/api/organizations', require('./server/routes/organizationRoutes'));
 app.use('/api/projects', require('./server/routes/projectRoutes'));
 app.use('/api/backlog', require('./server/routes/backlogRoutes'));
@@ -407,36 +493,10 @@ app.use((error, req, res, next) => {
 });
 
 const server = http.createServer(app);
-const webSocketServer = new WebSocket.Server({ server });
-const callClients = new Map();
-function sessionIdFromRequest(request) {
-  const value = request.headers.cookie?.split(';').map(item => item.trim()).find(item => item.startsWith('connect.sid='))?.split('=').slice(1).join('=');
-  if (!value?.startsWith('s:')) return null;
-  return signature.unsign(decodeURIComponent(value.slice(2)), process.env.SESSION_SECRET || 'change-this-secret');
-}
-webSocketServer.on('connection', (socket, request) => {
-  const sessionId = sessionIdFromRequest(request);
-  if (!sessionId) return socket.close(1008, 'Sesión requerida');
-  database.pool.query('SELECT sess FROM user_sessions WHERE sid = $1', [sessionId]).then(result => {
-    try { socket.session = JSON.parse(result.rows[0]?.sess || '{}'); } catch { socket.session = {}; }
-    if (!socket.session.user?.id) socket.close(1008, 'Sesión requerida');
-  }).catch(() => socket.close(1011, 'No fue posible validar la sesión'));
-  socket.on('message', raw => {
-    try {
-      const message = JSON.parse(raw.toString());
-      if (message.type === 'register' && Number.isInteger(Number(message.userId)) && socket.session?.user?.id === Number(message.userId)) {
-        socket.userId = Number(message.userId);
-        callClients.set(socket.userId, socket);
-        return;
-      }
-      if (!socket.userId) return;
-      const recipient = callClients.get(Number(message.to));
-      if (recipient?.readyState === WebSocket.OPEN) recipient.send(JSON.stringify({ ...message, from: socket.userId }));
-      else if (message.type === 'offer') database.prepare('UPDATE calls SET status = ? WHERE id = ? AND status = ?').run('missed', message.callId, 'initiated').catch(() => {});
-    } catch {}
-  });
-  socket.on('close', () => { if (socket.userId && callClients.get(socket.userId) === socket) callClients.delete(socket.userId); });
-});
+const wsHub = require('./server/services/websocketService');
+wsHub.init(server, app, database);
+app.locals.wsHub = wsHub;
+
 async function start() {
   await ensureRuntimeSchema();
   return new Promise((resolve) => {

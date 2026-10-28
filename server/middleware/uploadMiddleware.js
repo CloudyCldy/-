@@ -1,7 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 
-const allowed = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv', 'zip', 'rar', '7z', 'txt', 'md', 'json', 'odt', 'ods', 'odp', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'heic']);
+const allowed = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv', 'zip', 'rar', '7z', 'txt', 'md', 'json', 'odt', 'ods', 'odp', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'heic', 'webm', 'mp3', 'ogg', 'wav', 'm4a', 'aac']);
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
