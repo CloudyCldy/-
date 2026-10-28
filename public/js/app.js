@@ -6346,6 +6346,18 @@ async function renderSettings(){
       notify(error.message);
     }
   });
+
+  if (location.hash.includes('settings/sanzu') || location.hash.includes('sanzu')) {
+    setTimeout(() => {
+      const card = document.querySelector('#sanzu-config-card');
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        card.style.transition = 'box-shadow 0.4s ease';
+        card.style.boxShadow = '0 0 0 3px var(--primary, #0ea5e9)';
+        setTimeout(() => { card.style.boxShadow = ''; }, 2500);
+      }
+    }, 100);
+  }
 }
 async function billing(){const [status,plans]=await Promise.all([api('/billing/status'),api('/plans')]);const money=plan=>plan.price_cents?`${(plan.price_cents/100).toLocaleString('es-MX',{style:'currency',currency:plan.currency})} / mes`:'Gratis';return `${heading('Facturación','Administra el plan y el estado de la suscripción.')}<section class="card"><div class="grid stats"><div><div class="muted">Plan actual</div><h2>${esc(status.plan_name)}</h2></div><div><div class="muted">Estado</div><h2>${esc(status.subscription_status)}</h2></div><div><div class="muted">Próximo periodo</div><h2>${status.current_period_end?new Date(status.current_period_end).toLocaleDateString('es-MX'):'No definido'}</h2></div></div></section><section class="grid two mt-4">${plans.map(plan=>`<article class="card plan-card${plan.key===status.plan_key?' current':''}"><div class="eyebrow">${esc(plan.key)}</div><h2>${esc(plan.name)}</h2><p class="num">${money(plan)}</p><p class="muted">${plan.max_users??'Ilimitados'} usuarios · ${plan.max_projects??'Ilimitados'} proyectos · ${plan.max_storage_mb} MB</p><button class="btn billing-plan" data-plan="${esc(plan.key)}">${plan.key===status.plan_key?'Plan actual':'Elegir plan'}</button></article>`).join('')}</section>`}
 async function renderBilling(){layout(await billing());document.querySelectorAll('.billing-plan').forEach(button=>button.onclick=async()=>{const planKey=String(button.dataset.plan||'').trim().toLowerCase();if(!planKey)return notify('El plan seleccionado no es válido.');button.disabled=true;try{const result=await api('/billing/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_key:planKey})});if(result.redirect)window.location.href=result.redirect;else{notify('Plan actualizado');renderBilling()}}catch(error){button.disabled=false;notify(error.message)}})}
@@ -8244,9 +8256,10 @@ async function renderOverview() {
         <div style="display:flex;flex-direction:column;gap:var(--sp-1);align-items:flex-end">
           <div style="display:flex;gap:var(--sp-2)">
             <span class="badge ${p.methodology_id === 'SCRUM' || p.methodology_id === 'AGILE' ? 'green' : 'pink'}">${esc(p.methodology_id || 'Ágil')}</span>
-            <span class="badge ${syncClass}">Sanzu: ${syncLabel}</span>
+            <span class="badge ${syncClass}" title="${esc(sync.error || '')}">Sanzu: ${syncLabel}</span>
           </div>
           <small class="muted">Última sinc: ${syncDate}</small>
+          ${sync.error ? `<small style="color:var(--pink);max-width:280px;text-align:right" title="${esc(sync.error)}">${esc(sync.error.length > 50 ? sync.error.slice(0, 48) + '...' : sync.error)}</small>` : ''}
           <small class="muted">Plazo: ${datesDisplay}</small>
           <small class="muted">Presupuesto: <strong>${budgetDisplay}</strong></small>
         </div>
@@ -8492,8 +8505,12 @@ async function renderOverview() {
     btn.disabled = true;
     btn.innerHTML = `${icon('progress')} Sincronizando Sanzu...`;
     try {
-      await api(`/projects/${pId}/sync`, { method: 'POST' });
-      notify('Sincronización Haitani ↔ Sanzu completada con éxito');
+      const res = await api(`/projects/${pId}/sync`, { method: 'POST' });
+      if (res.warning) {
+        notify(res.warning);
+      } else {
+        notify('Sincronización Haitani ↔ Sanzu completada con éxito');
+      }
       renderOverview();
     } catch (err) {
       notify('Error en sincronización Sanzu: ' + err.message);

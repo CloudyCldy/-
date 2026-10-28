@@ -267,7 +267,12 @@ async function sync(req, res) {
 
   try {
     const report = await sanzuService.syncProjectFull(database, id, orgId);
-    res.json({ ok: true, report });
+    res.json({
+      ok: true,
+      report,
+      warning: report.warning || null,
+      message: report.warning || 'Sincronización con Sanzu completada con éxito.'
+    });
   } catch (error) {
     res.status(502).json({
       error: 'Error de sincronización con Sanzu.',
