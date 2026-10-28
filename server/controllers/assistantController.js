@@ -1,15 +1,31 @@
 const sanzuService = require('../services/sanzuService');
 
 async function projectContext(database, organizationId) {
-  const [project, tasks, users, github, risks, files] = await Promise.all([
+  const [project, tasks, users, github, risks, files, sprints, milestones, issues] = await Promise.all([
     database.prepare('SELECT * FROM projects WHERE organization_id = ? ORDER BY id LIMIT 1').get(organizationId),
-    database.prepare(`SELECT tasks.id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.due_date, tasks.assigned_to, users.name AS assignee_name FROM tasks LEFT JOIN users ON users.id = tasks.assigned_to WHERE tasks.organization_id = ? ORDER BY tasks.due_date`).all(organizationId),
+    database.prepare(`SELECT tasks.id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.due_date, tasks.assigned_to, tasks.progress, users.name AS assignee_name FROM tasks LEFT JOIN users ON users.id = tasks.assigned_to WHERE tasks.organization_id = ? ORDER BY tasks.due_date`).all(organizationId),
     database.prepare('SELECT id, name, role, active FROM users WHERE organization_id = ? ORDER BY name').all(organizationId),
     database.prepare('SELECT repository FROM github_project_configurations WHERE organization_id = ? ORDER BY updated_at DESC LIMIT 1').get(organizationId),
     database.prepare(`SELECT id, title, probability, impact, status, mitigation, severity_score FROM project_risks WHERE organization_id = ? ORDER BY severity_score DESC`).all(organizationId).catch(() => []),
-    database.prepare(`SELECT id, filename, category, mime_type FROM files WHERE organization_id = ? ORDER BY id DESC`).all(organizationId).catch(() => [])
+    database.prepare(`SELECT id, filename, category, mime_type FROM files WHERE organization_id = ? ORDER BY id DESC`).all(organizationId).catch(() => []),
+    database.prepare(`SELECT id, name, goal, start_date, end_date, status FROM sprints WHERE organization_id = ? ORDER BY start_date DESC`).all(organizationId).catch(() => []),
+    database.prepare(`SELECT id, title, description, due_date, status FROM project_milestones WHERE organization_id = ? ORDER BY due_date ASC`).all(organizationId).catch(() => []),
+    database.prepare(`SELECT id, title, status, priority, severity FROM project_issues WHERE organization_id = ? AND status <> 'resolved' ORDER BY id DESC`).all(organizationId).catch(() => [])
   ]);
-  return { project, tasks, users, github, risks: risks || [], files: files || [], repositoryName: github?.repository || project?.name || 'Repositorio' };
+  const activeSprint = (sprints || []).find(s => s.status === 'activo') || (sprints || [])[0] || null;
+  return {
+    project,
+    tasks: tasks || [],
+    users: users || [],
+    github,
+    risks: risks || [],
+    files: files || [],
+    sprints: sprints || [],
+    activeSprint,
+    milestones: milestones || [],
+    issues: issues || [],
+    repositoryName: github?.repository || project?.name || 'Repositorio'
+  };
 }
 
 function normalizeText(str) {
@@ -157,11 +173,64 @@ function localAnswer(message, context) {
       `Tareas clave a priorizar:\n${nextActions || 'No hay tareas activas en cola.'}`;
   }
 
-  // PROGRESO / AVANCE
+  // 7. SPRINT / ITERACIÓN
+  if (normalized.includes('sprint') || normalized.includes('iteracion')) {
+    if (context.activeSprint) {
+      const s = context.activeSprint;
+      const dates = s.start_date && s.end_date ? ` (${s.start_date} al ${s.end_date})` : '';
+      const goal = s.goal ? `\n• Objetivo: ${s.goal}` : '';
+      return `Sprint actual en ${context.project?.name || 'el proyecto'}:\n• Nombre: ${s.name}${dates}\n• Estado: ${s.status || 'activo'}${goal}`;
+    }
+    if (context.sprints && context.sprints.length > 0) {
+      const sprintList = context.sprints.slice(0, 3).map(s => `• ${s.name} (${s.status || 'planificado'})`).join('\n');
+      return `Sprints registrados en el proyecto:\n${sprintList}`;
+    }
+    return `No hay un sprint activo registrado para el proyecto ${context.project?.name || ''}.`;
+  }
+
+  // 8. HITOS / MILESTONES
+  if (normalized.includes('hito') || normalized.includes('milestone')) {
+    if (context.milestones && context.milestones.length > 0) {
+      const pendingMilestones = context.milestones.filter(m => m.status !== 'completed' && m.status !== 'completado');
+      const list = (pendingMilestones.length ? pendingMilestones : context.milestones).map(m => {
+        const due = m.due_date ? ` (Fecha: ${m.due_date})` : '';
+        const st = m.status ? ` [${m.status}]` : '';
+        return `• ${m.title}${st}${due}${m.description ? `: ${m.description}` : ''}`;
+      }).join('\n');
+      return `Hitos del proyecto (${context.project?.name || 'General'}):\n${list}`;
+    }
+    return `No se encuentran hitos o milestones definidos para este proyecto.`;
+  }
+
+  // 9. INCIDENCIAS / ISSUES / BUGS
+  if (normalized.includes('incidencia') || normalized.includes('issue') || normalized.includes('bug')) {
+    if (context.issues && context.issues.length > 0) {
+      const issueList = context.issues.slice(0, 5).map(i => {
+        const sev = i.severity ? ` [Severidad: ${i.severity}]` : '';
+        const prio = i.priority ? ` [Prioridad: ${i.priority}]` : '';
+        return `• "${i.title}" (${i.status || 'abierta'})${prio}${sev}`;
+      }).join('\n');
+      return `Incidencias abiertas en el proyecto:\n${issueList}\nTotal: ${context.issues.length} incidencia(s) no resuelta(s).`;
+    }
+    return `No hay incidencias ni bugs no resueltos registrados en este momento.`;
+  }
+
+  // 10. PROGRESO / AVANCE
   if (normalized.includes('progreso') || normalized.includes('avance')) {
     const completed = (context.tasks || []).filter(task => task.status === 'completada').length;
     const progress = context.tasks?.length ? Math.round(completed / context.tasks.length * 100) : 0;
     return `Con metodología ${methodology}, el proyecto tiene un avance estimado del ${progress}% (${completed} de ${context.tasks?.length || 0} tareas completadas) y ${openTasks.length} pendientes.`;
+  }
+
+  // 11. INFORMACIÓN GENERAL DEL PROYECTO
+  if (normalized.includes('proyecto') || normalized.includes('alcance') || normalized.includes('presupuesto')) {
+    const proj = context.project;
+    if (proj) {
+      const desc = proj.description ? `\n• Descripción: ${proj.description}` : '';
+      const reqs = proj.requirements ? `\n• Requerimientos: ${proj.requirements}` : '';
+      const budget = proj.budget ? `\n• Presupuesto: ${proj.budget}` : '';
+      return `Información del proyecto actual:\n• Nombre: ${proj.name}\n• Metodología: ${methodology}${desc}${reqs}${budget}\n• Tareas totales: ${(context.tasks || []).length} (${openTasks.length} pendientes).`;
+    }
   }
 
   // RESUMEN / REUNION
@@ -182,7 +251,7 @@ function localAnswer(message, context) {
       overdueText;
   }
 
-  return `Puedo ayudarte a revisar ${context.repositoryName}. La metodología actual es ${methodology}. Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${(context.users || []).filter(user => user.active).length} integrante(s) activo(s). Puedes preguntarme sobre retrasos, tareas críticas, documentación faltante, workload, riesgos y prioridades.`;
+  return `Puedo ayudarte a revisar ${context.repositoryName}. La metodología actual es ${methodology}. Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${(context.users || []).filter(user => user.active).length} integrante(s) activo(s). Puedes preguntarme sobre retrasos, tareas críticas, documentación faltante, workload, riesgos, prioridades, sprints, hitos e incidencias.`;
 }
 
 async function chat(req, res) {
@@ -218,7 +287,11 @@ async function chat(req, res) {
         tasks: context.tasks,
         users: context.users,
         risks: context.risks,
-        files: context.files
+        files: context.files,
+        sprints: context.sprints,
+        activeSprint: context.activeSprint,
+        milestones: context.milestones,
+        issues: context.issues
       },
       creds
     );
