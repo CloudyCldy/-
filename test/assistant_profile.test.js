@@ -180,6 +180,73 @@ describe('Pruebas funcionales de Sanzu Asistente y Acceso a Perfil', () => {
       assert.ok(res.body.context);
       assert.strictEqual(res.body.context.project.name, 'Sakura Coffee');
     });
+
+    it('1.9 Responde adecuadamente sobre tareas críticas', async () => {
+      const res = await request(app)
+        .post('/api/assistant/chat')
+        .set('x-test-user', JSON.stringify(adminA))
+        .send({ message: '¿Cuáles son las tareas críticas?' });
+
+      assert.strictEqual(res.status, 200);
+      assert.ok(res.body.answer);
+      assert.ok(res.body.answer.includes('tarea(s) crítica(s)'));
+      assert.ok(res.body.answer.includes('Migración de base de datos'));
+    });
+
+    it('1.10 Responde sobre documentación faltante', async () => {
+      const res = await request(app)
+        .post('/api/assistant/chat')
+        .set('x-test-user', JSON.stringify(adminA))
+        .send({ message: '¿Hay documentación faltante?' });
+
+      assert.strictEqual(res.status, 200);
+      assert.ok(res.body.answer);
+      assert.ok(res.body.answer.toLowerCase().includes('documentación'));
+    });
+
+    it('1.11 Responde sobre carga de trabajo / workload', async () => {
+      const res = await request(app)
+        .post('/api/assistant/chat')
+        .set('x-test-user', JSON.stringify(adminA))
+        .send({ message: '¿Cómo está la carga de trabajo (workload)?' });
+
+      assert.strictEqual(res.status, 200);
+      assert.ok(res.body.answer);
+      assert.ok(res.body.answer.toLowerCase().includes('workload') || res.body.answer.toLowerCase().includes('carga de trabajo'));
+      assert.ok(res.body.answer.includes('Carlos'));
+    });
+
+    it('1.12 Responde sobre riesgos del proyecto', async () => {
+      const res = await request(app)
+        .post('/api/assistant/chat')
+        .set('x-test-user', JSON.stringify(adminA))
+        .send({ message: '¿Qué riesgos detectas en el proyecto?' });
+
+      assert.strictEqual(res.status, 200);
+      assert.ok(res.body.answer);
+      assert.ok(res.body.answer.toLowerCase().includes('riesgo'));
+    });
+
+    it('1.13 Responde sobre prioridades del proyecto', async () => {
+      const res = await request(app)
+        .post('/api/assistant/chat')
+        .set('x-test-user', JSON.stringify(adminA))
+        .send({ message: '¿Cuáles son las prioridades actuales?' });
+
+      assert.strictEqual(res.status, 200);
+      assert.ok(res.body.answer);
+      assert.ok(res.body.answer.includes('prioridad') || res.body.answer.includes('Prioridades') || res.body.answer.includes('Crítica'));
+    });
+
+    it('1.14 Devuelve conversationId y mantiene el contexto conversacional', async () => {
+      const res = await request(app)
+        .post('/api/assistant/chat')
+        .set('x-test-user', JSON.stringify(adminA))
+        .send({ message: 'Hola', conversationId: 'conv-test-123' });
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.conversationId, 'conv-test-123');
+    });
   });
 
   describe('ERROR 2: Acceso al Perfil de Usuario', () => {
