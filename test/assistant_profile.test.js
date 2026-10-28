@@ -66,6 +66,21 @@ describe('Pruebas funcionales de Sanzu Asistente y Acceso a Perfil', () => {
                 { name: memberA.name, role: memberA.role, active: 1 }
               ];
             }
+            if (s.includes('from sprints')) {
+              return [
+                { id: 1, name: 'Sprint 1 - Lanzamiento', goal: 'Configurar entorno y MVP', start_date: '2026-10-01', end_date: '2026-10-15', status: 'activo' }
+              ];
+            }
+            if (s.includes('from project_milestones')) {
+              return [
+                { id: 1, title: 'Beta Privada', description: 'Acceso para primeros usuarios', due_date: '2026-11-15', status: 'pending' }
+              ];
+            }
+            if (s.includes('from project_issues')) {
+              return [
+                { id: 1, title: 'Fallo en renderizado de gráficos', status: 'abierto', priority: 'alta', severity: 'critica' }
+              ];
+            }
             return [];
           },
           async run(...params) {
@@ -246,6 +261,41 @@ describe('Pruebas funcionales de Sanzu Asistente y Acceso a Perfil', () => {
 
       assert.strictEqual(res.status, 200);
       assert.strictEqual(res.body.conversationId, 'conv-test-123');
+    });
+
+    it('1.15 Responde con información real del sprint activo', async () => {
+      const res = await request(app)
+        .post('/api/assistant/chat')
+        .set('x-test-user', JSON.stringify(adminA))
+        .send({ message: '¿Cuál es el sprint actual y su objetivo?' });
+
+      assert.strictEqual(res.status, 200);
+      assert.ok(res.body.answer);
+      assert.ok(res.body.answer.includes('Sprint 1 - Lanzamiento'));
+      assert.ok(res.body.answer.includes('Configurar entorno y MVP'));
+    });
+
+    it('1.16 Responde con información real de hitos / milestones', async () => {
+      const res = await request(app)
+        .post('/api/assistant/chat')
+        .set('x-test-user', JSON.stringify(adminA))
+        .send({ message: '¿Cuáles son los hitos del proyecto?' });
+
+      assert.strictEqual(res.status, 200);
+      assert.ok(res.body.answer);
+      assert.ok(res.body.answer.includes('Beta Privada'));
+      assert.ok(res.body.answer.includes('2026-11-15'));
+    });
+
+    it('1.17 Responde con información real de incidencias abiertas', async () => {
+      const res = await request(app)
+        .post('/api/assistant/chat')
+        .set('x-test-user', JSON.stringify(adminA))
+        .send({ message: '¿Qué incidencias o bugs están abiertos?' });
+
+      assert.strictEqual(res.status, 200);
+      assert.ok(res.body.answer);
+      assert.ok(res.body.answer.includes('Fallo en renderizado de gráficos'));
     });
   });
 
