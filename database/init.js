@@ -26,7 +26,9 @@ async function init() {
     CREATE TABLE IF NOT EXISTS organizations (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
       email TEXT, description TEXT, github_url TEXT, github_owner TEXT,
-      github_repository TEXT, status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
+      github_repository TEXT, status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending', 'approved', 'rejected', 'suspended')),
+      domain TEXT, website TEXT, verification_notes TEXT, verified_at TIMESTAMPTZ, verified_by INTEGER,
+      official_registry_number TEXT, official_verified BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -40,6 +42,16 @@ async function init() {
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_connected BOOLEAN DEFAULT false;
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_last_tested_at TIMESTAMPTZ;
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
+    ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_status_check;
+    ALTER TABLE organizations ADD CONSTRAINT organizations_status_check
+      CHECK (status IN ('active', 'pending', 'approved', 'rejected', 'suspended'));
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS domain TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS website TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verification_notes TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_by INTEGER;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS official_registry_number TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS official_verified BOOLEAN DEFAULT false;
     ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_subscription_status_check;
     ALTER TABLE organizations ADD CONSTRAINT organizations_subscription_status_check
       CHECK (subscription_status IN ('active', 'pending', 'past_due', 'canceled'));
@@ -56,7 +68,7 @@ async function init() {
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, username TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL UNIQUE, password TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin', 'member', 'project_manager', 'viewer')), active INTEGER NOT NULL DEFAULT 1,
+      role TEXT NOT NULL CHECK (role IN ('platform_admin', 'company_admin', 'admin', 'member', 'project_manager', 'viewer', 'service_integration')), active INTEGER NOT NULL DEFAULT 1,
       github_username TEXT, gitlab_username TEXT, gitlab_token TEXT, profile_photo TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
 
@@ -77,6 +89,29 @@ async function init() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_username TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_token TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+    ALTER TABLE users ADD CONSTRAINT users_role_check
+      CHECK (role IN ('platform_admin', 'company_admin', 'admin', 'member', 'project_manager', 'viewer', 'service_integration'));
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_platform_admin BOOLEAN DEFAULT false;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires TIMESTAMPTZ;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMPTZ;
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+      action TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT,
+      details JSONB DEFAULT '{}',
+      ip TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS audit_logs_org_idx ON audit_logs (organization_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs (action, created_at DESC);
     INSERT INTO organizations (name, slug, email, description)
       VALUES ('Haitani', 'haitani', 'admin@haitani.local', 'Organización inicial de Haitani')
       ON CONFLICT (slug) DO NOTHING;
@@ -247,9 +282,57 @@ async function init() {
       created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    
     ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_group_id_fkey;
     ALTER TABLE messages ADD CONSTRAINT messages_group_id_fkey FOREIGN KEY (group_id) REFERENCES chat_groups(id) ON DELETE CASCADE;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES messages(id) ON DELETE SET NULL;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS client_message_id TEXT;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type TEXT NOT NULL DEFAULT 'text';
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+    CREATE TABLE IF NOT EXISTS message_reactions (
+      id SERIAL PRIMARY KEY,
+      message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reaction TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT message_reactions_unique UNIQUE (message_id, user_id, reaction)
+    );
+    CREATE INDEX IF NOT EXISTS message_reactions_msg_idx ON message_reactions (message_id);
+
+    ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;
+    ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+    ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS description TEXT;
+
     CREATE TABLE IF NOT EXISTS chat_group_members (
+      group_id INTEGER NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
+      last_read_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (group_id, user_id)
+    );
+    ALTER TABLE chat_group_members ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ;
+
+    CREATE TABLE IF NOT EXISTS conversation_preferences (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      conversation_type TEXT NOT NULL CHECK (conversation_type IN ('direct', 'group')),
+      target_id INTEGER NOT NULL,
+      is_muted BOOLEAN NOT NULL DEFAULT false,
+      is_archived BOOLEAN NOT NULL DEFAULT false,
+      is_pinned BOOLEAN NOT NULL DEFAULT false,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, conversation_type, target_id)
+    );
+    CREATE INDEX IF NOT EXISTS conv_pref_user_idx ON conversation_preferences (user_id, organization_id);
+    CREATE INDEX IF NOT EXISTS messages_client_msg_id_idx ON messages (client_message_id);
+    /* existing chat_group_members handled */ CREATE TABLE IF NOT EXISTS chat_group_members_old (
       group_id INTEGER NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,

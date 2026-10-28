@@ -98,8 +98,8 @@ async function dashboard(req, res) {
       completed,
       progress: completionRate,
       byStatus: tasksByStatus,
-      members: membersCountResult.count,
-      files: filesCountResult.count
+      members: membersCountResult?.count || 0,
+      files: filesCountResult?.count || 0
     },
     health: {
       score: healthScore,
