@@ -187,7 +187,7 @@ async function restore() {
     // 4.3. Desactivar temporalmente Foreign Keys para permitir truncado y carga limpia
     console.log('Desactivando temporalmente Foreign Keys...');
     const fkQuery = `
-      SELECT conname, conrelid::regclass::text AS tablename
+      SELECT conname, conrelid::regclass::text AS tablename, pg_get_constraintdef(oid) AS def
       FROM pg_constraint
       WHERE contype = 'f' AND connamespace = 'public'::regnamespace;
     `;
@@ -266,8 +266,13 @@ async function restore() {
 
     // 4.7. Reconstruir restricciones y validaciones de Foreign Keys
     console.log('Restableciendo constraints e indices...');
-    await init();
-
+    for (const fk of fks) {
+      try {
+        await client.query(`ALTER TABLE ${fk.tablename} ADD CONSTRAINT "${fk.conname}" ${fk.def};`);
+      } catch (e) {
+        // Ignorar si ya fue anadida o no aplica
+      }
+    }
     console.log('\nRestauracion completada con exito.');
   } catch (err) {
     console.error('\nError durante la restauracion:', err);
