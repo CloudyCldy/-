@@ -2599,9 +2599,134 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
    Inspirado en WhatsApp Desktop, Telegram y Slack
    ========================================================= */
 
+
+/* Base transversal para botones con iconos y SVGs */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--radius-buttons, 8px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--color-paper-white, #fff);
+  color: var(--color-slate-gray, #64748b);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s var(--ease);
+  box-sizing: border-box;
+}
+
+.icon-btn:hover {
+  background: var(--color-mist-gray, #f1f5f9);
+  color: var(--color-ink-black, #0f172a);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.icon-btn.mini {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.icon-svg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  flex-shrink: 0;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.icon-svg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.icon-btn.mini .icon-svg {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
+}
+
+/* Reglas estrictas para avatares (evita que imágenes de perfil expandan contenedores) */
+.message-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  flex-shrink: 0;
+  background: var(--color-mist-gray);
+  color: var(--color-ink-black);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+}
+
+img.message-avatar {
+  object-fit: cover !important;
+  display: block;
+}
+
+.conversation-header .message-avatar {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+}
+
+.drawer-profile-hero .message-avatar {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
+  font-size: 20px;
+}
+
+
+.content:has(.messages-shell) {
+  padding: 0 !important;
+  max-width: 100% !important;
+  height: calc(100dvh - 66px);
+  overflow: hidden;
+}
+
+@supports not selector(:has(*)) {
+  .content-messages {
+    padding: 0 !important;
+    max-width: 100% !important;
+    height: calc(100dvh - 66px);
+    overflow: hidden;
+  }
+}
+
 .messages-shell {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  padding: 12px 16px 16px;
+  box-sizing: border-box;
   height: calc(100vh - 84px);
   min-height: 520px;
   padding: 0;
@@ -2957,6 +3082,14 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 64px;
+  min-height: 56px;
+  max-height: 72px;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  background: var(--color-paper-white);
+  z-index: 5;
+  flex-shrink: 0;
   height: 60px;
   min-height: 60px;
   max-height: 60px;
@@ -3760,6 +3893,39 @@ label.card .muted { grid-column: 2; font-size: 13px; line-height: 1.45; }
 }
 
 .drawer-member-item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Selector de emojis flotante */
+.emoji-picker-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 16px;
+  background: var(--color-paper-white);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: var(--radius-cards);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  z-index: 50;
+  max-width: 290px;
+}
+
+.emoji-choice-btn {
+  background: transparent;
+  border: 0;
+  font-size: 20px;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform .15s var(--ease), background-color .15s var(--ease);
+}
+
+.emoji-choice-btn:hover {
+  background: var(--color-mist-gray);
+  transform: scale(1.2);
   background: var(--chat-hover);
 }
 
@@ -8145,3 +8311,175 @@ button.gv-stat:hover{transform:translateY(-1px);border-color:#627079}
 .gv-hito.completado em{color:#7fb6a2}
 :root[data-theme="steep"] .gv-hito-head-label{background:#f8fafc;border-color:#e2e8f0;color:#475569}
 :root[data-theme="steep"] .gv-hito em{color:#a16207}
+
+
+/* Previsualizaciones de adjuntos compactas en fila con scroll horizontal */
+.composer-attachments-preview {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--color-fog-white);
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  overflow-x: auto;
+  white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  margin-bottom: 4px;
+}
+
+.composer-attachments-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--color-paper-white);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  font-size: 12px;
+  flex-shrink: 0;
+  max-width: 220px;
+}
+
+.composer-attachment-thumb {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.composer-attachment-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+  font-weight: 500;
+}
+
+.composer-attachment-remove {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-slate-gray);
+  display: flex;
+  align-items: center;
+}
+
+.composer-attachment-remove:hover {
+  color: var(--color-ink-black);
+}
+
+/* Tarjeta compacta para la pestaña de Llamadas */
+.missed-call-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-inputs);
+  color: var(--color-ink-black);
+  transition: background-color 0.15s var(--ease);
+  position: relative;
+}
+
+.missed-call-card:hover {
+  background: var(--color-mist-gray);
+}
+
+.missed-call-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.missed-call-info strong {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.missed-call-info small {
+  font-size: 11px;
+  color: var(--color-slate-gray);
+}
+
+/* Resaltado de mensaje activo en búsqueda */
+.message.search-active-match .message-bubble {
+  outline: 2px solid var(--pink, #ec4899);
+  box-shadow: 0 0 12px rgba(236, 72, 153, 0.35);
+}
+
+
+:root[data-theme="ran"] .content:has(.messages-shell) {
+  background: #181412;
+}
+:root[data-theme="ran"] .inchat-search-bar {
+  background: #201B19;
+  border-color: #2A3541;
+}
+:root[data-theme="ran"] .inchat-search-bar input {
+  background: #2A3541;
+  color: #FEFCEA;
+  border-color: #3b4956;
+}
+:root[data-theme="ran"] .emoji-picker-popover {
+  background: #201B19;
+  border-color: #2A3541;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+:root[data-theme="ran"] .composer-banner {
+  background: #2A3541;
+  color: #FEFCEA;
+}
+:root[data-theme="ran"] .composer-attachments-preview {
+  background: #201B19;
+  border-color: #2A3541;
+}
+:root[data-theme="ran"] .composer-attachment-chip {
+  background: #2A3541;
+  border-color: #3b4956;
+  color: #FEFCEA;
+}
+:root[data-theme="ran"] .composer-textarea {
+  background: #201B19;
+  color: #FEFCEA;
+  border-color: #2A3541;
+}
+:root[data-theme="ran"] .composer-textarea:focus {
+  border-color: #627079;
+}
+:root[data-theme="ran"] .chat-filter-tab {
+  background: #2A3541;
+  color: #94B2BA;
+  border-color: #3b4956;
+}
+:root[data-theme="ran"] .chat-filter-tab:hover {
+  background: #344252;
+  color: #FEFCEA;
+}
+:root[data-theme="ran"] .chat-filter-tab.active {
+  background: #FEFCEA;
+  color: #0D1117;
+  border-color: #FEFCEA;
+}
+:root[data-theme="ran"] .missed-call-card {
+  color: #FEFCEA;
+}
+:root[data-theme="ran"] .missed-call-card:hover {
+  background: #2A3541;
+}
+:root[data-theme="ran"] .missed-call-info small {
+  color: #7D9B9F;
+}
