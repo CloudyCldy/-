@@ -5,6 +5,11 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp
 function iconAsset(name, alt = '', className = '') { return `<img class="icon-image ${className}" src="/static/img/${name}.png" alt="${esc(alt || name)}">`; }
 function brandLogo(className = '') { return `<img class="brand-logo ${className}" src="/static/img/ht.png" alt="Haitani">`; }
 const SVG_ICONS = {
+  phone: '<path d="M5.5 3.5h3l1.5 3-1.8 1.5a11 11 0 0 0 4.8 4.8l1.5-1.8 3 1.5v3a2 2 0 0 1-2 2A15 15 0 0 1 3.5 5.5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+  video: '<rect x="2.5" y="5" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><polygon points="12.5,8 17.5,5 17.5,15 12.5,12" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" fill="none"/>',
+  chat: '<path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H7.5l-3.8 2.8a.5.5 0 0 1-.7-.4V6A1.5 1.5 0 0 1 4 4.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  smile: '<circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="8.5" r="1" fill="currentColor"/><circle cx="12.5" cy="8.5" r="1" fill="currentColor"/><path d="M6.5 12a4.5 4.5 0 0 0 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  arrowLeft: '<path d="M15 10H5m0 0l4.5-4.5M5 10l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
   palette: '<path d="M10 2.2C5.7 2.2 2.2 5.8 2.2 10c0 3.4 2.7 6.1 6 6.1h.9c.6 0 1.1-.5 1.1-1.1v-.4c0-.5.4-.9.9-.9h1.4a3.3 3.3 0 0 0 3.3-3.3c0-4.5-3-8.2-5.8-8.2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="6.1" cy="9" r="1" fill="currentColor"/><circle cx="9.2" cy="5.9" r="1" fill="currentColor"/><circle cx="13" cy="7.4" r="1" fill="currentColor"/>',
   bell: '<path d="M10 3a3.7 3.7 0 0 0-3.7 3.7v2.4c0 .47-.19.93-.52 1.26L4.6 11.5c-.55.55-.16 1.5.62 1.5h9.56c.78 0 1.17-.95.62-1.5l-1.18-1.14a1.78 1.78 0 0 1-.52-1.26V6.7A3.7 3.7 0 0 0 10 3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8.3 15.2a1.75 1.75 0 0 0 3.4 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
   bellOff: '<path d="M10 3a3.7 3.7 0 0 0-3.7 3.7v2.4c0 .47-.19.93-.52 1.26L4.6 11.5c-.55.55-.16 1.5.62 1.5h9.56c.78 0 1.17-.95.62-1.5l-1.18-1.14a1.78 1.78 0 0 1-.52-1.26V6.7A3.7 3.7 0 0 0 10 3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" opacity=".55"/><path d="M8.3 15.2a1.75 1.75 0 0 0 3.4 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".55"/><line x1="3.6" y1="3.6" x2="16.4" y2="16.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
@@ -2136,6 +2141,11 @@ function myStatusEditorMarkup(existing){
 // =========================================================================
 
 const chatState = {
+  activePanel: null,
+  calls: [],
+  selectedFiles: [],
+  matchedSearchMessages: [],
+  activeSearchIndex: -1,
   activeType: null,      // 'direct' | 'group'
   activeId: null,        // userId | groupId
   activeDetail: null,    // user object or group detail
@@ -2425,7 +2435,7 @@ async function messagesView(selectedId = null) {
             <div class="chat-search-box">
               ${icon('search')}
               <input type="text" id="chat-conversation-search" placeholder="Buscar personas, grupos o mensajes..." value="${esc(chatState.searchTerm)}">
-              ${chatState.searchTerm ? '<button class="icon-btn mini" id="btn-clear-conv-search" type="button">×</button>' : ''}
+              ${chatState.searchTerm ? `<button class="icon-btn mini" id="btn-clear-conv-search" type="button" title="Limpiar">${icon('close')}</button>` : ''}
             </div>
           </div>
 
@@ -2434,6 +2444,7 @@ async function messagesView(selectedId = null) {
             <button class="chat-filter-tab ${chatState.filterTab === 'unread' ? 'active' : ''}" data-filter="unread" type="button">No leídas</button>
             <button class="chat-filter-tab ${chatState.filterTab === 'direct' ? 'active' : ''}" data-filter="direct" type="button">Directas</button>
             <button class="chat-filter-tab ${chatState.filterTab === 'groups' ? 'active' : ''}" data-filter="groups" type="button">Grupos</button>
+            <button class="chat-filter-tab ${chatState.filterTab === 'calls' ? 'active' : ''}" data-filter="calls" type="button">Llamadas</button>
           </div>
 
           <div class="conversation-scroll-area" id="conversation-list-items">
@@ -2459,6 +2470,40 @@ function renderConversationListItems() {
   const { direct, groups } = chatState.conversations;
   const term = chatState.searchTerm.toLowerCase().trim();
   const filter = chatState.filterTab;
+
+  
+  if (filter === 'calls') {
+    const calls = chatState.calls || [];
+    if (!calls.length) {
+      return `
+        <div class="chat-empty-state" style="padding:48px 16px;">
+          ${icon('phone')}
+          <h4 style="margin:12px 0 4px;font-size:15px;color:var(--color-ink-black);">Sin llamadas registradas</h4>
+          <p class="muted" style="font-size:12px;margin:0;">No tienes llamadas perdidas ni entrantes en tu historial.</p>
+        </div>
+      `;
+    }
+    return calls.map(c => {
+      const isMissed = c.status === 'missed' || c.formatted_status === 'perdida';
+      const isVideo = c.call_type === 'video';
+      const timeStr = c.created_at ? new Date(c.created_at).toLocaleString('es', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+      return `
+        <div class="missed-call-card">
+          <div class="conversation-user-avatar-wrap">
+            ${avatarMarkup({ name: c.caller_name, profile_photo: c.caller_photo }, 'message-avatar')}
+          </div>
+          <div class="missed-call-info">
+            <strong>${esc(c.caller_name || 'Contacto')}</strong>
+            <small>${isVideo ? 'Videollamada' : 'Llamada'} · ${esc(timeStr)}</small>
+          </div>
+          <span class="badge mini ${isMissed ? 'pink' : ''}">${isMissed ? 'Perdida' : 'Realizada'}</span>
+          <button class="icon-btn mini call-user" data-id="${c.caller_id}" data-video="${isVideo}" type="button" title="Llamar de vuelta">
+            ${icon(isVideo ? 'video' : 'phone')}
+          </button>
+        </div>
+      `;
+    }).join('');
+  }
 
   let filteredDirect = direct;
   let filteredGroups = groups;
@@ -2574,7 +2619,7 @@ function renderActiveChatPanel() {
     <!-- Header -->
     <header class="conversation-header">
       <div class="conversation-who">
-        <button type="button" class="mobile-back-btn" id="btn-chat-back" aria-label="Volver">←</button>
+        <button type="button" class="mobile-back-btn" id="btn-chat-back" aria-label="Volver">${icon('arrowLeft')}</button>
         ${isDirect ? avatarMarkup(detail, 'message-avatar') : '<span class="message-avatar group-avatar" style="background:#4f46e5;color:#fff;">G</span>'}
         <div class="conversation-who-info">
           <h2>${esc(name)}</h2>
@@ -2594,9 +2639,9 @@ function renderActiveChatPanel() {
       ${icon('search')}
       <input type="text" id="inchat-search-input" placeholder="Buscar palabras en esta conversación...">
       <span class="muted" id="inchat-search-count" style="font-size:12px;display:none;">0 de 0</span>
-      <button class="icon-btn mini" id="btn-inchat-search-prev" type="button" title="Anterior">▲</button>
-      <button class="icon-btn mini" id="btn-inchat-search-next" type="button" title="Siguiente">▼</button>
-      <button class="icon-btn mini" id="btn-inchat-search-close" type="button" title="Cerrar búsqueda">×</button>
+      <button class="icon-btn mini" id="btn-inchat-search-prev" type="button" title="Anterior">${icon('chevronUp')}</button>
+      <button class="icon-btn mini" id="btn-inchat-search-next" type="button" title="Siguiente">${icon('chevronDown')}</button>
+      <button class="icon-btn mini" id="btn-inchat-search-close" type="button" title="Cerrar búsqueda">${icon('close')}</button>
     </div>
 
     <!-- Banner de mensaje fijado -->
@@ -2620,19 +2665,18 @@ function renderActiveChatPanel() {
         <div>
           <strong id="composer-reply-author"></strong>: <span id="composer-reply-text" class="muted"></span>
         </div>
-        <button type="button" class="icon-btn mini" id="composer-reply-cancel">×</button>
+        <button type="button" class="icon-btn mini" id="composer-reply-cancel" title="Cancelar">${icon('close')}</button>
       </div>
 
       <!-- Banner de edición -->
       <div class="composer-banner" id="composer-edit-banner" hidden style="border-left-color:#3b82f6;">
         <div><strong>Editando mensaje</strong></div>
-        <button type="button" class="icon-btn mini" id="composer-edit-cancel">×</button>
+        <button type="button" class="icon-btn mini" id="composer-edit-cancel" title="Cancelar">${icon('close')}</button>
       </div>
 
-      <!-- Preview de adjunto seleccionado -->
-      <div class="composer-banner" id="composer-attach-banner" hidden style="border-left-color:#10b981;">
-        <div>${icon('file')} <strong id="composer-attach-name"></strong></div>
-        <button type="button" class="icon-btn mini" id="composer-attach-cancel">×</button>
+      <!-- Preview de adjuntos horizontal compacto -->
+      <div class="composer-attachments-preview" id="composer-attach-banner" hidden>
+        <div class="composer-attachments-scroll" id="composer-attachments-list"></div>
       </div>
 
       <!-- Barra de grabación de audio (oculta por defecto) -->
@@ -2652,7 +2696,7 @@ function renderActiveChatPanel() {
         <!-- Adjuntar archivo -->
         <label class="composer-tool-btn" title="Adjuntar archivo" style="cursor:pointer;">
           ${icon('paperclip')}
-          <input type="file" id="chat-file-input" hidden>
+          <input type="file" id="chat-file-input" multiple hidden>
         </label>
 
         <!-- Grabar nota de voz -->
@@ -2678,7 +2722,7 @@ function renderDrawerPanel() {
   const isDirect = chatState.activeType === 'direct';
 
   if (!detail) {
-    return '<div class="chat-drawer-header"><h3>Información</h3><button type="button" class="icon-btn mini" id="btn-close-drawer">×</button></div><div class="chat-drawer-content"><div class="empty">Selecciona un chat.</div></div>';
+    return `<div class="chat-drawer-header"><h3>Información</h3><button type="button" class="icon-btn mini" id="btn-close-drawer" title="Cerrar">${icon('close')}</button></div><div class="chat-drawer-content"><div class="empty">Selecciona un chat.</div></div>`;
   }
 
   if (isDirect) {
@@ -2686,7 +2730,7 @@ function renderDrawerPanel() {
     return `
       <div class="chat-drawer-header">
         <h3>Contacto</h3>
-        <button type="button" class="icon-btn mini" id="btn-close-drawer">×</button>
+        <button type="button" class="icon-btn mini" id="btn-close-drawer" title="Cerrar">${icon('close')}</button>
       </div>
       <div class="chat-drawer-content">
         <div class="drawer-profile-hero">
@@ -2727,7 +2771,7 @@ function renderDrawerPanel() {
   return `
     <div class="chat-drawer-header">
       <h3>Grupo</h3>
-      <button type="button" class="icon-btn mini" id="btn-close-drawer">×</button>
+      <button type="button" class="icon-btn mini" id="btn-close-drawer" title="Cerrar">${icon('close')}</button>
     </div>
     <div class="chat-drawer-content">
       <div class="drawer-profile-hero">
@@ -2868,6 +2912,163 @@ function appendSingleMessageToDOM(m) {
   if (wasAtBottom || m.sender_id === state.user?.id || m.is_mine) {
     listEl.scrollTop = listEl.scrollHeight;
   }
+}
+
+
+// Gestor unificado de paneles para la interfaz de mensajería (solo uno abierto a la vez)
+function setActivePanel(panelName) {
+  if (chatState.activePanel === panelName) {
+    chatState.activePanel = null;
+  } else {
+    chatState.activePanel = panelName;
+  }
+  updatePanelVisibility();
+}
+
+function updatePanelVisibility() {
+  const searchBar = document.querySelector('#inchat-search-bar');
+  const emojiPopover = document.querySelector('#emoji-picker-popover');
+  const recordingBar = document.querySelector('#composer-recording-bar');
+  const inputRow = document.querySelector('#composer-input-row');
+  const searchBtn = document.querySelector('#toggle-inchat-search');
+  const emojiBtn = document.querySelector('#btn-toggle-emoji');
+
+  if (searchBar) {
+    if (chatState.activePanel === 'search') {
+      searchBar.removeAttribute('hidden');
+      searchBtn?.classList.add('is-active');
+      const searchInput = document.querySelector('#inchat-search-input');
+      if (searchInput) searchInput.focus();
+    } else {
+      searchBar.setAttribute('hidden', '');
+      searchBtn?.classList.remove('is-active');
+    }
+  }
+
+  if (emojiPopover) {
+    if (chatState.activePanel === 'emoji') {
+      emojiPopover.removeAttribute('hidden');
+      emojiBtn?.classList.add('is-active');
+    } else {
+      emojiPopover.setAttribute('hidden', '');
+      emojiBtn?.classList.remove('is-active');
+    }
+  }
+
+  if (recordingBar && inputRow) {
+    if (chatState.activePanel === 'voice') {
+      recordingBar.removeAttribute('hidden');
+      inputRow.setAttribute('hidden', '');
+    } else {
+      recordingBar.setAttribute('hidden', '');
+      inputRow.removeAttribute('hidden');
+    }
+  }
+}
+
+function clearInchatSearch() {
+  const input = document.querySelector('#inchat-search-input');
+  if (input) input.value = '';
+  const countEl = document.querySelector('#inchat-search-count');
+  if (countEl) countEl.style.display = 'none';
+  chatState.matchedSearchMessages = [];
+  chatState.activeSearchIndex = -1;
+  document.querySelectorAll('.message').forEach(m => {
+    m.classList.remove('search-active-match');
+    m.style.opacity = '1';
+  });
+}
+
+function performInchatSearch(query) {
+  const q = (query || '').toLowerCase().trim();
+  const countEl = document.querySelector('#inchat-search-count');
+  document.querySelectorAll('.message').forEach(m => {
+    m.classList.remove('search-active-match');
+    m.style.opacity = '1';
+  });
+
+  if (!q) {
+    chatState.matchedSearchMessages = [];
+    chatState.activeSearchIndex = -1;
+    if (countEl) countEl.style.display = 'none';
+    return;
+  }
+
+  chatState.matchedSearchMessages = Array.from(document.querySelectorAll('.message')).filter(m => {
+    const text = m.querySelector('.message-text')?.textContent.toLowerCase() || '';
+    const isMatch = text.includes(q);
+    m.style.opacity = isMatch ? '1' : '0.25';
+    return isMatch;
+  });
+
+  if (chatState.matchedSearchMessages.length > 0) {
+    chatState.activeSearchIndex = 0;
+    highlightSearchMatch();
+  } else {
+    chatState.activeSearchIndex = -1;
+    if (countEl) {
+      countEl.style.display = 'inline';
+      countEl.textContent = '0 de 0';
+    }
+  }
+}
+
+function highlightSearchMatch() {
+  const matches = chatState.matchedSearchMessages;
+  const idx = chatState.activeSearchIndex;
+  const countEl = document.querySelector('#inchat-search-count');
+
+  document.querySelectorAll('.message').forEach(m => m.classList.remove('search-active-match'));
+
+  if (matches.length > 0 && idx >= 0 && idx < matches.length) {
+    const activeEl = matches[idx];
+    activeEl.classList.add('search-active-match');
+    activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (countEl) {
+      countEl.style.display = 'inline';
+      countEl.textContent = `${idx + 1} de ${matches.length}`;
+    }
+  }
+}
+
+function renderAttachmentPreviews() {
+  const banner = document.querySelector('#composer-attach-banner');
+  const list = document.querySelector('#composer-attachments-list');
+  if (!banner || !list) return;
+
+  if (!chatState.selectedFiles || !chatState.selectedFiles.length) {
+    banner.setAttribute('hidden', '');
+    list.innerHTML = '';
+    return;
+  }
+
+  banner.removeAttribute('hidden');
+  list.innerHTML = chatState.selectedFiles.map((file, idx) => {
+    const isImg = file.type.startsWith('image/');
+    const thumb = isImg
+      ? `<img src="${URL.createObjectURL(file)}" class="composer-attachment-thumb" alt="Preview">`
+      : `<span class="icon-svg" style="width:16px;height:16px;">${icon('file')}</span>`;
+    return `
+      <div class="composer-attachment-chip" data-file-idx="${idx}">
+        ${thumb}
+        <span class="composer-attachment-name" title="${esc(file.name)}">${esc(file.name)}</span>
+        <button type="button" class="composer-attachment-remove" data-remove-attach="${idx}" title="Quitar archivo">${icon('close')}</button>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('[data-remove-attach]').forEach(btn => {
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      const idx = Number(btn.dataset.removeAttach);
+      chatState.selectedFiles.splice(idx, 1);
+      renderAttachmentPreviews();
+      if (!chatState.selectedFiles.length) {
+        const fileInput = document.querySelector('#chat-file-input');
+        if (fileInput) fileInput.value = '';
+      }
+    };
+  });
 }
 
 function renderSingleMessageMarkup(m) {
@@ -3168,38 +3369,43 @@ function bindActiveChatEvents() {
     if (drawerEl) drawerEl.style.display = 'none';
   });
 
-  // Búsqueda en chat
+  // Búsqueda en chat (con gestión de estado único y navegación prev/next)
   document.querySelector('#toggle-inchat-search')?.addEventListener('click', () => {
-    const bar = document.querySelector('#inchat-search-bar');
-    if (!bar) return;
-    bar.hidden = !bar.hidden;
-    if (!bar.hidden) {
-      document.querySelector('#inchat-search-input')?.focus();
-    }
+    setActivePanel('search');
   });
 
   document.querySelector('#btn-inchat-search-close')?.addEventListener('click', () => {
-    document.querySelector('#inchat-search-bar').hidden = true;
+    chatState.activePanel = null;
+    updatePanelVisibility();
+    clearInchatSearch();
+  });
+
+  document.querySelector('#btn-inchat-search-prev')?.addEventListener('click', () => {
+    if (!chatState.matchedSearchMessages.length) return;
+    chatState.activeSearchIndex = (chatState.activeSearchIndex - 1 + chatState.matchedSearchMessages.length) % chatState.matchedSearchMessages.length;
+    highlightSearchMatch();
+  });
+
+  document.querySelector('#btn-inchat-search-next')?.addEventListener('click', () => {
+    if (!chatState.matchedSearchMessages.length) return;
+    chatState.activeSearchIndex = (chatState.activeSearchIndex + 1) % chatState.matchedSearchMessages.length;
+    highlightSearchMatch();
   });
 
   document.querySelector('#inchat-search-input')?.addEventListener('input', (e) => {
-    const q = e.target.value.toLowerCase().trim();
-    if (!q) {
-      document.querySelectorAll('.message').forEach(m => m.style.opacity = '1');
-      document.querySelector('#inchat-search-count').style.display = 'none';
-      return;
-    }
-    const matches = Array.from(document.querySelectorAll('.message')).filter(m => {
-      const text = m.querySelector('.message-text')?.textContent.toLowerCase() || '';
-      const isMatch = text.includes(q);
-      m.style.opacity = isMatch ? '1' : '0.25';
-      return isMatch;
-    });
-    const countEl = document.querySelector('#inchat-search-count');
-    countEl.style.display = 'inline';
-    countEl.textContent = `${matches.length} coincidencias`;
-    if (matches.length) {
-      matches[matches.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    performInchatSearch(e.target.value);
+  });
+
+  document.querySelector('#inchat-search-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!chatState.matchedSearchMessages.length) return;
+      if (e.shiftKey) {
+        chatState.activeSearchIndex = (chatState.activeSearchIndex - 1 + chatState.matchedSearchMessages.length) % chatState.matchedSearchMessages.length;
+      } else {
+        chatState.activeSearchIndex = (chatState.activeSearchIndex + 1) % chatState.matchedSearchMessages.length;
+      }
+      highlightSearchMatch();
     }
   });
 
@@ -3352,19 +3558,18 @@ function bindActiveChatEvents() {
     document.querySelector('#composer-attach-banner').setAttribute('hidden', '');
   });
 
-  // Selector de archivos
+  // Selector de archivos (miniaturas compactas horizontales)
   document.querySelector('#chat-file-input')?.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      document.querySelector('#composer-attach-name').textContent = file.name;
-      document.querySelector('#composer-attach-banner').removeAttribute('hidden');
+    const files = Array.from(e.target.files || []);
+    if (files.length) {
+      chatState.selectedFiles = files;
+      renderAttachmentPreviews();
     }
   });
 
-  // Selector de emojis popover
+  // Selector de emojis popover (gestor unificado activePanel)
   document.querySelector('#btn-toggle-emoji')?.addEventListener('click', () => {
-    const pop = document.querySelector('#emoji-picker-popover');
-    if (pop) pop.hidden = !pop.hidden;
+    setActivePanel('emoji');
   });
 
   document.querySelectorAll('.emoji-choice-btn').forEach(btn => {
@@ -3375,8 +3580,33 @@ function bindActiveChatEvents() {
         textarea.value += emoji;
         textarea.focus();
       }
-      document.querySelector('#emoji-picker-popover').hidden = true;
+      chatState.activePanel = null;
+      updatePanelVisibility();
     };
+  });
+
+  // Cerrar emoji picker al hacer clic fuera
+  document.addEventListener('click', (e) => {
+    if (chatState.activePanel === 'emoji') {
+      const pop = document.querySelector('#emoji-picker-popover');
+      const toggle = document.querySelector('#btn-toggle-emoji');
+      if (pop && !pop.contains(e.target) && !toggle?.contains(e.target)) {
+        chatState.activePanel = null;
+        updatePanelVisibility();
+      }
+    }
+  });
+
+  // Cerrar paneles activos al presionar Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (chatState.activePanel) {
+        const wasSearch = chatState.activePanel === 'search';
+        chatState.activePanel = null;
+        updatePanelVisibility();
+        if (wasSearch) clearInchatSearch();
+      }
+    }
   });
 
   // Detección de escritura en textarea
@@ -3420,7 +3650,7 @@ function bindActiveChatEvents() {
     const textarea = document.querySelector('#chat-textarea');
     const content = (textarea?.value || '').trim();
     const fileInput = document.querySelector('#chat-file-input');
-    const file = fileInput?.files[0];
+    const file = chatState.selectedFiles[0] || fileInput?.files?.[0];
 
     if (!content && !file) return;
 
@@ -3474,7 +3704,8 @@ function bindActiveChatEvents() {
         textarea.style.height = '42px';
       }
       if (fileInput) fileInput.value = '';
-      document.querySelector('#composer-attach-banner')?.setAttribute('hidden', '');
+      chatState.selectedFiles = [];
+      renderAttachmentPreviews();
       chatState.replyingTo = null;
       document.querySelector('#composer-reply-banner')?.setAttribute('hidden', '');
     } catch (err) {
@@ -3593,8 +3824,7 @@ async function startVoiceRecording() {
     chatState.mediaRecorder.start();
 
     chatState.recordingSeconds = 0;
-    document.querySelector('#composer-recording-bar')?.removeAttribute('hidden');
-    document.querySelector('#composer-input-row')?.setAttribute('hidden', '');
+    setActivePanel('voice');
 
     clearInterval(chatState.recordingInterval);
     chatState.recordingInterval = setInterval(() => {
@@ -3612,8 +3842,8 @@ async function startVoiceRecording() {
 async function stopVoiceRecording(shouldSend) {
   if (!chatState.mediaRecorder) return;
   clearInterval(chatState.recordingInterval);
-  document.querySelector('#composer-recording-bar')?.setAttribute('hidden', '');
-  document.querySelector('#composer-input-row')?.removeAttribute('hidden');
+  chatState.activePanel = null;
+  updatePanelVisibility();
 
   chatState.mediaRecorder.onstop = async () => {
     chatState.mediaRecorder.stream.getTracks().forEach(t => t.stop());
@@ -6198,7 +6428,7 @@ async function openGanttQuickEdit(id) {
   };
 }
 const renderMessagesLegacy=renderMessages;
-renderMessages=async function(){await renderMessagesLegacy();const callHead=document.querySelector('.call-head');if(callHead&&!document.querySelector('#mute-call'))callHead.insertAdjacentHTML('beforeend','<button class="btn secondary btn-with-icon" id="mute-call">'+icon('mic')+'<span>Silenciar micrófono</span></button>');document.querySelector('#mute-call')?.addEventListener('click',toggleMute);const calls=await api('/calls').catch(()=>[]);if(calls.length&&!document.querySelector('.missed-calls')){const node=document.createElement('section');node.className='missed-calls';node.innerHTML=`<h2>Llamadas perdidas</h2>${calls.map(call=>`<div class="missed-call">${avatarMarkup({name:call.caller_name,profile_photo:call.caller_photo},'message-avatar')}<span><strong>${esc(call.caller_name)}</strong><small>${call.call_type==='video'?'Videollamada':'Llamada'} · ${new Date(call.created_at).toLocaleString('es')}</small></span></div>`).join('')}`;document.querySelector('.conversation-list')?.prepend(node)}}
+renderMessages=async function(){await renderMessagesLegacy();const callHead=document.querySelector('.call-head');if(callHead&&!document.querySelector('#mute-call'))callHead.insertAdjacentHTML('beforeend','<button class="btn secondary btn-with-icon" id="mute-call">'+icon('mic')+'<span>Silenciar micrófono</span></button>');document.querySelector('#mute-call')?.addEventListener('click',toggleMute);const calls=await api('/calls').catch(()=>[]);chatState.calls = calls || [];}
 const RELAX_SOURCES=[['spotify','Spotify'],['youtube','YouTube'],['soundcloud','SoundCloud']];
 let relaxSource='spotify';
 function sourceLabel(key){return RELAX_SOURCES.find(([value])=>value===key)?.[1]||key}
