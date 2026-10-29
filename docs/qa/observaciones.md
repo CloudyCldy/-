@@ -16,6 +16,8 @@
 | **OBS-03** | Límite de proyectos por plan en evaluación UAT (403) | **Media** | UAT - Escenario 03 | **Corregido** | QA Lead |
 | **OBS-04** | Conflicto por sprint activo preexistente (409) | **Baja** | UAT - Escenario 07 | **Cerrado** | QA Lead |
 | **OBS-05** | Deadlock concurrente en DDL durante `npm test` | **Media** | Suite Automatizada | **Mitigado** | Dev / QA |
+| **OBS-06** | Fallo DDL en `init.js` por orden de `ALTER TABLE projects` | **Alta** | OAT-05 | **Corregido** | QA / Dev |
+| **OBS-07** | Pérdida de FKs y mutación de `project_members` en `restore_db.js` | **Crítica** | OAT-05 | **Corregido** | QA / Dev |
 
 ---
 
@@ -69,3 +71,31 @@
 - **Pasos para reproducir:** Ejecutar `npm test` con conexión a base de datos PostgreSQL remota.
 - **Causa raíz:** Falta de bloqueo distribuido o ejecución secuencial de pruebas de integración con DDL.
 - **Estado:** **Mitigado**. Las pruebas individuales corren con 100% de éxito de forma aislada. Se recomienda documentar en `package.json` la bandera `--test-concurrency=1` para ejecuciones con base de datos real.
+
+
+---
+
+### OBS-06: Fallo DDL en `database/init.js` al aprovisionar bases de datos limpias
+- **Descripción:** Al inicializar una base de datos nueva o vacía mediante `node database/init.js` o durante el primer paso de `restore_db.js`, el proceso abortaba con el error `relation "projects" does not exist`.
+- **Severidad:** **Alta**.
+- **Pasos para reproducir:**
+  1. Conectarse a una base de datos PostgreSQL vacía.
+  2. Ejecutar `node database/init.js`.
+- **Causa raíz:** En `database/init.js`, la línea 44 ejecutaba `ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;` dentro del bloque de configuración de la tabla `organizations`, 76 líneas antes de que `CREATE TABLE IF NOT EXISTS projects` se ejecutara en la línea 120. En bases de datos existentes la sentencia pasaba desapercibida, pero en cualquier base de datos limpia provocaba fallo inmediato.
+- **Estado:** **Corregido**. Se reubicó la sentencia `ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;` inmediatamente después de la creación y configuración de la tabla `projects` (línea 140). Commit asociado en la rama `QA`.
+
+---
+
+### OBS-07: Pérdida permanente de Foreign Keys y mutación de datos en `restore_db.js`
+- **Descripción:** Durante la ejecución de `restore_db.js`, el script eliminaba todas las restricciones Foreign Key en el paso 4.3 (`DROP CONSTRAINT`), pero al terminar invocaba `init()`, el cual no re-crea restricciones en tablas existentes por el uso de `CREATE TABLE IF NOT EXISTS`. Además, `init()` ejecutaba una migración retroactiva (`INSERT INTO project_members ... SELECT p.id, u.id ...`) que inflaba la tabla de 74 a 304 registros no auténticos.
+- **Severidad:** **Crítica**.
+- **Pasos para reproducir:**
+  1. Ejecutar `restore_db.js` sobre una base de datos con restricciones relacionales.
+  2. Comprobar `pg_constraint` tras finalizar la restauración.
+- **Causa raíz:**
+  1. Falta de almacenamiento de la definición DDL de cada Foreign Key antes de su eliminación temporal.
+  2. Invocación redundante a `init()` al final de la restauración, ejecutando sentencias de migración que alteran los datos reales restaurados.
+- **Estado:** **Corregido**.
+  1. Se modificó el paso 4.3 para consultar `pg_get_constraintdef(oid)` preservando la definición exacta de cada Foreign Key.
+  2. Se actualizó el paso 4.7 para reestablecer individualmente cada restricción mediante `ALTER TABLE <tabla> ADD CONSTRAINT <nombre> <definicion>`.
+  3. Se eliminó la invocación mutativa a `init()` al término de la carga, logrando una restauración 100% fiel con 86 restricciones Foreign Key activas y los 74 registros legítimos de miembros de proyecto.
