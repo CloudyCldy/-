@@ -1,5 +1,5 @@
 require('dotenv').config();
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { pool } = require('../server/database');
 
 async function seed() {
@@ -23,7 +23,10 @@ async function seed() {
     const adminId = (await pool.query("SELECT id FROM users WHERE username = 'admin'")).rows[0].id;
     for (const task of tasks) await pool.query('INSERT INTO tasks (project_id, organization_id, creator_id, title, description, assigned_to, status, priority, start_date, due_date) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [projectId, organization.id, adminId, ...task]);
   }
-  console.log('Datos de prueba cargados en PostgreSQL.');
+  await pool.query("UPDATE organizations SET status = 'approved' WHERE slug = 'haitani'");
+    await pool.query("UPDATE users SET is_platform_admin = true, email_verified = true WHERE username = 'admin'");
+    await pool.query("UPDATE users SET email_verified = true WHERE organization_id = $1", [organization.id]);
+    console.log('Datos de prueba cargados en PostgreSQL.');
 }
 
 if (require.main === module) {

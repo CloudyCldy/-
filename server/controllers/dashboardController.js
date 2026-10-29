@@ -46,7 +46,13 @@ async function dashboard(req, res) {
     database.prepare('SELECT action, description, created_at FROM activities WHERE organization_id = ? ORDER BY created_at DESC LIMIT 5').all(orgId),
     database.prepare("SELECT COUNT(*)::integer AS count FROM users WHERE organization_id = ? AND role <> 'admin' AND active = 1").get(orgId),
     database.prepare('SELECT COUNT(*)::integer AS count FROM files WHERE organization_id = ?').get(orgId),
-    database.prepare('SELECT * FROM projects WHERE organization_id = ? ORDER BY id LIMIT 1').get(orgId)
+    database.prepare(`SELECT projects.*,
+      (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id) AS tasks_total,
+      (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id AND t.status = 'completada') AS tasks_done,
+      (SELECT COALESCE(ROUND(AVG(CASE WHEN t.status = 'completada' THEN 100 ELSE LEAST(100, GREATEST(0, COALESCE(t.progress, 0))) END))::integer, 0) FROM tasks t WHERE t.project_id = projects.id) AS tasks_progress
+    FROM projects WHERE organization_id = ?
+    ORDER BY (SELECT COUNT(*) FROM tasks t WHERE t.project_id = projects.id AND t.status <> 'completada') DESC, projects.created_at DESC
+    LIMIT 1`).get(orgId)
   ]);
 
   const total = tasksByStatus.reduce((sum, item) => sum + item.count, 0);
@@ -92,8 +98,8 @@ async function dashboard(req, res) {
       completed,
       progress: completionRate,
       byStatus: tasksByStatus,
-      members: membersCountResult.count,
-      files: filesCountResult.count
+      members: membersCountResult?.count || 0,
+      files: filesCountResult?.count || 0
     },
     health: {
       score: healthScore,

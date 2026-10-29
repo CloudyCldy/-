@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 async function list(req, res) {
   const users = await req.app.locals.database.prepare(`SELECT id, name, username, email, role, role_id, active, github_username, gitlab_username, profile_photo, last_seen_at, created_at FROM users WHERE organization_id = ? ORDER BY name`).all(req.session.user.organization_id);
@@ -51,7 +51,7 @@ async function profile(req, res) {
   if (req.file) {
     const asset = await database.prepare('INSERT INTO stored_assets (organization_id, uploaded_by, kind, mime_type, content) VALUES (?, ?, ?, ?, ?) RETURNING id').run(req.session.user.organization_id, req.session.user.id, 'profile-photo', req.file.mimetype, req.file.buffer);
     profileAssetId = asset.lastInsertRowid;
-    profilePhoto = `/api/users/${req.session.user.id}/profile-photo`;
+    profilePhoto = `/api/users/${req.session.user.id}/profile-photo?v=${encodeURIComponent(profileAssetId)}`;
   }
   await database.prepare('UPDATE users SET name = ?, username = ?, email = ?, password = COALESCE(?, password), profile_photo = COALESCE(?, profile_photo), profile_asset_id = COALESCE(?, profile_asset_id), gitlab_username = COALESCE(?, gitlab_username), gitlab_token = COALESCE(?, gitlab_token), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?').run(nextName, nextUsername, nextEmail, new_password ? await bcrypt.hash(String(new_password), 12) : null, req.file ? profilePhoto : null, req.file ? profileAssetId : null, gitlab_username !== undefined ? String(gitlab_username || '').trim() || null : null, gitlab_token !== undefined ? String(gitlab_token || '').trim() || null : null, user.id, req.session.user.organization_id);
   req.session.user.name = nextName;
@@ -72,4 +72,35 @@ async function remove(req, res) {
   if (!result.changes) return res.status(404).json({ error: 'El integrante no existe.' });
   res.json({ ok: true });
 }
-module.exports = { list, create, update, profile, profilePhoto, remove };
+// Eliminar mi cuenta (lo exige Google Play). Pide la contraseña para confirmar.
+// - Integrante / PM / lector: se borra su usuario. Los archivos que subió para el equipo pasan a un administrador.
+// - Único administrador: se borra la organización completa con todos sus datos (debe confirmarlo con delete_organization).
+async function deleteMe(req, res) {
+  const database = req.app.locals.database;
+  const organizationId = req.session.user.organization_id;
+  const user = await database.prepare('SELECT id, role, password FROM users WHERE id = ? AND organization_id = ?').get(req.session.user.id, organizationId);
+  if (!user) return res.status(404).json({ error: 'La cuenta no existe.' });
+  if (!req.body?.password || !bcrypt.compareSync(String(req.body.password), user.password)) return res.status(400).json({ error: 'La contraseña no es correcta.' });
+  const otherAdmin = await database.prepare("SELECT id FROM users WHERE organization_id = ? AND role = 'admin' AND id <> ? AND active = 1 ORDER BY id LIMIT 1").get(organizationId, user.id);
+  const transaction = database.transaction || require('../database').transaction;
+  if (user.role === 'admin' && !otherAdmin) {
+    if (req.body.delete_organization !== true) {
+      return res.status(409).json({ requires_organization_delete: true, error: 'Eres el único administrador. Si eliminas tu cuenta también se elimina la organización con todos sus proyectos, tareas y mensajes.' });
+    }
+    await transaction(async tx => {
+      await tx.query('DELETE FROM files WHERE organization_id = $1 OR uploaded_by IN (SELECT id FROM users WHERE organization_id = $1)', [organizationId]);
+      await tx.query('DELETE FROM users WHERE organization_id = $1', [organizationId]);
+      await tx.query('DELETE FROM organizations WHERE id = $1', [organizationId]);
+    });
+  } else {
+    const heir = otherAdmin || await database.prepare('SELECT id FROM users WHERE organization_id = ? AND id <> ? ORDER BY id LIMIT 1').get(organizationId, user.id);
+    await transaction(async tx => {
+      if (heir) await tx.query('UPDATE files SET uploaded_by = $1 WHERE uploaded_by = $2', [heir.id, user.id]);
+      else await tx.query('DELETE FROM files WHERE uploaded_by = $1', [user.id]);
+      await tx.query('DELETE FROM users WHERE id = $1 AND organization_id = $2', [user.id, organizationId]);
+    });
+  }
+  req.session.destroy(() => res.json({ ok: true, message: 'Tu cuenta fue eliminada.' }));
+}
+
+module.exports = { list, create, update, profile, profilePhoto, remove, deleteMe };

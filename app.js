@@ -13,6 +13,7 @@ const database = require('./server/database');
 const { init: initDatabase } = require('./database/init');
 const { seed } = require('./database/seed');
 const billingRoutes = require('./server/routes/billingRoutes');
+const oauthRoutes = require('./server/routes/oauthRoutes');
 const { requireAllowedIp } = require('./server/middleware/ipBlockMiddleware');
 const securityAudit = require('./server/middleware/securityAuditMiddleware');
 
@@ -46,6 +47,50 @@ async function ensureRuntimeSchema() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_username TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gitlab_token TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+      -- Enterprise Status & Verification
+      ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_status_check;
+      ALTER TABLE organizations ADD CONSTRAINT organizations_status_check
+        CHECK (status IN ('active', 'pending', 'approved', 'rejected', 'suspended'));
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS domain TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS website TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verification_notes TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_by INTEGER;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS official_registry_number TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS official_verified BOOLEAN DEFAULT false;
+
+      -- Granular roles
+      INSERT INTO roles (name, description) VALUES
+        ('platform_admin', 'Administración global de la plataforma y verificación empresarial'),
+        ('company_admin', 'Administración completa de la empresa'),
+        ('service_integration', 'Integración segura de servidor a servidor')
+      ON CONFLICT (name) DO NOTHING;
+
+      ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+      ALTER TABLE users ADD CONSTRAINT users_role_check
+        CHECK (role IN ('platform_admin', 'company_admin', 'admin', 'member', 'project_manager', 'viewer', 'service_integration'));
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_platform_admin BOOLEAN DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires TIMESTAMPTZ;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMPTZ;
+      UPDATE users SET is_platform_admin = true WHERE username = 'admin' AND is_platform_admin IS NOT TRUE;
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+        action TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT,
+        details JSONB DEFAULT '{}',
+        ip TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS audit_logs_org_idx ON audit_logs (organization_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs (action, created_at DESC);
       CREATE TABLE IF NOT EXISTS stored_assets (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
         uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL, kind TEXT NOT NULL, mime_type TEXT NOT NULL,
@@ -84,8 +129,261 @@ async function ensureRuntimeSchema() {
       CREATE INDEX IF NOT EXISTS tasks_org_status_due_idx ON tasks (organization_id, status, due_date);
       CREATE INDEX IF NOT EXISTS messages_org_receiver_status_idx ON messages (organization_id, receiver_id, delivery_status);
       CREATE INDEX IF NOT EXISTS messages_org_group_idx ON messages (organization_id, conversation_type, group_id, created_at DESC);
+
+      -- Advanced Messaging Enhancements
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES messages(id) ON DELETE SET NULL;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS client_message_id TEXT;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type TEXT NOT NULL DEFAULT 'text';
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+      CREATE TABLE IF NOT EXISTS message_reactions (
+        id SERIAL PRIMARY KEY,
+        message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reaction TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT message_reactions_unique UNIQUE (message_id, user_id, reaction)
+      );
+      CREATE INDEX IF NOT EXISTS message_reactions_msg_idx ON message_reactions (message_id);
+
+      ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;
+      ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+      ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS description TEXT;
+
+      ALTER TABLE chat_group_members ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ;
+
+      CREATE TABLE IF NOT EXISTS conversation_preferences (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        conversation_type TEXT NOT NULL CHECK (conversation_type IN ('direct', 'group')),
+        target_id INTEGER NOT NULL,
+        is_muted BOOLEAN NOT NULL DEFAULT false,
+        is_archived BOOLEAN NOT NULL DEFAULT false,
+        is_pinned BOOLEAN NOT NULL DEFAULT false,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, conversation_type, target_id)
+      );
+      CREATE INDEX IF NOT EXISTS conv_pref_user_idx ON conversation_preferences (user_id, organization_id);
+      CREATE INDEX IF NOT EXISTS messages_client_msg_id_idx ON messages (client_message_id);
+
       CREATE INDEX IF NOT EXISTS incidences_org_user_idx ON incidences (organization_id, user_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS files_org_created_idx ON files (organization_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS sprints (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        goal TEXT NOT NULL DEFAULT '',
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        status TEXT NOT NULL DEFAULT 'planificado' CHECK (status IN ('planificado', 'activo', 'cerrado')),
+        started_at TIMESTAMPTZ,
+        closed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CHECK (end_date >= start_date)
+      );
+      CREATE INDEX IF NOT EXISTS sprints_org_project_idx ON sprints (organization_id, project_id, status);
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL;
+      CREATE INDEX IF NOT EXISTS tasks_org_sprint_idx ON tasks (organization_id, sprint_id);
+      CREATE TABLE IF NOT EXISTS backlog_items (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        type TEXT NOT NULL CHECK (type IN ('USER_STORY', 'BUG', 'TASK', 'FEATURE', 'IMPROVEMENT')),
+        priority TEXT NOT NULL DEFAULT 'MEDIUM' CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+        story_points INTEGER CHECK (story_points BETWEEN 0 AND 100),
+        status TEXT NOT NULL DEFAULT 'BACKLOGGED' CHECK (status IN ('BACKLOGGED', 'READY', 'IN_PROGRESS', 'DONE')),
+        acceptance_criteria TEXT NOT NULL DEFAULT '',
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS backlog_items_org_project_idx ON backlog_items (organization_id, project_id, status);
+
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_project_id TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_token TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_api_url TEXT DEFAULT 'https://sanzu.onrender.com';
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_connected BOOLEAN DEFAULT false;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_last_tested_at TIMESTAMPTZ;
+
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS budget NUMERIC(14, 2) DEFAULT 0;
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS scope TEXT;
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_synced_at TIMESTAMPTZ;
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_sync_status TEXT DEFAULT 'pending';
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_sync_error TEXT;
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
+
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'general';
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS phase TEXT DEFAULT 'execution';
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS methodology TEXT DEFAULT 'AGILE';
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE;
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE;
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS tags TEXT;
+
+      CREATE TABLE IF NOT EXISTS project_documents (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(project_id, file_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS task_documents (
+        id SERIAL PRIMARY KEY,
+        task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(task_id, file_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS methodology_documents (
+        id SERIAL PRIMARY KEY,
+        methodology TEXT NOT NULL,
+        file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(methodology, file_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS project_risks (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        probability TEXT NOT NULL DEFAULT 'media' CHECK (probability IN ('baja', 'media', 'alta')),
+        impact TEXT NOT NULL DEFAULT 'media' CHECK (impact IN ('baja', 'media', 'alta')),
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'mitigated', 'closed')),
+        mitigation TEXT NOT NULL DEFAULT '',
+        severity_score INTEGER NOT NULL DEFAULT 50,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS project_risks_org_project_idx ON project_risks (organization_id, project_id, status);
+      ALTER TABLE project_risks ADD COLUMN IF NOT EXISTS assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL;
+      CREATE INDEX IF NOT EXISTS project_risks_assigned_to_idx ON project_risks (assigned_to);
+      ALTER TABLE project_risks DROP CONSTRAINT IF EXISTS project_risks_status_check;
+      ALTER TABLE project_risks ADD CONSTRAINT project_risks_status_check
+        CHECK (status IN ('open', 'mitigated', 'accepted', 'closed'));
+      ALTER TABLE project_risks DROP CONSTRAINT IF EXISTS project_risks_probability_check;
+      ALTER TABLE project_risks ADD CONSTRAINT project_risks_probability_check
+        CHECK (probability IN ('muy_baja', 'baja', 'media', 'alta', 'muy_alta', '1', '2', '3', '4', '5'));
+      ALTER TABLE project_risks DROP CONSTRAINT IF EXISTS project_risks_impact_check;
+      ALTER TABLE project_risks ADD CONSTRAINT project_risks_impact_check
+        CHECK (impact IN ('muy_bajo', 'bajo', 'baja', 'medio', 'media', 'alto', 'alta', 'muy_alto', 'muy_alta', 'critico', 'critica', '1', '2', '3', '4', '5'));
+
+      CREATE TABLE IF NOT EXISTS project_events (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+        event_type TEXT NOT NULL CHECK (event_type IN ('task_overdue', 'task_blocked', 'milestone_delayed', 'sprint_ending', 'member_overloaded', 'risk_created', 'deadline_approaching')),
+        severity TEXT NOT NULL DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        payload JSONB DEFAULT '{}',
+        resolved BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS project_events_org_proj_idx ON project_events (organization_id, project_id, resolved);
+
+      -- GanttProject enhancements: WBS hierarchy, milestones, baselines & dependencies
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_milestone BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS baseline_start_date DATE;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS baseline_due_date DATE;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS color TEXT;
+
+      CREATE TABLE IF NOT EXISTS task_dependencies (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        predecessor_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        dependency_type TEXT NOT NULL DEFAULT 'FS' CHECK (dependency_type IN ('FS', 'SS', 'FF', 'SF')),
+        lag_days INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (task_id, predecessor_id)
+      );
+      CREATE INDEX IF NOT EXISTS task_dep_task_idx ON task_dependencies (task_id);
+      CREATE INDEX IF NOT EXISTS task_dep_pred_idx ON task_dependencies (predecessor_id);
+      CREATE INDEX IF NOT EXISTS task_dep_org_proj_idx ON task_dependencies (organization_id, project_id);
+
+      -- Sprint 3: Gestión de Hitos (Milestones) del Proyecto
+      CREATE TABLE IF NOT EXISTS project_milestones (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        due_date DATE NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pendiente' CHECK (status IN ('pendiente', 'en_progreso', 'completado')),
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS project_milestones_org_project_idx ON project_milestones (organization_id, project_id, status);
+      CREATE INDEX IF NOT EXISTS project_milestones_due_date_idx ON project_milestones (due_date);
+
+      -- Sprint 3: Gestión de Incidencias (Issues) del Proyecto
+      CREATE TABLE IF NOT EXISTS project_issues (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical', 'baja', 'media', 'alta', 'critica')),
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+        reported_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS project_issues_org_proj_status_idx ON project_issues (organization_id, project_id, status);
+      CREATE INDEX IF NOT EXISTS project_issues_assigned_idx ON project_issues (assigned_to);
+      CREATE INDEX IF NOT EXISTS project_issues_reported_idx ON project_issues (reported_by);
+
+      -- Sprint 3: Catálogo de Metodologías Extensible
+      CREATE TABLE IF NOT EXISTS methodologies (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'agile',
+        principles JSONB DEFAULT '[]',
+        practices JSONB DEFAULT '[]',
+        is_custom BOOLEAN NOT NULL DEFAULT false,
+        organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS methodologies_org_idx ON methodologies (organization_id);
+
+      INSERT INTO methodologies (id, name, description, category, principles, practices, is_custom) VALUES
+        ('SCRUM', 'Scrum', 'Framework ágil iterativo basado en sprints de 1 a 4 semanas, con roles definidos (Scrum Master, Product Owner, Equipo de Desarrollo) y ceremonias estructuradas para entrega continua de valor.', 'agile', '["Transparencia", "Inspección", "Adaptación"]', '["Sprint Planning", "Daily Standup", "Sprint Review", "Sprint Retrospective"]', false),
+        ('KANBAN', 'Kanban', 'Método visual para gestionar y optimizar el flujo de trabajo continuo, enfocado en limitar el trabajo en curso (WIP) y maximizar la eficiencia y entrega rápida.', 'agile', '["Empezar con lo que haces ahora", "Perseguir el cambio evolutivo", "Respetar los procesos y roles actuales"]', '["Visualizar el flujo", "Limitar el WIP", "Gestionar el flujo", "Hacer políticas explícitas"]', false),
+        ('XP', 'Extreme Programming', 'Metodología ágil centrada en la excelencia técnica y las mejores prácticas de ingeniería de software para responder a requerimientos cambiantes con alta calidad.', 'agile', '["Comunicación", "Simplicidad", "Retroalimentación", "Coraje", "Respeto"]', '["TDD (Test-Driven Development)", "Pair Programming", "Integración Continua", "Refactorización constante"]', false),
+        ('LEAN', 'Lean Software Development', 'Filosofía orientada a la optimización del valor eliminando desperdicios (muda), acelerando tiempos de entrega y empoderando al equipo.', 'agile', '["Eliminar desperdicio", "Amplificar el aprendizaje", "Decidir lo más tarde posible", "Entregar lo más rápido posible"]', '["Mapeo del flujo de valor", "Sistemas pull", "Mejora continua (Kaizen)"]', false),
+        ('WATERFALL', 'Waterfall (Cascada)', 'Modelo secuencial tradicional dividido en fases claramente delimitadas: requerimientos, diseño, implementación, pruebas y despliegue, ideal para proyectos con especificaciones fijas.', 'traditional', '["Planificación rigurosa", "Secuencia estricta", "Documentación exhaustiva"]', '["Gantt estricto", "Firmas de aprobación por fase", "Gestión formal del cambio"]', false),
+        ('AGILE', 'Ágil Genérico', 'Enfoque centrado en la flexibilidad, colaboración activa con el cliente, entregas frecuentes de software funcional y adaptación ante el cambio.', 'agile', '["Individuos sobre procesos", "Software funcionando sobre documentación extensiva", "Colaboración con el cliente", "Respuesta ante el cambio"]', '["Iteraciones cortas", "Historias de usuario", "Feedback continuo"]', false),
+        ('HYBRID', 'Metodología Híbrida', 'Enfoque adaptativo que combina la estructura de planificación y control de Waterfall con la flexibilidad y velocidad de entrega iterativa de Scrum y Kanban.', 'hybrid', '["Gobernanza estructurada", "Ejecución flexible", "Adaptabilidad al contexto"]', '["Hitos y fases globales con sprints ágiles en desarrollo", "Control presupuestal con backlog iterativo"]', false)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        description = EXCLUDED.description,
+        category = EXCLUDED.category,
+        principles = EXCLUDED.principles,
+        practices = EXCLUDED.practices;
     `);
   } catch (error) {
     console.error('No fue posible asegurar el esquema de usuarios:', error);
@@ -100,8 +398,11 @@ app.use('/api/billing/webhook', billingRoutes.webhookRouter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const isProd = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
 app.use(session({
-  store: new PgSession({ pool: database.pool, createTableIfMissing: true, tableName: 'user_sessions' }),
+  store: (isTest && !process.env.TEST_DATABASE_URL)
+    ? new session.MemoryStore()
+    : new PgSession({ pool: database.pool, createTableIfMissing: true, tableName: 'user_sessions' }),
   secret: process.env.SESSION_SECRET || 'change-this-secret',
   resave: false,
   saveUninitialized: false,
@@ -133,24 +434,40 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.get('/api/health', (req, res) => res.json({ ok: true, app: 'Haitani', project: 'Sakura Coffee' }));
 app.use('/api/billing', billingRoutes.router);
 app.use('/api/plans', require('./server/routes/planRoutes'));
+app.use('/api/admin', require('./server/routes/adminRoutes'));
 app.use('/api/organizations', require('./server/routes/organizationRoutes'));
 app.use('/api/projects', require('./server/routes/projectRoutes'));
+app.use('/api/backlog', require('./server/routes/backlogRoutes'));
 app.use('/api/auth', require('./server/routes/authRoutes'));
 app.use('/api/users', require('./server/routes/userRoutes'));
 app.use('/api/tasks', require('./server/routes/taskRoutes'));
+app.use('/api/sprints', require('./server/routes/sprintRoutes'));
+app.use('/api/milestones', require('./server/routes/milestoneRoutes'));
+app.use('/api/templates', require('./server/routes/templateRoutes'));
 app.use('/api/files', require('./server/routes/fileRoutes'));
 app.use('/api/dashboard', require('./server/routes/dashboardRoutes'));
 app.use('/api/github', require('./server/routes/githubRoutes'));
 app.use('/api/messages', require('./server/routes/messageRoutes'));
 app.use('/api/incidences', require('./server/routes/incidenceRoutes'));
+app.use('/api/issues', require('./server/routes/issueRoutes'));
 app.use('/api/chat-backgrounds', require('./server/routes/chatBackgroundRoutes'));
 app.use('/api/calls', require('./server/routes/callRoutes'));
 app.use('/api/music', require('./server/routes/musicRoutes'));
 app.use('/api/notifications', require('./server/routes/notificationRoutes'));
+app.use('/api/oauth', oauthRoutes);
 app.use('/api/absences', require('./server/routes/absenceRoutes'));
 app.use('/api/announcements', require('./server/routes/announcementRoutes'));
 app.use('/api/security/ip-blocks', require('./server/routes/ipBlockRoutes'));
 app.use('/api/assistant', require('./server/routes/assistantRoutes'));
+app.use('/api/sanzu', require('./server/routes/sanzuRoutes'));
+app.use('/api/knowledge', require('./server/routes/knowledgeRoutes'));
+app.use('/api/risks', require('./server/routes/riskRoutes'));
+app.use('/api/events', require('./server/routes/eventRoutes'));
+app.use('/api/gantt', require('./server/routes/ganttRoutes'));
+app.use('/api/methodologies', require('./server/routes/methodologyRoutes'));
+const legalPages = require('./server/legalPages');
+app.get(['/privacidad', '/privacy'], legalPages.privacy);
+app.get(['/eliminar-cuenta', '/delete-account'], legalPages.deletion);
 app.get('*', (req, res) => {
   try {
     const indexPath = path.join(__dirname, 'public', 'index.html');
@@ -176,42 +493,29 @@ app.use((error, req, res, next) => {
 });
 
 const server = http.createServer(app);
-const webSocketServer = new WebSocket.Server({ server });
-const callClients = new Map();
-function sessionIdFromRequest(request) {
-  const value = request.headers.cookie?.split(';').map(item => item.trim()).find(item => item.startsWith('connect.sid='))?.split('=').slice(1).join('=');
-  if (!value?.startsWith('s:')) return null;
-  return signature.unsign(decodeURIComponent(value.slice(2)), process.env.SESSION_SECRET || 'change-this-secret');
-}
-webSocketServer.on('connection', (socket, request) => {
-  const sessionId = sessionIdFromRequest(request);
-  if (!sessionId) return socket.close(1008, 'Sesión requerida');
-  database.pool.query('SELECT sess FROM user_sessions WHERE sid = $1', [sessionId]).then(result => {
-    try { socket.session = JSON.parse(result.rows[0]?.sess || '{}'); } catch { socket.session = {}; }
-    if (!socket.session.user?.id) socket.close(1008, 'Sesión requerida');
-  }).catch(() => socket.close(1011, 'No fue posible validar la sesión'));
-  socket.on('message', raw => {
-    try {
-      const message = JSON.parse(raw.toString());
-      if (message.type === 'register' && Number.isInteger(Number(message.userId)) && socket.session?.user?.id === Number(message.userId)) {
-        socket.userId = Number(message.userId);
-        callClients.set(socket.userId, socket);
-        return;
-      }
-      if (!socket.userId) return;
-      const recipient = callClients.get(Number(message.to));
-      if (recipient?.readyState === WebSocket.OPEN) recipient.send(JSON.stringify({ ...message, from: socket.userId }));
-      else if (message.type === 'offer') database.prepare('UPDATE calls SET status = ? WHERE id = ? AND status = ?').run('missed', message.callId, 'initiated').catch(() => {});
-    } catch {}
-  });
-  socket.on('close', () => { if (socket.userId && callClients.get(socket.userId) === socket) callClients.delete(socket.userId); });
-});
+const wsHub = require('./server/services/websocketService');
+wsHub.init(server, app, database);
+app.locals.wsHub = wsHub;
+
 async function start() {
   await ensureRuntimeSchema();
-  server.listen(port, () => console.log(`Haitani disponible en http://localhost:${port}`));
+  return new Promise((resolve) => {
+    server.listen(port, () => {
+      console.log(`Haitani disponible en http://localhost:${port}`);
+      resolve(server);
+    });
+  });
 }
 
-start().catch(error => {
-  console.error('Fallo al iniciar Haitani:', error);
-  process.exit(1);
-});
+if (require.main === module) {
+  start().catch(error => {
+    console.error('Fallo al iniciar Haitani:', error);
+    process.exit(1);
+  });
+}
+
+module.exports = app;
+app.app = app;
+app.server = server;
+app.start = start;
+app.ensureRuntimeSchema = ensureRuntimeSchema;

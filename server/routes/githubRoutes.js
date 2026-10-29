@@ -8,6 +8,7 @@ router.get('/commits', requireFeature('github'), controller.commits);
 router.get('/branches', requireFeature('github'), controller.branches);
 router.get('/pull-requests', requireFeature('github'), controller.pulls);
 router.get('/activity', requireFeature('github'), controller.activity);
+router.get('/config', requireFeature('github'), controller.config);
 router.get('/test', requireAdmin, controller.test);
 router.post('/configure', requireAdmin, controller.configure);
 module.exports = router;
