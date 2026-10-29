@@ -402,9 +402,30 @@ app.locals.database = {
           return { id: orgId, status: 'approved', name: 'Haitani Enterprise', plan_id: 1, subscription_status: 'active' };
         }
 
+        
+        // Llamadas
+        if (s.includes('from calls')) {
+          return [
+            {
+              id: 1,
+              caller_id: 102,
+              receiver_id: 101,
+              organization_id: 1,
+              call_type: 'video',
+              status: 'missed',
+              scheduled_at: null,
+              created_at: new Date(Date.now() - 3600000).toISOString(),
+              caller_name: 'Valeria Gómez',
+              caller_photo: '/static/img/bt.jpg',
+              direction: 'incoming',
+              formatted_status: 'perdida'
+            }
+          ];
+        }
+
         // Planes
         if (s.includes('from plans')) {
-          return { id: 1, key: 'pro', name: 'Pro Enterprise', max_users: 100, max_projects: 50, max_storage_mb: 10240, features: {}, subscription_status: 'active' };
+          return { id: 1, key: 'pro', name: 'Pro Enterprise', max_users: 100, max_projects: 50, max_storage_mb: 10240, features: { calls: true, github: true }, subscription_status: 'active' };
         }
 
         // Proyectos
