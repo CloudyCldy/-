@@ -5,6 +5,17 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp
 function iconAsset(name, alt = '', className = '') { return `<img class="icon-image ${className}" src="/static/img/${name}.png" alt="${esc(alt || name)}">`; }
 function brandLogo(className = '') { return `<img class="brand-logo ${className}" src="/static/img/ht.png" alt="Haitani">`; }
 const SVG_ICONS = {
+  briefcase: '<rect x="2.5" y="6.5" width="15" height="11" rx="1.8" stroke="currentColor" stroke-width="1.3"/><path d="M6.5 6.5V4.5a1.8 1.8 0 0 1 1.8-1.8h3.4a1.8 1.8 0 0 1 1.8 1.8v2" stroke="currentColor" stroke-width="1.3"/><line x1="2.5" y1="11.5" x2="17.5" y2="11.5" stroke="currentColor" stroke-width="1.2"/>',
+  layers: '<path d="M10 2.8 2.8 6.5 10 10.2 17.2 6.5 10 2.8Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M2.8 10 10 13.7 17.2 10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.8 13.5 10 17.2 17.2 13.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+  grid: '<rect x="3" y="3" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="11.5" y="3" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="11.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/>',
+  list: '<line x1="7" y1="5.5" x2="17" y2="5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="7" y1="10" x2="17" y2="10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="7" y1="14.5" x2="17" y2="14.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="3.5" cy="5.5" r="1.2" fill="currentColor"/><circle cx="3.5" cy="10" r="1.2" fill="currentColor"/><circle cx="3.5" cy="14.5" r="1.2" fill="currentColor"/>',
+  target: '<circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.3"/><circle cx="10" cy="10" r="4" stroke="currentColor" stroke-width="1.3"/><circle cx="10" cy="10" r="1" fill="currentColor"/>',
+  filter: '<polygon points="3,4 17,4 11.5,10.5 11.5,15.5 8.5,17 8.5,10.5" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" fill="none"/>',
+  phone: '<path d="M5.5 3.5h3l1.5 3-1.8 1.5a11 11 0 0 0 4.8 4.8l1.5-1.8 3 1.5v3a2 2 0 0 1-2 2A15 15 0 0 1 3.5 5.5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+  video: '<rect x="2.5" y="5" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><polygon points="12.5,8 17.5,5 17.5,15 12.5,12" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" fill="none"/>',
+  chat: '<path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H7.5l-3.8 2.8a.5.5 0 0 1-.7-.4V6A1.5 1.5 0 0 1 4 4.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  smile: '<circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="8.5" r="1" fill="currentColor"/><circle cx="12.5" cy="8.5" r="1" fill="currentColor"/><path d="M6.5 12a4.5 4.5 0 0 0 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  arrowLeft: '<path d="M15 10H5m0 0l4.5-4.5M5 10l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
   palette: '<path d="M10 2.2C5.7 2.2 2.2 5.8 2.2 10c0 3.4 2.7 6.1 6 6.1h.9c.6 0 1.1-.5 1.1-1.1v-.4c0-.5.4-.9.9-.9h1.4a3.3 3.3 0 0 0 3.3-3.3c0-4.5-3-8.2-5.8-8.2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="6.1" cy="9" r="1" fill="currentColor"/><circle cx="9.2" cy="5.9" r="1" fill="currentColor"/><circle cx="13" cy="7.4" r="1" fill="currentColor"/>',
   bell: '<path d="M10 3a3.7 3.7 0 0 0-3.7 3.7v2.4c0 .47-.19.93-.52 1.26L4.6 11.5c-.55.55-.16 1.5.62 1.5h9.56c.78 0 1.17-.95.62-1.5l-1.18-1.14a1.78 1.78 0 0 1-.52-1.26V6.7A3.7 3.7 0 0 0 10 3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8.3 15.2a1.75 1.75 0 0 0 3.4 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
   bellOff: '<path d="M10 3a3.7 3.7 0 0 0-3.7 3.7v2.4c0 .47-.19.93-.52 1.26L4.6 11.5c-.55.55-.16 1.5.62 1.5h9.56c.78 0 1.17-.95.62-1.5l-1.18-1.14a1.78 1.78 0 0 1-.52-1.26V6.7A3.7 3.7 0 0 0 10 3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" opacity=".55"/><path d="M8.3 15.2a1.75 1.75 0 0 0 3.4 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".55"/><line x1="3.6" y1="3.6" x2="16.4" y2="16.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
@@ -405,6 +416,7 @@ function sidebar(){
       title: 'Workspace',
       links: [
         ['/admin/dashboard','Dashboard','dashboard'],
+        ['/admin/projects','Proyectos','briefcase'],
         ['/admin/overview','Project Overview','pieChart'],
         ['/admin/tasks','Tareas','tasks','tasks'],
         ['/admin/milestones','Hitos','flag'],
@@ -453,6 +465,7 @@ function sidebar(){
       title: 'Workspace',
       links: [
         ['/member/dashboard','Dashboard','dashboard'],
+        ['/member/projects','Proyectos','briefcase'],
         ['/member/overview','Project Overview','pieChart'],
         ['/member/tasks','Mis tareas','tasks','tasks'],
         ['/member/milestones','Hitos','flag'],
@@ -2142,6 +2155,11 @@ function myStatusEditorMarkup(existing){
 // =========================================================================
 
 const chatState = {
+  activePanel: null,
+  calls: [],
+  selectedFiles: [],
+  matchedSearchMessages: [],
+  activeSearchIndex: -1,
   activeType: null,      // 'direct' | 'group'
   activeId: null,        // userId | groupId
   activeDetail: null,    // user object or group detail
@@ -2431,7 +2449,7 @@ async function messagesView(selectedId = null) {
             <div class="chat-search-box">
               ${icon('search')}
               <input type="text" id="chat-conversation-search" placeholder="Buscar personas, grupos o mensajes..." value="${esc(chatState.searchTerm)}">
-              ${chatState.searchTerm ? '<button class="icon-btn mini" id="btn-clear-conv-search" type="button">×</button>' : ''}
+              ${chatState.searchTerm ? `<button class="icon-btn mini" id="btn-clear-conv-search" type="button" title="Limpiar">${icon('close')}</button>` : ''}
             </div>
           </div>
 
@@ -2440,6 +2458,7 @@ async function messagesView(selectedId = null) {
             <button class="chat-filter-tab ${chatState.filterTab === 'unread' ? 'active' : ''}" data-filter="unread" type="button">No leídas</button>
             <button class="chat-filter-tab ${chatState.filterTab === 'direct' ? 'active' : ''}" data-filter="direct" type="button">Directas</button>
             <button class="chat-filter-tab ${chatState.filterTab === 'groups' ? 'active' : ''}" data-filter="groups" type="button">Grupos</button>
+            <button class="chat-filter-tab ${chatState.filterTab === 'calls' ? 'active' : ''}" data-filter="calls" type="button">Llamadas</button>
           </div>
 
           <div class="conversation-scroll-area" id="conversation-list-items">
@@ -2465,6 +2484,40 @@ function renderConversationListItems() {
   const { direct, groups } = chatState.conversations;
   const term = chatState.searchTerm.toLowerCase().trim();
   const filter = chatState.filterTab;
+
+  
+  if (filter === 'calls') {
+    const calls = chatState.calls || [];
+    if (!calls.length) {
+      return `
+        <div class="chat-empty-state" style="padding:48px 16px;">
+          ${icon('phone')}
+          <h4 style="margin:12px 0 4px;font-size:15px;color:var(--color-ink-black);">Sin llamadas registradas</h4>
+          <p class="muted" style="font-size:12px;margin:0;">No tienes llamadas perdidas ni entrantes en tu historial.</p>
+        </div>
+      `;
+    }
+    return calls.map(c => {
+      const isMissed = c.status === 'missed' || c.formatted_status === 'perdida';
+      const isVideo = c.call_type === 'video';
+      const timeStr = c.created_at ? new Date(c.created_at).toLocaleString('es', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+      return `
+        <div class="missed-call-card">
+          <div class="conversation-user-avatar-wrap">
+            ${avatarMarkup({ name: c.caller_name, profile_photo: c.caller_photo }, 'message-avatar')}
+          </div>
+          <div class="missed-call-info">
+            <strong>${esc(c.caller_name || 'Contacto')}</strong>
+            <small>${isVideo ? 'Videollamada' : 'Llamada'} · ${esc(timeStr)}</small>
+          </div>
+          <span class="badge mini ${isMissed ? 'pink' : ''}">${isMissed ? 'Perdida' : 'Realizada'}</span>
+          <button class="icon-btn mini call-user" data-id="${c.caller_id}" data-video="${isVideo}" type="button" title="Llamar de vuelta">
+            ${icon(isVideo ? 'video' : 'phone')}
+          </button>
+        </div>
+      `;
+    }).join('');
+  }
 
   let filteredDirect = direct;
   let filteredGroups = groups;
@@ -2580,7 +2633,7 @@ function renderActiveChatPanel() {
     <!-- Header -->
     <header class="conversation-header">
       <div class="conversation-who">
-        <button type="button" class="mobile-back-btn" id="btn-chat-back" aria-label="Volver">←</button>
+        <button type="button" class="mobile-back-btn" id="btn-chat-back" aria-label="Volver">${icon('arrowLeft')}</button>
         ${isDirect ? avatarMarkup(detail, 'message-avatar') : '<span class="message-avatar group-avatar" style="background:#4f46e5;color:#fff;">G</span>'}
         <div class="conversation-who-info">
           <h2>${esc(name)}</h2>
@@ -2628,19 +2681,18 @@ function renderActiveChatPanel() {
         <div>
           <strong id="composer-reply-author"></strong>: <span id="composer-reply-text" class="muted"></span>
         </div>
-        <button type="button" class="icon-btn mini" id="composer-reply-cancel">×</button>
+        <button type="button" class="icon-btn mini" id="composer-reply-cancel" title="Cancelar">${icon('close')}</button>
       </div>
 
       <!-- Banner de edición -->
       <div class="composer-banner" id="composer-edit-banner" hidden style="border-left-color:#3b82f6;">
         <div><strong>Editando mensaje</strong></div>
-        <button type="button" class="icon-btn mini" id="composer-edit-cancel">×</button>
+        <button type="button" class="icon-btn mini" id="composer-edit-cancel" title="Cancelar">${icon('close')}</button>
       </div>
 
-      <!-- Preview de adjunto seleccionado -->
-      <div class="composer-banner" id="composer-attach-banner" hidden style="border-left-color:#10b981;">
-        <div>${icon('file')} <strong id="composer-attach-name"></strong></div>
-        <button type="button" class="icon-btn mini" id="composer-attach-cancel">×</button>
+      <!-- Preview de adjuntos horizontal compacto -->
+      <div class="composer-attachments-preview" id="composer-attach-banner" hidden>
+        <div class="composer-attachments-scroll" id="composer-attachments-list"></div>
       </div>
 
       <!-- Barra de grabación de audio (oculta por defecto) -->
@@ -2660,7 +2712,7 @@ function renderActiveChatPanel() {
         <!-- Adjuntar archivo -->
         <label class="composer-tool-btn" title="Adjuntar archivo" style="cursor:pointer;">
           ${icon('paperclip')}
-          <input type="file" id="chat-file-input" hidden>
+          <input type="file" id="chat-file-input" multiple hidden>
         </label>
 
         <!-- Grabar nota de voz -->
@@ -2692,7 +2744,7 @@ function renderDrawerPanel() {
   const isDirect = chatState.activeType === 'direct';
 
   if (!detail) {
-    return '<div class="chat-drawer-header"><h3>Información</h3><button type="button" class="icon-btn mini" id="btn-close-drawer">×</button></div><div class="chat-drawer-content"><div class="empty">Selecciona un chat.</div></div>';
+    return `<div class="chat-drawer-header"><h3>Información</h3><button type="button" class="icon-btn mini" id="btn-close-drawer" title="Cerrar">${icon('close')}</button></div><div class="chat-drawer-content"><div class="empty">Selecciona un chat.</div></div>`;
   }
 
   if (isDirect) {
@@ -2700,7 +2752,7 @@ function renderDrawerPanel() {
     return `
       <div class="chat-drawer-header">
         <h3>Contacto</h3>
-        <button type="button" class="icon-btn mini" id="btn-close-drawer">×</button>
+        <button type="button" class="icon-btn mini" id="btn-close-drawer" title="Cerrar">${icon('close')}</button>
       </div>
       <div class="chat-drawer-content">
         <div class="drawer-profile-hero">
@@ -2741,7 +2793,7 @@ function renderDrawerPanel() {
   return `
     <div class="chat-drawer-header">
       <h3>Grupo</h3>
-      <button type="button" class="icon-btn mini" id="btn-close-drawer">×</button>
+      <button type="button" class="icon-btn mini" id="btn-close-drawer" title="Cerrar">${icon('close')}</button>
     </div>
     <div class="chat-drawer-content">
       <div class="drawer-profile-hero">
@@ -2882,6 +2934,163 @@ function appendSingleMessageToDOM(m) {
   if (wasAtBottom || m.sender_id === state.user?.id || m.is_mine) {
     listEl.scrollTop = listEl.scrollHeight;
   }
+}
+
+
+// Gestor unificado de paneles para la interfaz de mensajería (solo uno abierto a la vez)
+function setActivePanel(panelName) {
+  if (chatState.activePanel === panelName) {
+    chatState.activePanel = null;
+  } else {
+    chatState.activePanel = panelName;
+  }
+  updatePanelVisibility();
+}
+
+function updatePanelVisibility() {
+  const searchBar = document.querySelector('#inchat-search-bar');
+  const emojiPopover = document.querySelector('#emoji-picker-popover');
+  const recordingBar = document.querySelector('#composer-recording-bar');
+  const inputRow = document.querySelector('#composer-input-row');
+  const searchBtn = document.querySelector('#toggle-inchat-search');
+  const emojiBtn = document.querySelector('#btn-toggle-emoji');
+
+  if (searchBar) {
+    if (chatState.activePanel === 'search') {
+      searchBar.removeAttribute('hidden');
+      searchBtn?.classList.add('is-active');
+      const searchInput = document.querySelector('#inchat-search-input');
+      if (searchInput) searchInput.focus();
+    } else {
+      searchBar.setAttribute('hidden', '');
+      searchBtn?.classList.remove('is-active');
+    }
+  }
+
+  if (emojiPopover) {
+    if (chatState.activePanel === 'emoji') {
+      emojiPopover.removeAttribute('hidden');
+      emojiBtn?.classList.add('is-active');
+    } else {
+      emojiPopover.setAttribute('hidden', '');
+      emojiBtn?.classList.remove('is-active');
+    }
+  }
+
+  if (recordingBar && inputRow) {
+    if (chatState.activePanel === 'voice') {
+      recordingBar.removeAttribute('hidden');
+      inputRow.setAttribute('hidden', '');
+    } else {
+      recordingBar.setAttribute('hidden', '');
+      inputRow.removeAttribute('hidden');
+    }
+  }
+}
+
+function clearInchatSearch() {
+  const input = document.querySelector('#inchat-search-input');
+  if (input) input.value = '';
+  const countEl = document.querySelector('#inchat-search-count');
+  if (countEl) countEl.style.display = 'none';
+  chatState.matchedSearchMessages = [];
+  chatState.activeSearchIndex = -1;
+  document.querySelectorAll('.message').forEach(m => {
+    m.classList.remove('search-active-match');
+    m.style.opacity = '1';
+  });
+}
+
+function performInchatSearch(query) {
+  const q = (query || '').toLowerCase().trim();
+  const countEl = document.querySelector('#inchat-search-count');
+  document.querySelectorAll('.message').forEach(m => {
+    m.classList.remove('search-active-match');
+    m.style.opacity = '1';
+  });
+
+  if (!q) {
+    chatState.matchedSearchMessages = [];
+    chatState.activeSearchIndex = -1;
+    if (countEl) countEl.style.display = 'none';
+    return;
+  }
+
+  chatState.matchedSearchMessages = Array.from(document.querySelectorAll('.message')).filter(m => {
+    const text = m.querySelector('.message-text')?.textContent.toLowerCase() || '';
+    const isMatch = text.includes(q);
+    m.style.opacity = isMatch ? '1' : '0.25';
+    return isMatch;
+  });
+
+  if (chatState.matchedSearchMessages.length > 0) {
+    chatState.activeSearchIndex = 0;
+    highlightSearchMatch();
+  } else {
+    chatState.activeSearchIndex = -1;
+    if (countEl) {
+      countEl.style.display = 'inline';
+      countEl.textContent = '0 de 0';
+    }
+  }
+}
+
+function highlightSearchMatch() {
+  const matches = chatState.matchedSearchMessages;
+  const idx = chatState.activeSearchIndex;
+  const countEl = document.querySelector('#inchat-search-count');
+
+  document.querySelectorAll('.message').forEach(m => m.classList.remove('search-active-match'));
+
+  if (matches.length > 0 && idx >= 0 && idx < matches.length) {
+    const activeEl = matches[idx];
+    activeEl.classList.add('search-active-match');
+    activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (countEl) {
+      countEl.style.display = 'inline';
+      countEl.textContent = `${idx + 1} de ${matches.length}`;
+    }
+  }
+}
+
+function renderAttachmentPreviews() {
+  const banner = document.querySelector('#composer-attach-banner');
+  const list = document.querySelector('#composer-attachments-list');
+  if (!banner || !list) return;
+
+  if (!chatState.selectedFiles || !chatState.selectedFiles.length) {
+    banner.setAttribute('hidden', '');
+    list.innerHTML = '';
+    return;
+  }
+
+  banner.removeAttribute('hidden');
+  list.innerHTML = chatState.selectedFiles.map((file, idx) => {
+    const isImg = file.type.startsWith('image/');
+    const thumb = isImg
+      ? `<img src="${URL.createObjectURL(file)}" class="composer-attachment-thumb" alt="Preview">`
+      : `<span class="icon-svg" style="width:16px;height:16px;">${icon('file')}</span>`;
+    return `
+      <div class="composer-attachment-chip" data-file-idx="${idx}">
+        ${thumb}
+        <span class="composer-attachment-name" title="${esc(file.name)}">${esc(file.name)}</span>
+        <button type="button" class="composer-attachment-remove" data-remove-attach="${idx}" title="Quitar archivo">${icon('close')}</button>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('[data-remove-attach]').forEach(btn => {
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      const idx = Number(btn.dataset.removeAttach);
+      chatState.selectedFiles.splice(idx, 1);
+      renderAttachmentPreviews();
+      if (!chatState.selectedFiles.length) {
+        const fileInput = document.querySelector('#chat-file-input');
+        if (fileInput) fileInput.value = '';
+      }
+    };
+  });
 }
 
 function renderSingleMessageMarkup(m) {
@@ -3182,103 +3391,44 @@ function bindActiveChatEvents() {
     if (drawerEl) drawerEl.style.display = 'none';
   });
 
-  // Búsqueda en chat con navegación
-  chatState.inChatMatches = [];
-  chatState.inChatIndex = -1;
-
-  const highlightCurrentSearchMatch = () => {
-    document.querySelectorAll('.message').forEach(m => m.classList.remove('inchat-highlight'));
-    if (!chatState.inChatMatches.length || chatState.inChatIndex < 0) return;
-    const current = chatState.inChatMatches[chatState.inChatIndex];
-    if (current) {
-      current.classList.add('inchat-highlight');
-      current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const countEl = document.querySelector('#inchat-search-count');
-      if (countEl) {
-        countEl.style.display = 'inline';
-        countEl.textContent = `${chatState.inChatIndex + 1} de ${chatState.inChatMatches.length}`;
-      }
-    }
-  };
-
+  // Búsqueda en chat (con gestión de estado único y navegación prev/next)
   document.querySelector('#toggle-inchat-search')?.addEventListener('click', () => {
-    const bar = document.querySelector('#inchat-search-bar');
-    if (!bar) return;
-    bar.hidden = !bar.hidden;
-    if (!bar.hidden) {
-      document.querySelector('#emoji-picker-popover')?.setAttribute('hidden', '');
-      const input = document.querySelector('#inchat-search-input');
-      if (input) {
-        input.focus();
-        if (input.value.trim()) input.dispatchEvent(new Event('input'));
-      }
-    } else {
-      document.querySelectorAll('.message').forEach(m => {
-        m.style.opacity = '1';
-        m.classList.remove('inchat-highlight');
-      });
-      const countEl = document.querySelector('#inchat-search-count');
-      if (countEl) countEl.style.display = 'none';
-    }
+    setActivePanel('search');
   });
 
   document.querySelector('#btn-inchat-search-close')?.addEventListener('click', () => {
-    const bar = document.querySelector('#inchat-search-bar');
-    if (bar) bar.hidden = true;
-    const input = document.querySelector('#inchat-search-input');
-    if (input) input.value = '';
-    document.querySelectorAll('.message').forEach(m => {
-      m.style.opacity = '1';
-      m.classList.remove('inchat-highlight');
-    });
-    const countEl = document.querySelector('#inchat-search-count');
-    if (countEl) countEl.style.display = 'none';
-    chatState.inChatMatches = [];
-    chatState.inChatIndex = -1;
-  });
-
-  document.querySelector('#inchat-search-input')?.addEventListener('input', (e) => {
-    const q = e.target.value.toLowerCase().trim();
-    const countEl = document.querySelector('#inchat-search-count');
-    if (!q) {
-      document.querySelectorAll('.message').forEach(m => {
-        m.style.opacity = '1';
-        m.classList.remove('inchat-highlight');
-      });
-      if (countEl) countEl.style.display = 'none';
-      chatState.inChatMatches = [];
-      chatState.inChatIndex = -1;
-      return;
-    }
-    chatState.inChatMatches = Array.from(document.querySelectorAll('.message')).filter(m => {
-      const text = m.querySelector('.message-text')?.textContent.toLowerCase() || '';
-      const isMatch = text.includes(q);
-      m.style.opacity = isMatch ? '1' : '0.25';
-      return isMatch;
-    });
-
-    if (chatState.inChatMatches.length) {
-      chatState.inChatIndex = chatState.inChatMatches.length - 1;
-      highlightCurrentSearchMatch();
-    } else {
-      chatState.inChatIndex = -1;
-      if (countEl) {
-        countEl.style.display = 'inline';
-        countEl.textContent = 'Sin resultados';
-      }
-    }
+    chatState.activePanel = null;
+    updatePanelVisibility();
+    clearInchatSearch();
   });
 
   document.querySelector('#btn-inchat-search-prev')?.addEventListener('click', () => {
-    if (!chatState.inChatMatches.length) return;
-    chatState.inChatIndex = (chatState.inChatIndex - 1 + chatState.inChatMatches.length) % chatState.inChatMatches.length;
-    highlightCurrentSearchMatch();
+    if (!chatState.matchedSearchMessages.length) return;
+    chatState.activeSearchIndex = (chatState.activeSearchIndex - 1 + chatState.matchedSearchMessages.length) % chatState.matchedSearchMessages.length;
+    highlightSearchMatch();
   });
 
   document.querySelector('#btn-inchat-search-next')?.addEventListener('click', () => {
-    if (!chatState.inChatMatches.length) return;
-    chatState.inChatIndex = (chatState.inChatIndex + 1) % chatState.inChatMatches.length;
-    highlightCurrentSearchMatch();
+    if (!chatState.matchedSearchMessages.length) return;
+    chatState.activeSearchIndex = (chatState.activeSearchIndex + 1) % chatState.matchedSearchMessages.length;
+    highlightSearchMatch();
+  });
+
+  document.querySelector('#inchat-search-input')?.addEventListener('input', (e) => {
+    performInchatSearch(e.target.value);
+  });
+
+  document.querySelector('#inchat-search-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!chatState.matchedSearchMessages.length) return;
+      if (e.shiftKey) {
+        chatState.activeSearchIndex = (chatState.activeSearchIndex - 1 + chatState.matchedSearchMessages.length) % chatState.matchedSearchMessages.length;
+      } else {
+        chatState.activeSearchIndex = (chatState.activeSearchIndex + 1) % chatState.matchedSearchMessages.length;
+      }
+      highlightSearchMatch();
+    }
   });
 
   // Delegación de eventos en mensajes (Reacciones, Acciones hover, Audio)
@@ -3430,26 +3580,25 @@ function bindActiveChatEvents() {
     document.querySelector('#composer-attach-banner').setAttribute('hidden', '');
   });
 
-  // Selector de archivos
+  // Selector de archivos (miniaturas compactas horizontales)
   document.querySelector('#chat-file-input')?.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      document.querySelector('#composer-attach-name').textContent = file.name;
-      document.querySelector('#composer-attach-banner').removeAttribute('hidden');
+    const files = Array.from(e.target.files || []);
+    if (files.length) {
+      chatState.selectedFiles = files;
+      renderAttachmentPreviews();
     }
   });
 
-  // Selector de emojis popover
-  const emojiPop = document.querySelector('#emoji-picker-popover');
+  // Selector de emojis popover (gestor unificado activePanel)
   document.querySelector('#btn-toggle-emoji')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (!emojiPop) return;
-    emojiPop.hidden = !emojiPop.hidden;
+    setActivePanel('emoji');
   });
 
   document.querySelector('#btn-close-emoji')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (emojiPop) emojiPop.hidden = true;
+    chatState.activePanel = null;
+    updatePanelVisibility();
   });
 
   document.querySelectorAll('.emoji-choice-btn').forEach(btn => {
@@ -3465,31 +3614,34 @@ function bindActiveChatEvents() {
         textarea.focus();
         textarea.dispatchEvent(new Event('input'));
       }
-      if (emojiPop) emojiPop.hidden = true;
+      chatState.activePanel = null;
+      updatePanelVisibility();
     };
   });
 
-  // Cerrar emoji popover con Escape y al hacer clic fuera
-  const handleOutsideEmojiClick = (e) => {
-    if (emojiPop && !emojiPop.hidden && !emojiPop.contains(e.target) && !e.target.closest('#btn-toggle-emoji')) {
-      emojiPop.hidden = true;
-    }
-  };
-  const handleEmojiEsc = (e) => {
-    if (e.key === 'Escape') {
-      if (emojiPop && !emojiPop.hidden) emojiPop.hidden = true;
-      const bar = document.querySelector('#inchat-search-bar');
-      if (bar && !bar.hidden) {
-        document.querySelector('#btn-inchat-search-close')?.click();
+  // Cerrar emoji picker al hacer clic fuera
+  document.addEventListener('click', (e) => {
+    if (chatState.activePanel === 'emoji') {
+      const pop = document.querySelector('#emoji-picker-popover');
+      const toggle = document.querySelector('#btn-toggle-emoji');
+      if (pop && !pop.contains(e.target) && !toggle?.contains(e.target)) {
+        chatState.activePanel = null;
+        updatePanelVisibility();
       }
     }
-  };
-  document.removeEventListener('click', window._chatOutsideClick);
-  document.removeEventListener('keydown', window._chatKeyDown);
-  window._chatOutsideClick = handleOutsideEmojiClick;
-  window._chatKeyDown = handleEmojiEsc;
-  document.addEventListener('click', handleOutsideEmojiClick);
-  document.addEventListener('keydown', handleEmojiEsc);
+  });
+
+  // Cerrar paneles activos al presionar Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (chatState.activePanel) {
+        const wasSearch = chatState.activePanel === 'search';
+        chatState.activePanel = null;
+        updatePanelVisibility();
+        if (wasSearch) clearInchatSearch();
+      }
+    }
+  });
 
   // Detección de escritura en textarea
   const textarea = document.querySelector('#chat-textarea');
@@ -3532,7 +3684,7 @@ function bindActiveChatEvents() {
     const textarea = document.querySelector('#chat-textarea');
     const content = (textarea?.value || '').trim();
     const fileInput = document.querySelector('#chat-file-input');
-    const file = fileInput?.files[0];
+    const file = chatState.selectedFiles[0] || fileInput?.files?.[0];
 
     if (!content && !file) return;
 
@@ -3586,7 +3738,8 @@ function bindActiveChatEvents() {
         textarea.style.height = '42px';
       }
       if (fileInput) fileInput.value = '';
-      document.querySelector('#composer-attach-banner')?.setAttribute('hidden', '');
+      chatState.selectedFiles = [];
+      renderAttachmentPreviews();
       chatState.replyingTo = null;
       document.querySelector('#composer-reply-banner')?.setAttribute('hidden', '');
     } catch (err) {
@@ -3705,8 +3858,7 @@ async function startVoiceRecording() {
     chatState.mediaRecorder.start();
 
     chatState.recordingSeconds = 0;
-    document.querySelector('#composer-recording-bar')?.removeAttribute('hidden');
-    document.querySelector('#composer-input-row')?.setAttribute('hidden', '');
+    setActivePanel('voice');
 
     clearInterval(chatState.recordingInterval);
     chatState.recordingInterval = setInterval(() => {
@@ -3724,8 +3876,8 @@ async function startVoiceRecording() {
 async function stopVoiceRecording(shouldSend) {
   if (!chatState.mediaRecorder) return;
   clearInterval(chatState.recordingInterval);
-  document.querySelector('#composer-recording-bar')?.setAttribute('hidden', '');
-  document.querySelector('#composer-input-row')?.removeAttribute('hidden');
+  chatState.activePanel = null;
+  updatePanelVisibility();
 
   chatState.mediaRecorder.onstop = async () => {
     chatState.mediaRecorder.stream.getTracks().forEach(t => t.stop());
@@ -6309,6 +6461,8 @@ async function openGanttQuickEdit(id) {
     } catch (error) { notify(error.message); }
   };
 }
+const renderMessagesLegacy=renderMessages;
+renderMessages=async function(){await renderMessagesLegacy();const callHead=document.querySelector('.call-head');if(callHead&&!document.querySelector('#mute-call'))callHead.insertAdjacentHTML('beforeend','<button class="btn secondary btn-with-icon" id="mute-call">'+icon('mic')+'<span>Silenciar micrófono</span></button>');document.querySelector('#mute-call')?.addEventListener('click',toggleMute);const calls=await api('/calls').catch(()=>[]);chatState.calls = calls || [];}
 const RELAX_SOURCES=[['spotify','Spotify'],['youtube','YouTube'],['soundcloud','SoundCloud']];
 let relaxSource='spotify';
 function sourceLabel(key){return RELAX_SOURCES.find(([value])=>value===key)?.[1]||key}
@@ -7284,6 +7438,7 @@ async function render(){
   const route=location.hash||`#/${state.user.role}/dashboard`;
   try{
     if(route.includes('overview'))return renderOverview();
+    if(route.includes('projects'))return renderProjects();
     if(route.includes('knowledge'))return renderKnowledge();
     if(route.includes('risks'))return renderRisks();
     if(route.includes('announcements'))return renderAnnouncements();
@@ -10313,6 +10468,1482 @@ function openCustomMethodologyModal(onCreated) {
       if (onCreated) onCreated();
     } catch (err) {
       notify(err.message);
+    }
+  });
+}
+
+/* ==========================================================================
+   MÓDULO DE GESTIÓN Y ADMINISTRACIÓN VISUAL DE PROYECTOS
+   ========================================================================== */
+
+const projectModuleFilters = {
+  search: '',
+  status: '',
+  priority: '',
+  methodology: '',
+  viewMode: localStorage.getItem('haitani-proj-view') || 'grid'
+};
+
+function projectStatusMeta(status) {
+  const norm = String(status || 'planning').toLowerCase();
+  if (['en_progreso', 'in_progress', 'activo'].includes(norm)) {
+    return { label: 'En progreso', color: 'green', accent: '#10b981' };
+  }
+  if (['completado', 'completed', 'finalizado'].includes(norm)) {
+    return { label: 'Completado', color: 'blue', accent: '#06b6d4' };
+  }
+  if (['pausado', 'paused'].includes(norm)) {
+    return { label: 'Pausado', color: 'yellow', accent: '#f59e0b' };
+  }
+  if (['cancelado', 'canceled'].includes(norm)) {
+    return { label: 'Cancelado', color: 'pink', accent: '#ef4444' };
+  }
+  return { label: 'Planificado', color: 'yellow', accent: '#8b5cf6' };
+}
+
+function projectPriorityMeta(priority) {
+  const norm = String(priority || 'medium').toLowerCase();
+  if (['critica', 'crítica', 'critical'].includes(norm)) return { label: 'Crítica', color: 'pink' };
+  if (['alta', 'high'].includes(norm)) return { label: 'Alta', color: 'pink' };
+  if (['baja', 'low'].includes(norm)) return { label: 'Baja', color: 'green' };
+  return { label: 'Media', color: 'yellow' };
+}
+
+function projectDaysRemaining(p) {
+  if (!p.end_date) return '<span class="muted sub">Sin fecha límite</span>';
+  const end = new Date(String(p.end_date).slice(0, 10) + 'T23:59:59');
+  const now = new Date();
+  const diffDays = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+  const isDone = ['completado', 'completed'].includes(p.status);
+  if (isDone) return '<span class="badge blue">Entregado</span>';
+  if (diffDays < 0) return `<span class="badge pink" title="Vencido hace ${Math.abs(diffDays)} días">Vencido hace ${Math.abs(diffDays)} d</span>`;
+  if (diffDays === 0) return '<span class="badge yellow">Vence hoy</span>';
+  if (diffDays <= 7) return `<span class="badge yellow">Quedan ${diffDays} días</span>`;
+  return `<span class="muted sub">Quedan ${diffDays} días</span>`;
+}
+
+function formatProjectCurrency(val) {
+  const num = Number(val || 0);
+  return '$' + num.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' MXN';
+}
+
+async function renderProjects() {
+  let projects = [];
+  let users = [];
+  try {
+    [projects, users] = await Promise.all([
+      api('/projects').catch(() => []),
+      api('/users').catch(() => [])
+    ]);
+  } catch (err) {
+    return layout(`
+      ${heading('Gestión de Proyectos', 'Administración centralizada de proyectos, gobernanza, asignación de equipos y control de avance')}
+      <div class="alert mt-4">Error al cargar proyectos: ${esc(err.message)}</div>
+    `);
+  }
+
+  const canManage = ['admin', 'company_admin', 'project_manager'].includes(state.user.role);
+
+  // Métricas del portafolio
+  const totalProjects = projects.length;
+  const activeCount = projects.filter(p => ['en_progreso', 'in_progress'].includes(p.status)).length;
+  const planningCount = projects.filter(p => ['planificado', 'planning'].includes(p.status)).length;
+  const completedCount = projects.filter(p => ['completado', 'completed'].includes(p.status)).length;
+  const totalBudget = projects.reduce((sum, p) => sum + (Number(p.budget) || 0), 0);
+  const avgProgress = totalProjects ? Math.round(projects.reduce((sum, p) => sum + (Number(p.tasks_progress) || 0), 0) / totalProjects) : 0;
+
+  // Filtrado reactivo
+  const filtered = projects.filter(p => {
+    const q = projectModuleFilters.search.trim().toLowerCase();
+    if (q) {
+      const matchName = String(p.name || '').toLowerCase().includes(q);
+      const matchClient = String(p.client || '').toLowerCase().includes(q);
+      const matchTech = String(p.technologies || '').toLowerCase().includes(q);
+      const matchDesc = String(p.description || '').toLowerCase().includes(q);
+      if (!matchName && !matchClient && !matchTech && !matchDesc) return false;
+    }
+    if (projectModuleFilters.status) {
+      const s = String(p.status || '').toLowerCase();
+      const fs = projectModuleFilters.status.toLowerCase();
+      if (fs === 'planificado' && !['planificado', 'planning'].includes(s)) return false;
+      if (fs === 'en_progreso' && !['en_progreso', 'in_progress'].includes(s)) return false;
+      if (fs === 'completado' && !['completado', 'completed'].includes(s)) return false;
+      if (fs === 'pausado' && !['pausado', 'paused'].includes(s)) return false;
+    }
+    if (projectModuleFilters.priority) {
+      const pr = String(p.priority || '').toLowerCase();
+      const fpr = projectModuleFilters.priority.toLowerCase();
+      if (fpr === 'critica' && !['critica', 'crítica', 'critical'].includes(pr)) return false;
+      if (fpr === 'alta' && !['alta', 'high'].includes(pr)) return false;
+      if (fpr === 'media' && !['media', 'medium'].includes(pr)) return false;
+      if (fpr === 'baja' && !['baja', 'low'].includes(pr)) return false;
+    }
+    if (projectModuleFilters.methodology && String(p.methodology_id || '').toUpperCase() !== projectModuleFilters.methodology.toUpperCase()) {
+      return false;
+    }
+    return true;
+  });
+
+  const headerActions = `
+    <div class="actions">
+      <a class="btn secondary" href="#/${state.user.role}/overview">${icon('pieChart')} Project Overview</a>
+      ${canManage ? `<button class="btn" id="open-project-wizard-btn">${icon('plus')} Nuevo Proyecto</button>` : ''}
+    </div>
+  `;
+
+  layout(`
+    ${heading('Gestión de Proyectos', 'Administración centralizada de proyectos, gobernanza, asignación de equipos y control de avance', headerActions)}
+
+    <div class="project-kpi-grid mt-4">
+      <div class="card stat stat-primary">
+        <div class="stat-header"><div class="label">Total Proyectos</div>${icon('briefcase')}</div>
+        <div class="num">${totalProjects}</div>
+        <div class="stat-footer-sub">Portafolio corporativo</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">En Ejecución</div>${icon('progress')}</div>
+        <div class="num green">${activeCount}</div>
+        <div class="stat-footer-sub">${totalProjects ? Math.round(activeCount * 100 / totalProjects) : 0}% de los proyectos</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">En Planificación</div>${icon('clock')}</div>
+        <div class="num yellow">${planningCount}</div>
+        <div class="stat-footer-sub">En etapa preparatoria</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Completados</div>${icon('check')}</div>
+        <div class="num blue">${completedCount}</div>
+        <div class="stat-footer-sub">Entregados con éxito</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Presupuesto Gestionado</div>${icon('creditCard')}</div>
+        <div class="num num-sm">${formatProjectCurrency(totalBudget)}</div>
+        <div class="stat-footer-sub">Inversión consolidada</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-header"><div class="label">Avance Promedio</div>${icon('activity')}</div>
+        <div class="num">${avgProgress}%</div>
+        <div class="stat-footer-sub">Ponderado por tareas</div>
+      </div>
+    </div>
+
+    <div class="project-toolbar mt-4">
+      <div class="project-toolbar-filters">
+        <div class="project-search-box">
+          ${icon('search')}
+          <input class="input mini" id="project-filter-search" type="text" placeholder="Buscar por nombre, cliente, stack..." value="${esc(projectModuleFilters.search)}">
+        </div>
+        <select class="select mini" id="project-filter-status" style="min-width:140px">
+          <option value="">Estado: Todos</option>
+          <option value="en_progreso" ${projectModuleFilters.status === 'en_progreso' ? 'selected' : ''}>En progreso</option>
+          <option value="planificado" ${projectModuleFilters.status === 'planificado' ? 'selected' : ''}>Planificado</option>
+          <option value="pausado" ${projectModuleFilters.status === 'pausado' ? 'selected' : ''}>Pausado</option>
+          <option value="completado" ${projectModuleFilters.status === 'completado' ? 'selected' : ''}>Completado</option>
+        </select>
+        <select class="select mini" id="project-filter-priority" style="min-width:130px">
+          <option value="">Prioridad: Todas</option>
+          <option value="critica" ${projectModuleFilters.priority === 'critica' ? 'selected' : ''}>Crítica</option>
+          <option value="alta" ${projectModuleFilters.priority === 'alta' ? 'selected' : ''}>Alta</option>
+          <option value="media" ${projectModuleFilters.priority === 'media' ? 'selected' : ''}>Media</option>
+          <option value="baja" ${projectModuleFilters.priority === 'baja' ? 'selected' : ''}>Baja</option>
+        </select>
+        <select class="select mini" id="project-filter-methodology" style="min-width:140px">
+          <option value="">Metodología: Todas</option>
+          <option value="SCRUM" ${projectModuleFilters.methodology === 'SCRUM' ? 'selected' : ''}>Scrum</option>
+          <option value="KANBAN" ${projectModuleFilters.methodology === 'KANBAN' ? 'selected' : ''}>Kanban</option>
+          <option value="XP" ${projectModuleFilters.methodology === 'XP' ? 'selected' : ''}>Extreme Programming</option>
+          <option value="LEAN" ${projectModuleFilters.methodology === 'LEAN' ? 'selected' : ''}>Lean Software</option>
+          <option value="WATERFALL" ${projectModuleFilters.methodology === 'WATERFALL' ? 'selected' : ''}>Waterfall</option>
+          <option value="HYBRID" ${projectModuleFilters.methodology === 'HYBRID' ? 'selected' : ''}>Híbrida</option>
+          <option value="AGILE" ${projectModuleFilters.methodology === 'AGILE' ? 'selected' : ''}>Ágil Genérico</option>
+        </select>
+        ${(projectModuleFilters.search || projectModuleFilters.status || projectModuleFilters.priority || projectModuleFilters.methodology) ? `
+          <button class="btn secondary mini" id="project-clear-filters-btn">${icon('close')} Limpiar</button>
+        ` : ''}
+      </div>
+
+      <div style="display:flex;align-items:center;gap:var(--sp-3)">
+        <span class="muted sub">${filtered.length} de ${totalProjects} proyecto(s)</span>
+        <div class="project-view-toggle">
+          <button type="button" class="${projectModuleFilters.viewMode === 'grid' ? 'active' : ''}" id="project-view-grid" title="Vista en tarjetas">${icon('grid')}</button>
+          <button type="button" class="${projectModuleFilters.viewMode === 'table' ? 'active' : ''}" id="project-view-table" title="Vista en tabla">${icon('list')}</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4" id="project-container">
+      ${!projects.length ? `
+        <div class="card p-5 text-center">
+          <div style="max-width:480px;margin:0 auto">
+            <h2>No hay proyectos registrados</h2>
+            <p class="muted mt-2">Tu organización todavía no cuenta con proyectos configurados. Comienza creando el primero mediante nuestro asistente visual paso a paso.</p>
+            ${canManage ? `<button class="btn mt-4" id="empty-create-project-btn">${icon('plus')} Crear Primer Proyecto</button>` : ''}
+          </div>
+        </div>
+      ` : !filtered.length ? `
+        <div class="card p-5 text-center">
+          <h2>No se encontraron proyectos</h2>
+          <p class="muted mt-2">Ningún proyecto coincide con los criterios de búsqueda y filtros seleccionados.</p>
+          <button class="btn secondary mt-3" id="empty-clear-filters-btn">Restablecer filtros</button>
+        </div>
+      ` : projectModuleFilters.viewMode === 'table' ? renderProjectsTable(filtered, canManage) : renderProjectsGrid(filtered, canManage)}
+    </div>
+  `);
+
+  // Bindings
+  const searchInput = document.querySelector('#project-filter-search');
+  searchInput?.addEventListener('input', e => {
+    projectModuleFilters.search = e.target.value;
+    renderProjects();
+  });
+
+  document.querySelector('#project-filter-status')?.addEventListener('change', e => {
+    projectModuleFilters.status = e.target.value;
+    renderProjects();
+  });
+
+  document.querySelector('#project-filter-priority')?.addEventListener('change', e => {
+    projectModuleFilters.priority = e.target.value;
+    renderProjects();
+  });
+
+  document.querySelector('#project-filter-methodology')?.addEventListener('change', e => {
+    projectModuleFilters.methodology = e.target.value;
+    renderProjects();
+  });
+
+  const clearFilters = () => {
+    projectModuleFilters.search = '';
+    projectModuleFilters.status = '';
+    projectModuleFilters.priority = '';
+    projectModuleFilters.methodology = '';
+    renderProjects();
+  };
+  document.querySelector('#project-clear-filters-btn')?.addEventListener('click', clearFilters);
+  document.querySelector('#empty-clear-filters-btn')?.addEventListener('click', clearFilters);
+
+  document.querySelector('#project-view-grid')?.addEventListener('click', () => {
+    projectModuleFilters.viewMode = 'grid';
+    localStorage.setItem('haitani-proj-view', 'grid');
+    renderProjects();
+  });
+
+  document.querySelector('#project-view-table')?.addEventListener('click', () => {
+    projectModuleFilters.viewMode = 'table';
+    localStorage.setItem('haitani-proj-view', 'table');
+    renderProjects();
+  });
+
+  document.querySelector('#open-project-wizard-btn')?.addEventListener('click', () => {
+    openNewProjectWizard(users, () => renderProjects());
+  });
+
+  document.querySelector('#empty-create-project-btn')?.addEventListener('click', () => {
+    openNewProjectWizard(users, () => renderProjects());
+  });
+
+  // Acciones en tarjetas/filas
+  document.querySelectorAll('.project-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pId = Number(btn.dataset.projectId);
+      const proj = projects.find(p => p.id === pId);
+      if (proj) openProjectEditModal(proj, users, () => renderProjects());
+    });
+  });
+
+  document.querySelectorAll('.project-team-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pId = Number(btn.dataset.projectId);
+      const proj = projects.find(p => p.id === pId);
+      if (proj) openProjectTeamModal(proj, users, () => renderProjects());
+    });
+  });
+
+  document.querySelectorAll('.project-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pId = Number(btn.dataset.projectId);
+      const proj = projects.find(p => p.id === pId);
+      if (proj) confirmDeleteProject(proj, () => renderProjects());
+    });
+  });
+
+  document.querySelectorAll('.project-quick-status-select').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      const pId = sel.dataset.projectId;
+      const newStatus = e.target.value;
+      try {
+        await api(`/projects/${pId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        });
+        notify('Estado del proyecto actualizado.');
+        renderProjects();
+      } catch (err) {
+        notify(err.message);
+      }
+    });
+  });
+
+  document.querySelectorAll('.project-sync-sanzu-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const pId = btn.dataset.projectId;
+      btn.disabled = true;
+      btn.innerHTML = `${icon('progress')}`;
+      try {
+        const res = await api(`/projects/${pId}/sync`, { method: 'POST' });
+        notify(res.message || 'Sincronización completada con éxito.');
+        renderProjects();
+      } catch (err) {
+        notify(err.message);
+        btn.disabled = false;
+        btn.innerHTML = `${icon('sparkles')}`;
+      }
+    });
+  });
+}
+
+function renderProjectsGrid(projects, canManage) {
+  return `
+    <div class="project-cards-grid">
+      ${projects.map(p => {
+        const sMeta = projectStatusMeta(p.status);
+        const pMeta = projectPriorityMeta(p.priority);
+        const progress = Math.min(100, Math.max(0, Number(p.tasks_progress || 0)));
+        const tasksDone = Number(p.tasks_done || 0);
+        const tasksTotal = Number(p.tasks_total || 0);
+        const membersList = Array.isArray(p.members) ? p.members : [];
+        const membersCount = Number(p.members_count || membersList.length || 0);
+        const extraMembers = membersCount > 4 ? membersCount - 4 : 0;
+
+        return `
+          <div class="project-card" style="--card-accent:${sMeta.accent}">
+            <div class="project-card-head">
+              <div class="project-badges-row">
+                <span class="badge ${sMeta.color}">${esc(sMeta.label)}</span>
+                <span class="badge ${pMeta.color}">${esc(pMeta.label)}</span>
+                <span class="badge" style="background:var(--panel-2);color:var(--ink)">${esc(p.methodology_id || 'AGILE')}</span>
+              </div>
+              ${canManage ? `
+                <div class="project-actions-quick" style="display:flex;gap:4px">
+                  <button class="btn secondary mini project-edit-btn" data-project-id="${p.id}" title="Editar configuración del proyecto">${icon('edit')}</button>
+                  <button class="btn secondary mini project-team-btn" data-project-id="${p.id}" title="Administrar equipo">${icon('users')}</button>
+                  <button class="btn secondary mini project-delete-btn" data-project-id="${p.id}" style="color:var(--pink)" title="Eliminar proyecto">${icon('trash')}</button>
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="project-card-title-group">
+              <a class="project-card-title" href="#/${state.user.role}/overview?project=${p.id}">${esc(p.name)}</a>
+              ${p.client ? `<div class="project-card-client">${icon('briefcase')} ${esc(p.client)}</div>` : ''}
+            </div>
+
+            ${p.description || p.objective ? `<p class="project-card-desc">${esc(p.description || p.objective)}</p>` : '<p class="project-card-desc" style="opacity:0.5">Sin descripción definida.</p>'}
+
+            <div class="project-progress-container">
+              <div class="project-progress-labels">
+                <span class="muted">Avance del proyecto</span>
+                <strong>${progress}% <small class="muted">(${tasksDone}/${tasksTotal} tareas)</small></strong>
+              </div>
+              <div class="project-progress-track">
+                <div class="project-progress-fill" style="width:${progress}%"></div>
+              </div>
+            </div>
+
+            <div class="project-meta-chips">
+              <div class="project-meta-chip" title="Tareas">${icon('tasks')} <strong>${tasksDone}/${tasksTotal}</strong> tareas</div>
+              <div class="project-meta-chip" title="Hitos">${icon('flag')} <strong>${p.milestones_count || 0}</strong> hitos</div>
+              <div class="project-meta-chip" title="Sprints">${icon('progress')} <strong>${p.sprints_count || 0}</strong> sprints</div>
+              <div class="project-meta-chip" title="Riesgos abiertos">${icon('alertTriangle')} <strong>${p.open_risks_count || 0}</strong> riesgos</div>
+            </div>
+
+            <div class="project-dates-budget">
+              <div style="display:flex;align-items:center;gap:6px">
+                ${icon('calendar')}
+                <span>${p.start_date ? esc(String(p.start_date).slice(0, 10)) : 'Sin inicio'} &rarr; ${p.end_date ? esc(String(p.end_date).slice(0, 10)) : 'Sin fin'}</span>
+              </div>
+              <div>${projectDaysRemaining(p)}</div>
+            </div>
+
+            <div class="project-team-strip">
+              <div class="project-pm-pill">
+                <span class="muted" style="font-size:0.75rem">PM:</span>
+                <strong>${esc(p.manager_name || 'Sin asignar')}</strong>
+              </div>
+              <div class="project-avatar-stack" title="${membersCount} miembros en el equipo">
+                ${extraMembers > 0 ? `<span class="project-avatar-more">+${extraMembers}</span>` : ''}
+                ${membersList.slice(0, 4).map(m => avatarMarkup(m, 'avatar-chip')).join('')}
+              </div>
+            </div>
+
+            <div class="project-card-footer">
+              <div class="project-card-links">
+                <a class="btn secondary mini" href="#/${state.user.role}/overview?project=${p.id}">${icon('pieChart')} Overview</a>
+                <a class="btn secondary mini" href="#/${state.user.role}/tasks?project=${p.id}">${icon('tasks')} Tareas</a>
+                <a class="btn secondary mini" href="#/${state.user.role}/kanban?project=${p.id}">${icon('kanban')} Tablero</a>
+                <a class="btn secondary mini" href="#/${state.user.role}/gantt?project=${p.id}">${icon('gantt')} Gantt</a>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                ${canManage ? `
+                  <select class="select mini project-quick-status-select" data-project-id="${p.id}" title="Cambiar estado rápidamente">
+                    <option value="planning" ${['planificado', 'planning'].includes(p.status) ? 'selected' : ''}>Planificado</option>
+                    <option value="in_progress" ${['en_progreso', 'in_progress'].includes(p.status) ? 'selected' : ''}>En progreso</option>
+                    <option value="paused" ${['pausado', 'paused'].includes(p.status) ? 'selected' : ''}>Pausado</option>
+                    <option value="completed" ${['completado', 'completed'].includes(p.status) ? 'selected' : ''}>Completado</option>
+                  </select>
+                ` : ''}
+                <button class="btn secondary mini project-sync-sanzu-btn" data-project-id="${p.id}" title="Sincronizar con Sanzu AI">${icon('sparkles')}</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderProjectsTable(projects, canManage) {
+  return `
+    <div class="card project-table-card">
+      <table class="project-table">
+        <thead>
+          <tr>
+            <th>Proyecto & Cliente</th>
+            <th>Metodología</th>
+            <th>Estado</th>
+            <th>Prioridad</th>
+            <th>Avance</th>
+            <th>Responsable (PM)</th>
+            <th>Equipo</th>
+            <th>Cronograma</th>
+            <th>Presupuesto</th>
+            <th style="text-align:right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${projects.map(p => {
+            const sMeta = projectStatusMeta(p.status);
+            const pMeta = projectPriorityMeta(p.priority);
+            const progress = Math.min(100, Math.max(0, Number(p.tasks_progress || 0)));
+            const membersList = Array.isArray(p.members) ? p.members : [];
+            const membersCount = Number(p.members_count || membersList.length || 0);
+
+            return `
+              <tr>
+                <td>
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <a href="#/${state.user.role}/overview?project=${p.id}" style="font-weight:600;color:var(--ink);text-decoration:none">${esc(p.name)}</a>
+                    ${p.client ? `<small class="muted">${icon('briefcase')} ${esc(p.client)}</small>` : ''}
+                  </div>
+                </td>
+                <td><span class="badge" style="background:var(--panel-2);color:var(--ink)">${esc(p.methodology_id || 'AGILE')}</span></td>
+                <td>
+                  ${canManage ? `
+                    <select class="select mini project-quick-status-select" data-project-id="${p.id}">
+                      <option value="planning" ${['planificado', 'planning'].includes(p.status) ? 'selected' : ''}>Planificado</option>
+                      <option value="in_progress" ${['en_progreso', 'in_progress'].includes(p.status) ? 'selected' : ''}>En progreso</option>
+                      <option value="paused" ${['pausado', 'paused'].includes(p.status) ? 'selected' : ''}>Pausado</option>
+                      <option value="completed" ${['completado', 'completed'].includes(p.status) ? 'selected' : ''}>Completado</option>
+                    </select>
+                  ` : `<span class="badge ${sMeta.color}">${esc(sMeta.label)}</span>`}
+                </td>
+                <td><span class="badge ${pMeta.color}">${esc(pMeta.label)}</span></td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:8px;min-width:110px">
+                    <div class="project-progress-track" style="flex:1">
+                      <div class="project-progress-fill" style="width:${progress}%"></div>
+                    </div>
+                    <span style="font-size:0.8rem;font-weight:600">${progress}%</span>
+                  </div>
+                </td>
+                <td><span style="font-size:0.85rem">${esc(p.manager_name || 'Sin asignar')}</span></td>
+                <td>
+                  <div class="project-avatar-stack" title="${membersCount} miembros">
+                    ${membersList.slice(0, 3).map(m => avatarMarkup(m, 'avatar-chip')).join('')}
+                    ${membersCount > 3 ? `<span class="project-avatar-more">+${membersCount - 3}</span>` : ''}
+                  </div>
+                </td>
+                <td>
+                  <div style="font-size:0.82rem">
+                    <div>${p.end_date ? esc(String(p.end_date).slice(0, 10)) : 'Sin fecha'}</div>
+                    <div>${projectDaysRemaining(p)}</div>
+                  </div>
+                </td>
+                <td><span style="font-size:0.85rem;font-weight:500">${formatProjectCurrency(p.budget)}</span></td>
+                <td style="text-align:right">
+                  <div style="display:inline-flex;gap:4px">
+                    <a class="btn secondary mini" href="#/${state.user.role}/overview?project=${p.id}" title="Overview">${icon('pieChart')}</a>
+                    ${canManage ? `
+                      <button class="btn secondary mini project-edit-btn" data-project-id="${p.id}" title="Editar">${icon('edit')}</button>
+                      <button class="btn secondary mini project-team-btn" data-project-id="${p.id}" title="Equipo">${icon('users')}</button>
+                      <button class="btn secondary mini project-delete-btn" data-project-id="${p.id}" style="color:var(--pink)" title="Eliminar">${icon('trash')}</button>
+                    ` : ''}
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+/* ==========================================================================
+   ASISTENTE VISUAL MULTI-PASO DE NUEVO PROYECTO (WIZARD)
+   ========================================================================== */
+
+function openNewProjectWizard(users = [], onCreated = null) {
+  document.querySelectorAll('.project-wizard-overlay').forEach(n => n.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'project-wizard-overlay';
+
+  const defaultStartDate = new Date().toISOString().slice(0, 10);
+  const defaultEndDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const wizardState = {
+    step: 1,
+    name: '',
+    client: '',
+    objective: '',
+    description: '',
+    status: 'planning',
+    priority: 'medium',
+    methodology_id: 'SCRUM',
+    start_date: defaultStartDate,
+    end_date: defaultEndDate,
+    budget: '100000',
+    repository_url: '',
+    manager_id: state.user.id,
+    selectedMembers: new Set([state.user.id]),
+    scope: '',
+    technologies: ['Node.js', 'PostgreSQL'],
+    customTech: '',
+    requirements: '',
+    risks: '',
+    create_kickoff_items: true,
+    create_kickoff_milestone: true,
+    create_kickoff_task: true,
+    create_kickoff_sprint: true
+  };
+
+  const methodologies = [
+    {
+      id: 'SCRUM',
+      name: 'Scrum',
+      category: 'Ágil',
+      badgeClass: 'green',
+      desc: 'Ciclos de trabajo estructurados en sprints (1-4 semanas), backlog priorizado, roles definidos y entregas incrementales continuas.',
+      tags: ['Sprints de 2 semanas', 'Backlog priorizado', 'Daily standup', 'Sprint review']
+    },
+    {
+      id: 'KANBAN',
+      name: 'Kanban',
+      category: 'Ágil',
+      badgeClass: 'green',
+      desc: 'Gestión visual del flujo de trabajo continuo, enfocado en limitar el trabajo en curso (WIP) y maximizar el tiempo de entrega.',
+      tags: ['Tablero visual', 'Límites WIP', 'Flujo continuo', 'Métricas de ciclo']
+    },
+    {
+      id: 'XP',
+      name: 'Extreme Programming (XP)',
+      category: 'Ágil',
+      badgeClass: 'green',
+      desc: 'Enfoque centrado en la excelencia técnica, programación en parejas, desarrollo guiado por pruebas (TDD) e integración continua.',
+      tags: ['TDD', 'Pair programming', 'CI/CD', 'Refactorización']
+    },
+    {
+      id: 'LEAN',
+      name: 'Lean Software',
+      category: 'Ágil',
+      badgeClass: 'green',
+      desc: 'Optimización del valor eliminando desperdicios de proceso, acelerando la retroalimentación y empoderando al equipo.',
+      tags: ['Eliminar desperdicio', 'Entrega rápida', 'Kaizen', 'Flujo de valor']
+    },
+    {
+      id: 'WATERFALL',
+      name: 'Waterfall (Cascada)',
+      category: 'Tradicional',
+      badgeClass: 'yellow',
+      desc: 'Modelo secuencial estructurado por fases rigurosas: requerimientos, arquitectura, desarrollo, pruebas y despliegue formal.',
+      tags: ['Secuencia estricta', 'Gantt formal', 'Aprobación por fases', 'Línea base']
+    },
+    {
+      id: 'HYBRID',
+      name: 'Metodología Híbrida',
+      category: 'Híbrido',
+      badgeClass: 'blue',
+      desc: 'Combina la gobernanza y control presupuestal de Waterfall con la flexibilidad de desarrollo iterativo en sprints ágiles.',
+      tags: ['Hitos globales', 'Sprints en desarrollo', 'Control de costos', 'Adaptabilidad']
+    },
+    {
+      id: 'AGILE',
+      name: 'Ágil Genérico',
+      category: 'Ágil',
+      badgeClass: 'green',
+      desc: 'Marco flexible orientado a la colaboración cercana con el cliente, adaptabilidad pragmática y software funcionando.',
+      tags: ['Iterativo', 'Historias de usuario', 'Adaptación', 'Feedback frecuente']
+    }
+  ];
+
+  const popularTech = [
+    'Node.js', 'React', 'TypeScript', 'PostgreSQL', 'Express',
+    'Docker', 'AWS', 'Python', 'Vue.js', 'Next.js',
+    'TailwindCSS', 'GraphQL', 'Redis', 'MongoDB', 'Flutter'
+  ];
+
+  function calculateDurationText(start, end) {
+    if (!start || !end) return 'Duración no definida';
+    const s = new Date(start);
+    const e = new Date(end);
+    const diffDays = Math.ceil((e - s) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return '<span style="color:var(--pink)">La fecha de fin no puede ser anterior al inicio</span>';
+    const weeks = (diffDays / 7).toFixed(1);
+    return `<strong>${diffDays} días</strong> (~${weeks} semanas de ejecución)`;
+  }
+
+  function renderWizard() {
+    overlay.innerHTML = `
+      <div class="project-wizard-panel">
+        <div class="project-wizard-head">
+          <div>
+            <div class="eyebrow"><img class="brand-logo-inline" src="/static/img/ht.png" alt="Haitani"> / Asistente de Proyectos</div>
+            <h2 style="margin:2px 0 0 0">Nuevo Proyecto</h2>
+          </div>
+          <button type="button" class="btn secondary mini close-wizard-btn" style="width:32px;height:32px;padding:0">${icon('close')}</button>
+        </div>
+
+        <div class="project-wizard-stepper">
+          <button type="button" class="wizard-step-tab ${wizardState.step === 1 ? 'active' : ''} ${wizardState.step > 1 ? 'completed' : ''}" data-step="1">
+            <span class="wizard-step-num">${wizardState.step > 1 ? icon('check') : '1'}</span>
+            <span class="wizard-step-title">Identidad</span>
+          </button>
+          <button type="button" class="wizard-step-tab ${wizardState.step === 2 ? 'active' : ''} ${wizardState.step > 2 ? 'completed' : ''}" data-step="2">
+            <span class="wizard-step-num">${wizardState.step > 2 ? icon('check') : '2'}</span>
+            <span class="wizard-step-title">Metodología</span>
+          </button>
+          <button type="button" class="wizard-step-tab ${wizardState.step === 3 ? 'active' : ''} ${wizardState.step > 3 ? 'completed' : ''}" data-step="3">
+            <span class="wizard-step-num">${wizardState.step > 3 ? icon('check') : '3'}</span>
+            <span class="wizard-step-title">Cronograma</span>
+          </button>
+          <button type="button" class="wizard-step-tab ${wizardState.step === 4 ? 'active' : ''} ${wizardState.step > 4 ? 'completed' : ''}" data-step="4">
+            <span class="wizard-step-num">${wizardState.step > 4 ? icon('check') : '4'}</span>
+            <span class="wizard-step-title">Equipo</span>
+          </button>
+          <button type="button" class="wizard-step-tab ${wizardState.step === 5 ? 'active' : ''} ${wizardState.step > 5 ? 'completed' : ''}" data-step="5">
+            <span class="wizard-step-num">${wizardState.step > 5 ? icon('check') : '5'}</span>
+            <span class="wizard-step-title">Alcance & Stack</span>
+          </button>
+          <button type="button" class="wizard-step-tab ${wizardState.step === 6 ? 'active' : ''}" data-step="6">
+            <span class="wizard-step-num">6</span>
+            <span class="wizard-step-title">Lanzamiento</span>
+          </button>
+        </div>
+
+        <div class="project-wizard-body">
+          ${renderStepContent()}
+        </div>
+
+        <div class="project-wizard-footer">
+          <div>
+            <button type="button" class="btn secondary close-wizard-btn">Cancelar</button>
+          </div>
+          <div style="display:flex;gap:var(--sp-2)">
+            ${wizardState.step > 1 ? `<button type="button" class="btn secondary" id="wizard-prev-btn">${icon('chevronLeft')} Atrás</button>` : ''}
+            ${wizardState.step < 6 ? `<button type="button" class="btn" id="wizard-next-btn">Siguiente ${icon('chevronRight')}</button>` : `<button type="button" class="btn" id="wizard-finish-btn">${icon('check')} Crear Proyecto e Iniciar</button>`}
+          </div>
+        </div>
+      </div>
+    `;
+
+    bindWizardEvents();
+  }
+
+  function renderStepContent() {
+    switch (wizardState.step) {
+      case 1:
+        return `
+          <div style="display:grid;gap:var(--sp-3)">
+            <div>
+              <h3 style="margin:0 0 4px 0">1. Identidad & Datos del Negocio</h3>
+              <p class="muted sub">Establece el nombre, cliente y objetivo estratégico del proyecto.</p>
+            </div>
+
+            <div class="form-grid">
+              <label class="full">Nombre del Proyecto *
+                <input class="input" id="wiz-name" value="${esc(wizardState.name)}" placeholder="Ej: Plataforma de Comercio Electrónico Sakura v2" required autofocus>
+              </label>
+
+              <label>Cliente / Sponsor
+                <input class="input" id="wiz-client" value="${esc(wizardState.client)}" placeholder="Ej: Sakura Coffee Retail / Dirección General">
+              </label>
+
+              <label>Prioridad Inicial
+                <select class="select" id="wiz-priority">
+                  <option value="low" ${wizardState.priority === 'low' ? 'selected' : ''}>Baja</option>
+                  <option value="medium" ${wizardState.priority === 'medium' ? 'selected' : ''}>Media</option>
+                  <option value="high" ${wizardState.priority === 'high' ? 'selected' : ''}>Alta</option>
+                  <option value="critical" ${wizardState.priority === 'critical' ? 'selected' : ''}>Crítica</option>
+                </select>
+              </label>
+
+              <label class="full">Objetivo Estratégico
+                <input class="input" id="wiz-objective" value="${esc(wizardState.objective)}" placeholder="¿Qué impacto o beneficio aportará este proyecto?">
+              </label>
+
+              <label class="full">Descripción Ejecutiva
+                <textarea class="textarea" id="wiz-desc" rows="3" placeholder="Resumen del contexto, necesidad del negocio y alcance principal">${esc(wizardState.description)}</textarea>
+              </label>
+
+              <label>Estado Inicial
+                <select class="select" id="wiz-status">
+                  <option value="planning" ${wizardState.status === 'planning' ? 'selected' : ''}>Planificado</option>
+                  <option value="in_progress" ${wizardState.status === 'in_progress' ? 'selected' : ''}>En progreso</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        `;
+
+      case 2:
+        const selectedMethod = methodologies.find(m => m.id === wizardState.methodology_id) || methodologies[0];
+        return `
+          <div style="display:grid;gap:var(--sp-3)">
+            <div>
+              <h3 style="margin:0 0 4px 0">2. Marco Metodológico & Gobernanza</h3>
+              <p class="muted sub">Selecciona la metodología que guiará el flujo de trabajo del equipo.</p>
+            </div>
+
+            <div class="methodology-cards-grid">
+              ${methodologies.map(m => `
+                <div class="methodology-card-picker ${wizardState.methodology_id === m.id ? 'selected' : ''}" data-method-id="${m.id}">
+                  <div class="methodology-card-head">
+                    <strong>${esc(m.name)}</strong>
+                    <span class="badge ${m.badgeClass}">${esc(m.category)}</span>
+                  </div>
+                  <p class="methodology-card-desc">${esc(m.desc)}</p>
+                  <div class="methodology-card-tags">
+                    ${m.tags.map(t => `<span class="methodology-card-tag">${esc(t)}</span>`).join('')}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="card p-3" style="background:var(--bg-glass);border-radius:var(--r-md);display:flex;align-items:center;gap:var(--sp-2)">
+              ${icon('info')}
+              <div class="sub">
+                Has seleccionado <strong>${esc(selectedMethod.name)}</strong>: Se habilitará la estructura de ${selectedMethod.tags.join(', ')}.
+              </div>
+            </div>
+          </div>
+        `;
+
+      case 3:
+        return `
+          <div style="display:grid;gap:var(--sp-3)">
+            <div>
+              <h3 style="margin:0 0 4px 0">3. Cronograma & Presupuesto Asignado</h3>
+              <p class="muted sub">Establece las fechas de inicio, entrega comprometida e inversión financiera.</p>
+            </div>
+
+            <div class="form-grid">
+              <label>Fecha de Inicio *
+                <input class="input" type="date" id="wiz-start-date" value="${esc(wizardState.start_date)}" required>
+              </label>
+
+              <label>Fecha Estimada de Finalización *
+                <input class="input" type="date" id="wiz-end-date" value="${esc(wizardState.end_date)}" required>
+              </label>
+
+              <div class="full card p-3" id="wiz-duration-card" style="background:var(--bg-glass);border-radius:var(--r-md)">
+                <div style="display:flex;align-items:center;gap:var(--sp-2);font-size:0.88rem">
+                  ${icon('clock')}
+                  <span>Duración estimada: <span id="wiz-duration-val">${calculateDurationText(wizardState.start_date, wizardState.end_date)}</span></span>
+                </div>
+              </div>
+
+              <label>Presupuesto Total ($ MXN)
+                <input class="input" type="number" step="0.01" id="wiz-budget" value="${esc(wizardState.budget)}" placeholder="100000.00">
+              </label>
+
+              <label>Repositorio de Código (GitHub / GitLab)
+                <input class="input" id="wiz-repo" value="${esc(wizardState.repository_url)}" placeholder="https://github.com/organizacion/repositorio">
+              </label>
+            </div>
+          </div>
+        `;
+
+      case 4:
+        return `
+          <div style="display:grid;gap:var(--sp-3)">
+            <div>
+              <h3 style="margin:0 0 4px 0">4. Asignación del Equipo & Liderazgo</h3>
+              <p class="muted sub">Elige al Project Manager responsable y selecciona a los integrantes iniciales.</p>
+            </div>
+
+            <div class="form-grid">
+              <label class="full">Project Manager / Responsable Principal *
+                <select class="select" id="wiz-pm">
+                  ${users.map(u => `<option value="${u.id}" ${wizardState.manager_id === u.id ? 'selected' : ''}>${esc(u.name)} (@${esc(u.username)}) - ${esc(u.role)}</option>`).join('')}
+                </select>
+              </label>
+            </div>
+
+            <div class="wizard-team-picker mt-2">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span class="sub" style="font-weight:600">Integrantes del Equipo (<span id="wiz-members-count">${wizardState.selectedMembers.size}</span> seleccionados)</span>
+                <div style="display:flex;gap:var(--sp-2)">
+                  <button type="button" class="btn secondary mini" id="wiz-select-all-members">Seleccionar todos</button>
+                  <button type="button" class="btn secondary mini" id="wiz-clear-all-members">Limpiar selección</button>
+                </div>
+              </div>
+
+              <div class="wizard-team-grid">
+                ${users.map(u => {
+                  const isChecked = wizardState.selectedMembers.has(u.id);
+                  return `
+                    <div class="wizard-team-member-item ${isChecked ? 'selected' : ''}" data-user-id="${u.id}">
+                      <input type="checkbox" ${isChecked ? 'checked' : ''} style="pointer-events:none">
+                      ${avatarMarkup(u, 'avatar-chip')}
+                      <div class="wizard-team-member-info">
+                        <strong>${esc(u.name)}</strong>
+                        <small>@${esc(u.username)} · ${esc(u.role)}</small>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+
+      case 5:
+        return `
+          <div style="display:grid;gap:var(--sp-3)">
+            <div>
+              <h3 style="margin:0 0 4px 0">5. Alcance, Stack Tecnológico & Riesgos</h3>
+              <p class="muted sub">Define los límites del proyecto, herramientas de ingeniería y factores de riesgo.</p>
+            </div>
+
+            <div class="form-grid">
+              <label class="full">Alcance Detallado (Scope)
+                <textarea class="textarea" id="wiz-scope" rows="2" placeholder="Entregables comprometidos, límites y criterios de aceptación">${esc(wizardState.scope)}</textarea>
+              </label>
+
+              <div class="full">
+                <label>Stack Tecnológico & Herramientas</label>
+                <div class="tech-chips-selector">
+                  ${popularTech.map(t => {
+                    const active = wizardState.technologies.includes(t);
+                    return `<button type="button" class="tech-chip-toggle ${active ? 'active' : ''}" data-tech="${esc(t)}">${esc(t)}</button>`;
+                  }).join('')}
+                </div>
+                <input class="input mt-1" id="wiz-tech-custom" value="${esc(wizardState.customTech)}" placeholder="Otras tecnologías separadas por coma (ej. Kafka, Elasticsearch, Swift)">
+              </div>
+
+              <label class="full">Requerimientos Principales
+                <textarea class="textarea" id="wiz-requirements" rows="2" placeholder="Requerimientos funcionales y no funcionales críticos">${esc(wizardState.requirements)}</textarea>
+              </label>
+
+              <label class="full">Riesgos Identificados Iniciales
+                <textarea class="textarea" id="wiz-risks" rows="2" placeholder="Posibles impedimentos, dependencias externas o riesgos técnicos">${esc(wizardState.risks)}</textarea>
+              </label>
+            </div>
+          </div>
+        `;
+
+      case 6:
+        const pmUser = users.find(u => u.id === wizardState.manager_id);
+        const selMethod = methodologies.find(m => m.id === wizardState.methodology_id) || methodologies[0];
+        const allTech = [...wizardState.technologies];
+        if (wizardState.customTech) {
+          wizardState.customTech.split(',').map(t => t.trim()).filter(Boolean).forEach(t => {
+            if (!allTech.includes(t)) allTech.push(t);
+          });
+        }
+
+        return `
+          <div style="display:grid;gap:var(--sp-3)">
+            <div>
+              <h3 style="margin:0 0 4px 0">6. Lanzamiento & Kits de Arranque</h3>
+              <p class="muted sub">Revisa la ficha consolidada y configura los elementos iniciales de arranque.</p>
+            </div>
+
+            <div class="project-preview-card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                <div>
+                  <h3 style="margin:0 0 4px 0;font-size:1.2rem">${esc(wizardState.name || 'Sin título')}</h3>
+                  <div class="muted sub">${icon('briefcase')} Cliente: ${esc(wizardState.client || 'Interno / Propio')}</div>
+                </div>
+                <div style="display:flex;gap:4px">
+                  <span class="badge green">${esc(selMethod.name)}</span>
+                  <span class="badge yellow">${esc(wizardState.priority.toUpperCase())}</span>
+                </div>
+              </div>
+
+              <div class="project-preview-grid mt-2">
+                <div class="project-preview-field">
+                  <small>Líder (Project Manager)</small>
+                  <strong>${esc(pmUser?.name || 'Por asignar')}</strong>
+                </div>
+                <div class="project-preview-field">
+                  <small>Fechas de Ejecución</small>
+                  <strong>${esc(wizardState.start_date)} &rarr; ${esc(wizardState.end_date)}</strong>
+                </div>
+                <div class="project-preview-field">
+                  <small>Presupuesto</small>
+                  <strong>${formatProjectCurrency(wizardState.budget)}</strong>
+                </div>
+                <div class="project-preview-field">
+                  <small>Equipo Asignado</small>
+                  <strong>${wizardState.selectedMembers.size} integrantes</strong>
+                </div>
+              </div>
+
+              ${allTech.length ? `
+                <div class="mt-2">
+                  <small class="muted" style="display:block;margin-bottom:4px">Stack Tecnológico</small>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap">
+                    ${allTech.map(t => `<span class="badge" style="background:var(--panel-2);color:var(--ink)">${esc(t)}</span>`).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="kickoff-kit-box mt-3">
+              <strong style="font-size:0.95rem">Kit de Arranque Automático (Kickoff)</strong>
+              <p class="muted sub" style="margin:0">Se crearán las siguientes bases operativas para acelerar la puesta en marcha:</p>
+
+              <label class="kickoff-kit-option">
+                <input type="checkbox" id="wiz-kit-kickoff" ${wizardState.create_kickoff_items ? 'checked' : ''}>
+                <div class="kickoff-kit-option-text">
+                  <strong>Hito inicial de Kickoff y Alineación</strong>
+                  <small>Establece la primera entrega formal de bases arquitectónicas y acuerdos con el cliente.</small>
+                </div>
+              </label>
+
+              <label class="kickoff-kit-option">
+                <input type="checkbox" id="wiz-kit-task" checked disabled>
+                <div class="kickoff-kit-option-text">
+                  <strong>Tarea inicial de arranque técnico</strong>
+                  <small>Asignada al Project Manager para la configuración de entornos y kickoff.</small>
+                </div>
+              </label>
+
+              ${['SCRUM', 'HYBRID', 'AGILE'].includes(wizardState.methodology_id) ? `
+                <label class="kickoff-kit-option">
+                  <input type="checkbox" id="wiz-kit-sprint" checked disabled>
+                  <div class="kickoff-kit-option-text">
+                    <strong>Sprint 1 - Fundamentos</strong>
+                    <small>Ciclo de 2 semanas planificado automáticamente para el primer incremento de valor.</small>
+                  </div>
+                </label>
+              ` : ''}
+            </div>
+          </div>
+        `;
+    }
+  }
+
+  function readStepInputs() {
+    switch (wizardState.step) {
+      case 1:
+        wizardState.name = document.querySelector('#wiz-name')?.value.trim() || '';
+        wizardState.client = document.querySelector('#wiz-client')?.value.trim() || '';
+        wizardState.priority = document.querySelector('#wiz-priority')?.value || 'medium';
+        wizardState.objective = document.querySelector('#wiz-objective')?.value.trim() || '';
+        wizardState.description = document.querySelector('#wiz-desc')?.value.trim() || '';
+        wizardState.status = document.querySelector('#wiz-status')?.value || 'planning';
+        break;
+      case 3:
+        wizardState.start_date = document.querySelector('#wiz-start-date')?.value || '';
+        wizardState.end_date = document.querySelector('#wiz-end-date')?.value || '';
+        wizardState.budget = document.querySelector('#wiz-budget')?.value || '0';
+        wizardState.repository_url = document.querySelector('#wiz-repo')?.value.trim() || '';
+        break;
+      case 4:
+        wizardState.manager_id = Number(document.querySelector('#wiz-pm')?.value) || state.user.id;
+        break;
+      case 5:
+        wizardState.scope = document.querySelector('#wiz-scope')?.value.trim() || '';
+        wizardState.customTech = document.querySelector('#wiz-tech-custom')?.value.trim() || '';
+        wizardState.requirements = document.querySelector('#wiz-requirements')?.value.trim() || '';
+        wizardState.risks = document.querySelector('#wiz-risks')?.value.trim() || '';
+        break;
+      case 6:
+        wizardState.create_kickoff_items = Boolean(document.querySelector('#wiz-kit-kickoff')?.checked);
+        break;
+    }
+  }
+
+  function bindWizardEvents() {
+    overlay.querySelectorAll('.close-wizard-btn').forEach(btn => {
+      btn.onclick = () => overlay.remove();
+    });
+
+    overlay.querySelectorAll('.wizard-step-tab').forEach(tab => {
+      tab.onclick = () => {
+        const targetStep = Number(tab.dataset.step);
+        if (targetStep < wizardState.step) {
+          readStepInputs();
+          wizardState.step = targetStep;
+          renderWizard();
+        }
+      };
+    });
+
+    // Step 2: Methodology card selector
+    overlay.querySelectorAll('.methodology-card-picker').forEach(card => {
+      card.onclick = () => {
+        wizardState.methodology_id = card.dataset.methodId;
+        renderWizard();
+      };
+    });
+
+    // Step 3: Dates live duration
+    const startDateInput = overlay.querySelector('#wiz-start-date');
+    const endDateInput = overlay.querySelector('#wiz-end-date');
+    const durationVal = overlay.querySelector('#wiz-duration-val');
+    const updateDur = () => {
+      if (startDateInput && endDateInput && durationVal) {
+        durationVal.innerHTML = calculateDurationText(startDateInput.value, endDateInput.value);
+      }
+    };
+    startDateInput?.addEventListener('input', updateDur);
+    endDateInput?.addEventListener('input', updateDur);
+
+    // Step 4: Members selection
+    overlay.querySelectorAll('.wizard-team-member-item').forEach(item => {
+      item.onclick = () => {
+        const uId = Number(item.dataset.userId);
+        if (wizardState.selectedMembers.has(uId)) {
+          wizardState.selectedMembers.delete(uId);
+        } else {
+          wizardState.selectedMembers.add(uId);
+        }
+        renderWizard();
+      };
+    });
+
+    overlay.querySelector('#wiz-select-all-members')?.addEventListener('click', () => {
+      users.forEach(u => wizardState.selectedMembers.add(u.id));
+      renderWizard();
+    });
+
+    overlay.querySelector('#wiz-clear-all-members')?.addEventListener('click', () => {
+      wizardState.selectedMembers.clear();
+      wizardState.selectedMembers.add(state.user.id);
+      renderWizard();
+    });
+
+    // Step 5: Tech chips
+    overlay.querySelectorAll('.tech-chip-toggle').forEach(chip => {
+      chip.onclick = () => {
+        const tech = chip.dataset.tech;
+        if (wizardState.technologies.includes(tech)) {
+          wizardState.technologies = wizardState.technologies.filter(t => t !== tech);
+        } else {
+          wizardState.technologies.push(tech);
+        }
+        chip.classList.toggle('active');
+      };
+    });
+
+    // Nav buttons
+    overlay.querySelector('#wizard-prev-btn')?.addEventListener('click', () => {
+      readStepInputs();
+      wizardState.step = Math.max(1, wizardState.step - 1);
+      renderWizard();
+    });
+
+    overlay.querySelector('#wizard-next-btn')?.addEventListener('click', () => {
+      readStepInputs();
+      if (wizardState.step === 1 && !wizardState.name) {
+        notify('El nombre del proyecto es obligatorio.');
+        document.querySelector('#wiz-name')?.focus();
+        return;
+      }
+      wizardState.step = Math.min(6, wizardState.step + 1);
+      renderWizard();
+    });
+
+    // Finish & Create
+    overlay.querySelector('#wizard-finish-btn')?.addEventListener('click', async () => {
+      readStepInputs();
+      const finishBtn = overlay.querySelector('#wizard-finish-btn');
+      if (finishBtn) {
+        finishBtn.disabled = true;
+        finishBtn.innerHTML = `${icon('progress')} Creando proyecto...`;
+      }
+
+      const allTech = [...wizardState.technologies];
+      if (wizardState.customTech) {
+        wizardState.customTech.split(',').map(t => t.trim()).filter(Boolean).forEach(t => {
+          if (!allTech.includes(t)) allTech.push(t);
+        });
+      }
+
+      const payload = {
+        name: wizardState.name,
+        client: wizardState.client,
+        objective: wizardState.objective,
+        description: wizardState.description,
+        status: wizardState.status,
+        priority: wizardState.priority,
+        methodology_id: wizardState.methodology_id,
+        start_date: wizardState.start_date || null,
+        end_date: wizardState.end_date || null,
+        budget: Number(wizardState.budget) || 0,
+        repository_url: wizardState.repository_url || null,
+        manager_id: wizardState.manager_id,
+        scope: wizardState.scope,
+        technologies: allTech.join(', '),
+        requirements: wizardState.requirements,
+        risks: wizardState.risks,
+        initial_members: Array.from(wizardState.selectedMembers),
+        create_kickoff_items: wizardState.create_kickoff_items
+      };
+
+      try {
+        await api('/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        notify('Proyecto creado e inicializado exitosamente.');
+        overlay.remove();
+        if (onCreated) onCreated();
+      } catch (err) {
+        notify(err.message);
+        if (finishBtn) {
+          finishBtn.disabled = false;
+          finishBtn.innerHTML = `${icon('check')} Crear Proyecto e Iniciar`;
+        }
+      }
+    });
+  }
+
+  document.body.appendChild(overlay);
+  renderWizard();
+}
+
+/* ==========================================================================
+   MODAL DE EDICIÓN DE PROYECTO
+   ========================================================================== */
+
+function openProjectEditModal(project, users = [], onSaved = null) {
+  document.querySelectorAll('.project-edit-modal-overlay').forEach(n => n.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'project-wizard-overlay project-edit-modal-overlay';
+
+  const methods = ['AGILE', 'SCRUM', 'KANBAN', 'XP', 'LEAN', 'WATERFALL', 'HYBRID'];
+  const statuses = [
+    ['planning', 'Planificado'],
+    ['in_progress', 'En progreso'],
+    ['paused', 'Pausado'],
+    ['completed', 'Completado']
+  ];
+  const priorities = [
+    ['low', 'Baja'],
+    ['medium', 'Media'],
+    ['high', 'Alta'],
+    ['critical', 'Crítica']
+  ];
+
+  overlay.innerHTML = `
+    <div class="project-wizard-panel" style="max-width:720px">
+      <div class="project-wizard-head">
+        <div>
+          <div class="eyebrow"><img class="brand-logo-inline" src="/static/img/ht.png" alt="Haitani"> / Configuración de Proyecto</div>
+          <h2 style="margin:2px 0 0 0">Editar: ${esc(project.name)}</h2>
+        </div>
+        <button type="button" class="btn secondary mini close-edit-btn" style="width:32px;height:32px;padding:0">${icon('close')}</button>
+      </div>
+
+      <form id="project-edit-form" class="project-wizard-body form-grid">
+        <label class="full">Nombre del Proyecto *
+          <input class="input" name="name" value="${esc(project.name || '')}" required>
+        </label>
+
+        <label>Cliente / Sponsor
+          <input class="input" name="client" value="${esc(project.client || '')}" placeholder="Empresa o sponsor">
+        </label>
+
+        <label>Metodología *
+          <select class="select" name="methodology_id" required>
+            ${methods.map(m => `<option value="${m}" ${project.methodology_id === m ? 'selected' : ''}>${m}</option>`).join('')}
+          </select>
+        </label>
+
+        <label>Estado
+          <select class="select" name="status">
+            ${statuses.map(([v, l]) => `<option value="${v}" ${project.status === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </label>
+
+        <label>Prioridad
+          <select class="select" name="priority">
+            ${priorities.map(([v, l]) => `<option value="${v}" ${project.priority === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </label>
+
+        <label>Presupuesto ($ MXN)
+          <input class="input" type="number" step="0.01" name="budget" value="${esc(project.budget || '0')}">
+        </label>
+
+        <label>Project Manager / Responsable
+          <select class="select" name="manager_id">
+            <option value="">Sin asignar</option>
+            ${users.map(u => `<option value="${u.id}" ${project.manager_id === u.id ? 'selected' : ''}>${esc(u.name)} (@${esc(u.username)})</option>`).join('')}
+          </select>
+        </label>
+
+        <label>Fecha de Inicio
+          <input class="input" type="date" name="start_date" value="${esc((project.start_date || '').slice(0, 10))}">
+        </label>
+
+        <label>Fecha de Finalización
+          <input class="input" type="date" name="end_date" value="${esc((project.end_date || '').slice(0, 10))}">
+        </label>
+
+        <label class="full">Repositorio de Código
+          <input class="input" name="repository_url" value="${esc(project.repository_url || '')}" placeholder="https://github.com/...">
+        </label>
+
+        <label class="full">Objetivo Estratégico
+          <input class="input" name="objective" value="${esc(project.objective || '')}" placeholder="Objetivo central">
+        </label>
+
+        <label class="full">Descripción
+          <textarea class="textarea" name="description" rows="2">${esc(project.description || '')}</textarea>
+        </label>
+
+        <label class="full">Alcance (Scope)
+          <textarea class="textarea" name="scope" rows="2">${esc(project.scope || '')}</textarea>
+        </label>
+
+        <label class="full">Stack y Tecnologías
+          <input class="input" name="technologies" value="${esc(project.technologies || '')}" placeholder="Node.js, React, Docker...">
+        </label>
+
+        <label class="full">Riesgos Identificados
+          <textarea class="textarea" name="risks" rows="2">${esc(project.risks || '')}</textarea>
+        </label>
+
+        <label class="full">Requerimientos Principales
+          <textarea class="textarea" name="requirements" rows="2">${esc(project.requirements || '')}</textarea>
+        </label>
+      </form>
+
+      <div class="project-wizard-footer">
+        <button type="button" class="btn secondary close-edit-btn">Cancelar</button>
+        <button type="submit" form="project-edit-form" class="btn">${icon('check')} Guardar Cambios</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelectorAll('.close-edit-btn').forEach(btn => {
+    btn.onclick = () => overlay.remove();
+  });
+
+  const form = overlay.querySelector('#project-edit-form');
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const values = Object.fromEntries(new FormData(form));
+    values.budget = Number(values.budget) || 0;
+    values.manager_id = values.manager_id ? Number(values.manager_id) : null;
+    try {
+      await api(`/projects/${project.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values)
+      });
+      notify('Proyecto actualizado exitosamente.');
+      overlay.remove();
+      if (onSaved) onSaved();
+    } catch (err) {
+      notify(err.message);
+    }
+  };
+}
+
+/* ==========================================================================
+   MODAL DE GESTIÓN DEL EQUIPO DEL PROYECTO
+   ========================================================================== */
+
+async function openProjectTeamModal(project, allUsers = [], onUpdated = null) {
+  document.querySelectorAll('.project-team-modal-overlay').forEach(n => n.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'project-wizard-overlay project-team-modal-overlay';
+
+  let currentMembers = [];
+  try {
+    currentMembers = await api(`/projects/${project.id}/members`);
+  } catch (err) {
+    notify('Error al obtener integrantes: ' + err.message);
+    return;
+  }
+
+  function renderTeamContent() {
+    const memberIds = new Set(currentMembers.map(m => m.id));
+    const availableUsers = allUsers.filter(u => !memberIds.has(u.id));
+
+    overlay.innerHTML = `
+      <div class="project-team-modal-panel">
+        <div class="project-wizard-head">
+          <div>
+            <div class="eyebrow"><img class="brand-logo-inline" src="/static/img/ht.png" alt="Haitani"> / Equipo Asignado</div>
+            <h2 style="margin:2px 0 0 0">${esc(project.name)}</h2>
+          </div>
+          <button type="button" class="btn secondary mini close-team-btn" style="width:32px;height:32px;padding:0">${icon('close')}</button>
+        </div>
+
+        <div class="project-wizard-body" style="min-height:300px">
+          ${availableUsers.length ? `
+            <div class="card p-3 mb-4" style="background:var(--bg-glass);border-radius:var(--r-md)">
+              <strong style="display:block;margin-bottom:6px;font-size:0.9rem">Añadir integrante al proyecto</strong>
+              <div style="display:flex;gap:var(--sp-2)">
+                <select class="select" id="new-member-select" style="flex:1">
+                  ${availableUsers.map(u => `<option value="${u.id}">${esc(u.name)} (@${esc(u.username)}) · ${esc(u.role)}</option>`).join('')}
+                </select>
+                <button class="btn" id="add-member-btn">${icon('plus')} Añadir</button>
+              </div>
+            </div>
+          ` : '<div class="muted sub mb-4">Todos los usuarios de tu organización pertenecen a este proyecto.</div>'}
+
+          <div>
+            <strong style="font-size:0.95rem;display:block;margin-bottom:var(--sp-2)">Integrantes actuales (${currentMembers.length})</strong>
+            <div style="display:grid;gap:var(--sp-2)">
+              ${currentMembers.map(m => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-glass);border:1px solid var(--line);border-radius:var(--r-md)">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    ${avatarMarkup(m, 'avatar-chip')}
+                    <div>
+                      <strong>${esc(m.name)}</strong>
+                      <div class="muted sub">@${esc(m.username)} · ${esc(m.email || '')}</div>
+                    </div>
+                  </div>
+                  <div>
+                    ${m.id === project.manager_id ? '<span class="badge green">PM</span>' : ''}
+                    <button class="btn secondary mini remove-member-btn" data-user-id="${m.id}" style="color:var(--pink)" title="Remover del proyecto">${icon('trash')}</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+
+        <div class="project-wizard-footer">
+          <button type="button" class="btn secondary close-team-btn">Cerrar</button>
+        </div>
+      </div>
+    `;
+
+    overlay.querySelectorAll('.close-team-btn').forEach(btn => {
+      btn.onclick = () => overlay.remove();
+    });
+
+    overlay.querySelector('#add-member-btn')?.addEventListener('click', async () => {
+      const select = overlay.querySelector('#new-member-select');
+      const userId = Number(select?.value);
+      if (!userId) return;
+      try {
+        await api(`/projects/${project.id}/members`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId })
+        });
+        notify('Miembro añadido al proyecto.');
+        currentMembers = await api(`/projects/${project.id}/members`);
+        renderTeamContent();
+        if (onUpdated) onUpdated();
+      } catch (err) {
+        notify(err.message);
+      }
+    });
+
+    overlay.querySelectorAll('.remove-member-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const uId = btn.dataset.userId;
+        if (!confirm('¿Deseas retirar a este integrante del proyecto?')) return;
+        try {
+          await api(`/projects/${project.id}/members/${uId}`, { method: 'DELETE' });
+          notify('Miembro retirado del proyecto.');
+          currentMembers = await api(`/projects/${project.id}/members`);
+          renderTeamContent();
+          if (onUpdated) onUpdated();
+        } catch (err) {
+          notify(err.message);
+        }
+      });
+    });
+  }
+
+  document.body.appendChild(overlay);
+  renderTeamContent();
+}
+
+/* ==========================================================================
+   MODAL DE CONFIRMACIÓN PARA ELIMINAR PROYECTO
+   ========================================================================== */
+
+function confirmDeleteProject(project, onDeleted = null) {
+  document.querySelectorAll('.project-delete-modal-overlay').forEach(n => n.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'project-wizard-overlay project-delete-modal-overlay';
+
+  overlay.innerHTML = `
+    <div class="project-wizard-panel" style="max-width:480px">
+      <div class="project-wizard-head">
+        <h3 style="margin:0;color:var(--pink)">${icon('trash')} Eliminar Proyecto</h3>
+        <button type="button" class="btn secondary mini close-del-btn" style="width:32px;height:32px;padding:0">${icon('close')}</button>
+      </div>
+
+      <div class="project-wizard-body" style="min-height:auto;padding:var(--sp-4)">
+        <p style="margin:0;line-height:1.5">
+          ¿Estás seguro de que deseas eliminar permanentemente el proyecto <strong>${esc(project.name)}</strong>?
+        </p>
+        <p class="muted sub mt-2">
+          Esta acción eliminará todas las tareas, hitos, sprints y asignaciones asociadas al proyecto de manera irreversible.
+        </p>
+      </div>
+
+      <div class="project-wizard-footer">
+        <button type="button" class="btn secondary close-del-btn">Cancelar</button>
+        <button type="button" class="btn" id="confirm-delete-project-btn" style="background:#ef4444;border-color:#ef4444;color:#fff">${icon('trash')} Eliminar Definitivamente</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelectorAll('.close-del-btn').forEach(btn => {
+    btn.onclick = () => overlay.remove();
+  });
+
+  overlay.querySelector('#confirm-delete-project-btn')?.addEventListener('click', async () => {
+    const btn = overlay.querySelector('#confirm-delete-project-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `${icon('progress')} Eliminando...`;
+    }
+    try {
+      await api(`/projects/${project.id}`, { method: 'DELETE' });
+      notify('Proyecto eliminado correctamente.');
+      overlay.remove();
+      if (onDeleted) onDeleted();
+    } catch (err) {
+      notify(err.message);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `${icon('trash')} Eliminar Definitivamente`;
+      }
     }
   });
 }

@@ -25,7 +25,22 @@ function projectId(req, res) {
 const PROJECT_PROGRESS_SQL = `
   (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id) AS tasks_total,
   (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id AND t.status = 'completada') AS tasks_done,
-  (SELECT COALESCE(ROUND(AVG(CASE WHEN t.status = 'completada' THEN 100 ELSE LEAST(100, GREATEST(0, COALESCE(t.progress, 0))) END))::integer, 0) FROM tasks t WHERE t.project_id = projects.id) AS tasks_progress`;
+  (SELECT COALESCE(ROUND(AVG(CASE WHEN t.status = 'completada' THEN 100 ELSE LEAST(100, GREATEST(0, COALESCE(t.progress, 0))) END))::integer, 0) FROM tasks t WHERE t.project_id = projects.id) AS tasks_progress,
+  (SELECT COUNT(*)::integer FROM project_members pm WHERE pm.project_id = projects.id) AS members_count,
+  (SELECT COUNT(*)::integer FROM project_milestones m WHERE m.project_id = projects.id) AS milestones_count,
+  (SELECT COUNT(*)::integer FROM sprints s WHERE s.project_id = projects.id) AS sprints_count,
+  (SELECT COUNT(*)::integer FROM project_risks r WHERE r.project_id = projects.id AND r.status = 'open') AS open_risks_count,
+  COALESCE((
+    SELECT json_agg(json_build_object('id', u.id, 'name', u.name, 'username', u.username, 'profile_photo', u.profile_photo))
+    FROM (
+      SELECT u.id, u.name, u.username, u.profile_photo
+      FROM project_members pm
+      JOIN users u ON u.id = pm.user_id
+      WHERE pm.project_id = projects.id
+      ORDER BY pm.created_at ASC
+      LIMIT 6
+    ) u
+  ), '[]'::json) AS members`;
 
 async function list(req, res) {
   res.json(await req.app.locals.database.prepare(`SELECT projects.*, users.name AS manager_name, ${PROJECT_PROGRESS_SQL} FROM projects LEFT JOIN users ON users.id = projects.manager_id WHERE projects.organization_id = ? ORDER BY projects.created_at DESC`).all(req.session.user.organization_id));
@@ -40,7 +55,7 @@ async function get(req, res) {
 }
 
 async function create(req, res) {
-  const { name, description = '', objective, scope, client, manager_id, start_date, end_date, status = 'planning', priority = 'medium', budget = 0, repository_url, technologies, risks, requirements } = req.body;
+  const { name, description = '', objective, scope, client, manager_id, start_date, end_date, status = 'planning', priority = 'medium', budget = 0, repository_url, technologies, risks, requirements, initial_members, create_kickoff_items } = req.body;
   const methodologyId = methodology(req.body.methodology_id);
 
   if (!String(name || '').trim()) return res.status(400).json({ error: 'El nombre del proyecto es obligatorio.' });
@@ -73,19 +88,83 @@ async function create(req, res) {
     requirements || null
   );
 
-  const externalRef = `haitani-proj-${result.lastInsertRowid}`;
-  await database.prepare('UPDATE projects SET sanzu_external_ref = ? WHERE id = ? AND organization_id = ?').run(externalRef, result.lastInsertRowid, req.session.user.organization_id);
-  await database.prepare('INSERT INTO project_members (project_id, user_id, organization_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING').run(result.lastInsertRowid, req.session.user.id, req.session.user.organization_id);
+  const newId = result.lastInsertRowid;
+  const externalRef = `haitani-proj-${newId}`;
+  await database.prepare('UPDATE projects SET sanzu_external_ref = ? WHERE id = ? AND organization_id = ?').run(externalRef, newId, req.session.user.organization_id);
+  
+  // Agregar creador y responsable como miembros iniciales
+  await database.prepare('INSERT INTO project_members (project_id, user_id, organization_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING').run(newId, req.session.user.id, req.session.user.organization_id);
   if (manager_id && manager_id !== req.session.user.id) {
-    await database.prepare('INSERT INTO project_members (project_id, user_id, organization_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING').run(result.lastInsertRowid, manager_id, req.session.user.organization_id);
+    await database.prepare('INSERT INTO project_members (project_id, user_id, organization_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING').run(newId, manager_id, req.session.user.organization_id);
+  }
+
+  // Agregar miembros adicionales seleccionados en el asistente visual
+  if (Array.isArray(initial_members) && initial_members.length) {
+    for (const memId of initial_members) {
+      const numId = Number(memId);
+      if (Number.isInteger(numId) && numId > 0 && numId !== req.session.user.id && numId !== manager_id) {
+        await database.prepare('INSERT INTO project_members (project_id, user_id, organization_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING').run(newId, numId, req.session.user.organization_id).catch(() => {});
+      }
+    }
+  }
+
+  // Generar kit de arranque inicial si se solicitó en el creador visual
+  if (create_kickoff_items) {
+    const kickoffOwner = manager_id || req.session.user.id;
+    const taskStartDate = start_date || new Date().toISOString().slice(0, 10);
+    const taskDueDate = end_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    // Tarea inicial de kickoff
+    await database.prepare(`
+      INSERT INTO tasks (organization_id, project_id, title, description, assigned_to, creator_id, status, priority, start_date, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, 'pendiente', 'alta', ?, ?)
+    `).run(
+      req.session.user.organization_id,
+      newId,
+      'Reunión de kickoff y alineación de objetivos',
+      'Definición de alcance, arquitectura técnica y asignación de responsabilidades.',
+      kickoffOwner,
+      req.session.user.id,
+      taskStartDate,
+      taskDueDate
+    ).catch(() => {});
+
+    // Hito inicial de arranque
+    await database.prepare(`
+      INSERT INTO project_milestones (organization_id, project_id, title, description, due_date, status, created_by)
+      VALUES (?, ?, ?, ?, ?, 'pendiente', ?)
+    `).run(
+      req.session.user.organization_id,
+      newId,
+      'Kickoff y Aprobación de Arquitectura',
+      'Alineación formal del equipo y entrega de bases técnicas del proyecto.',
+      taskDueDate,
+      req.session.user.id
+    ).catch(() => {});
+
+    // Sprint 1 si la metodología es ágil/iterativa
+    if (['SCRUM', 'HYBRID', 'AGILE'].includes(methodologyId)) {
+      const sprintEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      await database.prepare(`
+        INSERT INTO sprints (organization_id, project_id, name, goal, start_date, end_date, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'planificado')
+      `).run(
+        req.session.user.organization_id,
+        newId,
+        'Sprint 1 - Fundamentos',
+        'Configuración inicial de entornos, arquitectura base y primer incremento de valor.',
+        taskStartDate,
+        sprintEndDate
+      ).catch(() => {});
+    }
   }
 
   await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(
-    req.session.user.organization_id, req.session.user.id, result.lastInsertRowid, 'project.created', `Proyecto creado: ${name.trim()}`
+    req.session.user.organization_id, req.session.user.id, newId, 'project.created', `Proyecto creado: ${name.trim()}`
   );
 
-  syncProject(database, result.lastInsertRowid, req.session.user.organization_id);
-  res.status(201).json({ id: result.lastInsertRowid, sanzu_external_ref: externalRef });
+  syncProject(database, newId, req.session.user.organization_id);
+  res.status(201).json({ id: newId, sanzu_external_ref: externalRef });
 }
 
 async function update(req, res) {
@@ -334,11 +413,53 @@ async function intelligence(req, res) {
   });
 }
 
+async function deleteProject(req, res) {
+  const id = projectId(req, res);
+  if (!id) return;
+  const database = req.app.locals.database;
+  const orgId = req.session.user.organization_id;
+
+  const project = await database.prepare('SELECT id, name FROM projects WHERE id = ? AND organization_id = ?').get(id, orgId);
+  if (!project) return res.status(404).json({ error: 'El proyecto no existe.' });
+
+  await database.prepare('DELETE FROM projects WHERE id = ? AND organization_id = ?').run(id, orgId);
+  await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(
+    orgId, req.session.user.id, null, 'project.deleted', `Proyecto eliminado: ${project.name}`
+  ).catch(() => {});
+
+  res.json({ ok: true, message: 'Proyecto eliminado correctamente.' });
+}
+
+async function updateStatus(req, res) {
+  const id = projectId(req, res);
+  if (!id) return;
+  const { status } = req.body;
+  const allowed = ['planning', 'planificado', 'in_progress', 'en_progreso', 'completed', 'completado', 'paused', 'pausado', 'canceled', 'cancelado'];
+  if (!status || !allowed.includes(status)) {
+    return res.status(400).json({ error: 'Estado de proyecto no válido.' });
+  }
+
+  const database = req.app.locals.database;
+  const orgId = req.session.user.organization_id;
+  const project = await database.prepare('SELECT id, name FROM projects WHERE id = ? AND organization_id = ?').get(id, orgId);
+  if (!project) return res.status(404).json({ error: 'El proyecto no existe.' });
+
+  await database.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?').run(status, id, orgId);
+  await database.prepare('INSERT INTO activities (organization_id, user_id, project_id, action, description) VALUES (?, ?, ?, ?, ?)').run(
+    orgId, req.session.user.id, id, 'project.status_updated', `Estado del proyecto ${project.name} actualizado a: ${status}`
+  ).catch(() => {});
+
+  syncProject(database, id, orgId);
+  res.json({ ok: true, status });
+}
+
 module.exports = {
   list,
   get,
   create,
   update,
+  deleteProject,
+  updateStatus,
   members,
   addMember,
   removeMember,
