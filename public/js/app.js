@@ -77,6 +77,12 @@ const SVG_ICONS = {
   bookOpen: '<path d="M2.5 4.5A2.5 2.5 0 0 1 5 2h4.5v15H5a2.5 2.5 0 0 0-2.5 2.5V4.5Zm15 0A2.5 2.5 0 0 0 15 2h-4.5v15H15a2.5 2.5 0 0 1 2.5 2.5V4.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
   alertTriangle: '<path d="M10 3.2 2.8 15.8a1.2 1.2 0 0 0 1 1.8h12.4a1.2 1.2 0 0 0 1-1.8L10 3.2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><line x1="10" y1="8" x2="10" y2="11.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="10" cy="14.2" r="0.9" fill="currentColor"/>',
   pieChart: '<circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.3"/><path d="M10 2.5V10l5.3 5.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  phone: '<path d="M4 4.5a2.5 2.5 0 0 1 2.5-2.5h1.2a1 1 0 0 1 1 .8l.8 3.2a1 1 0 0 1-.3.9L7.8 8.3a11.5 11.5 0 0 0 4.4 4.4l1.4-1.4a1 1 0 0 1 .9-.3l3.2.8a1 1 0 0 1 .8 1v1.2a2.5 2.5 0 0 1-2.5 2.5h-.5C8.8 16.5 3.5 11.2 3.5 4.5v-.5a.5.5 0 0 1 .5-.5Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+  video: '<rect x="2.5" y="4.5" width="10.5" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M13 8.5l4-2.5v8l-4-2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+  smile: '<circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="8.5" r="1" fill="currentColor"/><circle cx="12.5" cy="8.5" r="1" fill="currentColor"/><path d="M6.5 12a4 4 0 0 0 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  chat: '<path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5H7.5l-3.8 2.8a.5.5 0 0 1-.7-.4V6A1.5 1.5 0 0 1 4 4.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  arrowLeft: '<path d="M13.5 4.5L8 10l5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+  arrowRight: '<path d="M6.5 4.5L12 10l-5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
 };
 function icon(name, className = '') { return `<span class="icon-svg ${className}" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">${SVG_ICONS[name] || ''}</svg></span>`; }
 function paginateItems(items, pageKey, pageSize = 8) {
@@ -2645,11 +2651,13 @@ function renderActiveChatPanel() {
     <!-- Barra de búsqueda en chat -->
     <div class="inchat-search-bar" id="inchat-search-bar" hidden>
       ${icon('search')}
-      <input type="text" id="inchat-search-input" placeholder="Buscar palabras en esta conversación...">
-      <span class="muted" id="inchat-search-count" style="font-size:12px;display:none;">0 de 0</span>
-      <button class="icon-btn mini" id="btn-inchat-search-prev" type="button" title="Anterior">${icon('chevronUp')}</button>
-      <button class="icon-btn mini" id="btn-inchat-search-next" type="button" title="Siguiente">${icon('chevronDown')}</button>
-      <button class="icon-btn mini" id="btn-inchat-search-close" type="button" title="Cerrar búsqueda">${icon('close')}</button>
+      <input type="text" id="inchat-search-input" placeholder="Buscar palabras en esta conversación..." autocomplete="off">
+      <span class="inchat-search-count" id="inchat-search-count" style="display:none;">0 de 0</span>
+      <div class="inchat-search-actions">
+        <button class="icon-btn mini" id="btn-inchat-search-prev" type="button" title="Anterior">${icon('chevronUp')}</button>
+        <button class="icon-btn mini" id="btn-inchat-search-next" type="button" title="Siguiente">${icon('chevronDown')}</button>
+        <button class="icon-btn mini" id="btn-inchat-search-close" type="button" title="Cerrar búsqueda">${icon('close')}</button>
+      </div>
     </div>
 
     <!-- Banner de mensaje fijado -->
@@ -2719,7 +2727,13 @@ function renderActiveChatPanel() {
 
       <!-- Selector de emojis popover -->
       <div class="emoji-picker-popover" id="emoji-picker-popover" hidden>
-        ${['👍','❤️','😂','😮','😢','🙏','🎉','🚀','🔥','✨','👏','💯','👀','🙌','😍','😎','🤔','💡','✅','❌','💪'].map(em => `<button type="button" class="emoji-choice-btn" data-emoji="${em}">${em}</button>`).join('')}
+        <div class="emoji-picker-header">
+          <span>Reacciones y emojis</span>
+          <button type="button" class="icon-btn mini" id="btn-close-emoji" title="Cerrar">×</button>
+        </div>
+        <div class="emoji-picker-grid">
+          ${['👍','❤️','😂','😮','😢','🙏','🎉','🚀','🔥','✨','👏','💯','👀','🙌','😍','😎','🤔','💡','✅','❌','💪','🥳','🤝','📌','🎯','⚡','💬','☕'].map(em => `<button type="button" class="emoji-choice-btn" data-emoji="${em}">${em}</button>`).join('')}
+        </div>
       </div>
     </form>
   `;
@@ -3576,17 +3590,29 @@ function bindActiveChatEvents() {
   });
 
   // Selector de emojis popover (gestor unificado activePanel)
-  document.querySelector('#btn-toggle-emoji')?.addEventListener('click', () => {
+  document.querySelector('#btn-toggle-emoji')?.addEventListener('click', (e) => {
+    e.stopPropagation();
     setActivePanel('emoji');
   });
 
+  document.querySelector('#btn-close-emoji')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    chatState.activePanel = null;
+    updatePanelVisibility();
+  });
+
   document.querySelectorAll('.emoji-choice-btn').forEach(btn => {
-    btn.onclick = () => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
       const emoji = btn.dataset.emoji;
       const textarea = document.querySelector('#chat-textarea');
       if (textarea) {
-        textarea.value += emoji;
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? textarea.value.length;
+        textarea.value = textarea.value.slice(0, start) + emoji + textarea.value.slice(end);
+        textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
         textarea.focus();
+        textarea.dispatchEvent(new Event('input'));
       }
       chatState.activePanel = null;
       updatePanelVisibility();
@@ -6599,8 +6625,6 @@ async function renderSettings(){
 }
 async function billing(){const [status,plans]=await Promise.all([api('/billing/status'),api('/plans')]);const money=plan=>plan.price_cents?`${(plan.price_cents/100).toLocaleString('es-MX',{style:'currency',currency:plan.currency})} / mes`:'Gratis';return `${heading('Facturación','Administra el plan y el estado de la suscripción.')}<section class="card"><div class="grid stats"><div><div class="muted">Plan actual</div><h2>${esc(status.plan_name)}</h2></div><div><div class="muted">Estado</div><h2>${esc(status.subscription_status)}</h2></div><div><div class="muted">Próximo periodo</div><h2>${status.current_period_end?new Date(status.current_period_end).toLocaleDateString('es-MX'):'No definido'}</h2></div></div></section><section class="grid two mt-4">${plans.map(plan=>`<article class="card plan-card${plan.key===status.plan_key?' current':''}"><div class="eyebrow">${esc(plan.key)}</div><h2>${esc(plan.name)}</h2><p class="num">${money(plan)}</p><p class="muted">${plan.max_users??'Ilimitados'} usuarios · ${plan.max_projects??'Ilimitados'} proyectos · ${plan.max_storage_mb} MB</p><button class="btn billing-plan" data-plan="${esc(plan.key)}">${plan.key===status.plan_key?'Plan actual':'Elegir plan'}</button></article>`).join('')}</section>`}
 async function renderBilling(){layout(await billing());document.querySelectorAll('.billing-plan').forEach(button=>button.onclick=async()=>{const planKey=String(button.dataset.plan||'').trim().toLowerCase();if(!planKey)return notify('El plan seleccionado no es válido.');button.disabled=true;try{const result=await api('/billing/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_key:planKey})});if(result.redirect)window.location.href=result.redirect;else{notify('Plan actualizado');renderBilling()}}catch(error){button.disabled=false;notify(error.message)}})}
-async function enhanceConversation(){const conversation=document.querySelector('.conversation');if(!conversation||conversation.dataset.enhanced)return;conversation.dataset.enhanced='true';const selectedId=new URLSearchParams(location.hash.split('?')[1]||'').get('user');if(!selectedId)return;const key=`${Math.min(state.user.id,Number(selectedId))}-${Math.max(state.user.id,Number(selectedId))}`;const tools=conversation.querySelector('.conversation-tools');tools?.insertAdjacentHTML('beforeend',`<div class="icon-group conversation-actions"><button class="icon-btn" id="archive-conversation" title="Archivar" aria-label="Archivar">${icon('archive')}</button><button class="icon-btn" id="schedule-call" title="Programar llamada" aria-label="Programar llamada">${icon('clock')}</button><button class="icon-btn danger" id="delete-conversation" title="Borrar conversación" aria-label="Borrar conversación">${icon('trash')}</button></div>`);const messages=await api(`/messages?user_id=${selectedId}`).catch(()=>[]);document.querySelectorAll('.message.mine small').forEach((node,index)=>{const message=messages.filter(item=>item.sender_id===state.user.id)[index];if(message)node.textContent=`${node.textContent} · ${message.delivery_status==='leido'?'✓✓ leído':message.delivery_status==='entregado'?'✓✓ entregado':'✓ enviado'}`});document.querySelector('#archive-conversation').onclick=()=>{localStorage.setItem(`haitani-archived-${key}`,'1');notify('Conversación archivada')};document.querySelector('#delete-conversation').onclick=async()=>{if(confirm('¿Borrar toda esta conversación?')){await api(`/messages/conversation/${selectedId}`,{method:'DELETE'});renderMessages()}};document.querySelector('#schedule-call').onclick=async()=>{const date=prompt('Fecha y hora de la llamada (YYYY-MM-DDTHH:mm):');if(!date)return;try{await api('/calls',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({receiver_id:selectedId,call_type:'audio',scheduled_at:date})});notify('Llamada programada');}catch(error){notify(error.message)}}}
-const conversationObserver=new MutationObserver(()=>enhanceConversation());conversationObserver.observe(app,{childList:true,subtree:true});
 async function landingView() {
   let plans = [];
   try { plans = await api('/plans'); } catch {}
@@ -8342,10 +8366,6 @@ function formatLastSeen(dateStr){
   const days = Math.max(1, Math.floor(diffMs / 86400000));
   return `${days} día${days === 1 ? '' : 's'} atrás`;
 }
-const renderMessagesBase2 = renderMessages;
-renderMessages = async function() {
-  await renderMessagesBase2();
-};
 const renderSettingsBase2=renderSettings;
 renderSettings=async function(){
   await renderSettingsBase2();
