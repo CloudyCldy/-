@@ -18,6 +18,8 @@ router.post('/:id/sync', requirePermission('analysis:run'), controller.sync);
 router.get('/:id/intelligence', requirePermission('analysis:run'), controller.intelligence);
 router.post('/', requirePermission('projects:create'), checkProjectLimit, controller.create);
 router.put('/:id', requirePermission('projects:update'), controller.update);
+router.delete('/:id', requirePermission('projects:delete'), controller.deleteProject);
+router.patch('/:id/status', requirePermission('projects:update'), controller.updateStatus);
 router.get('/:id/members', requirePermission('projects:read'), controller.members);
 router.post('/:id/members', requirePermission('projects:update'), controller.addMember);
 router.delete('/:id/members/:userId', requirePermission('projects:update'), controller.removeMember);
