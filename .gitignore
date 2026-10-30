@@ -12,6 +12,7 @@ jspm_packages/
 *.crt
 
 # Bases de datos y almacenamiento local
+backups/
 database/*.db
 database/*.db-shm
 database/*.db-wal

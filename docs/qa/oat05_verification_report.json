@@ -1,0 +1,322 @@
+{
+  "timestamp": "2026-10-29T08:01:39.095Z",
+  "backupFile": "backups/haitani_backup_2026-10-29T06-58-40-664Z.json",
+  "backupSizeBytes": 159599368,
+  "restoreDurationSeconds": 78.44,
+  "restoredFkCount": 86,
+  "allMatches": true,
+  "tables": [
+    {
+      "table": "absences",
+      "backupCount": 3,
+      "originCount": 3,
+      "testCount": 3,
+      "match": true,
+      "testHash": "4b323dfbb6"
+    },
+    {
+      "table": "activities",
+      "backupCount": 1274,
+      "originCount": 1341,
+      "testCount": 1274,
+      "match": true,
+      "testHash": "c0529bff7c"
+    },
+    {
+      "table": "announcements",
+      "backupCount": 4,
+      "originCount": 4,
+      "testCount": 4,
+      "match": true,
+      "testHash": "f453fedfed"
+    },
+    {
+      "table": "audit_logs",
+      "backupCount": 0,
+      "originCount": 0,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "backlog_items",
+      "backupCount": 44,
+      "originCount": 46,
+      "testCount": 44,
+      "match": true,
+      "testHash": "e5be6bd63a"
+    },
+    {
+      "table": "blocked_ips",
+      "backupCount": 0,
+      "originCount": 0,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "calls",
+      "backupCount": 11,
+      "originCount": 11,
+      "testCount": 11,
+      "match": true,
+      "testHash": "2e614500ac"
+    },
+    {
+      "table": "chat_group_members",
+      "backupCount": 5,
+      "originCount": 5,
+      "testCount": 5,
+      "match": true,
+      "testHash": "f5f2776b1d"
+    },
+    {
+      "table": "chat_groups",
+      "backupCount": 1,
+      "originCount": 1,
+      "testCount": 1,
+      "match": true,
+      "testHash": "aadb75a644"
+    },
+    {
+      "table": "comments",
+      "backupCount": 0,
+      "originCount": 0,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "conversation_deletions",
+      "backupCount": 0,
+      "originCount": 0,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "conversation_preferences",
+      "backupCount": 0,
+      "originCount": 0,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "files",
+      "backupCount": 34,
+      "originCount": 38,
+      "testCount": 34,
+      "match": true,
+      "testHash": "ff853fcd7d"
+    },
+    {
+      "table": "github_configurations",
+      "backupCount": 4,
+      "originCount": 4,
+      "testCount": 4,
+      "match": true,
+      "testHash": "6e313604c0"
+    },
+    {
+      "table": "github_project_configurations",
+      "backupCount": 1,
+      "originCount": 1,
+      "testCount": 1,
+      "match": true,
+      "testHash": "0733a64720"
+    },
+    {
+      "table": "incidences",
+      "backupCount": 2,
+      "originCount": 2,
+      "testCount": 2,
+      "match": true,
+      "testHash": "788e0f57ca"
+    },
+    {
+      "table": "message_reactions",
+      "backupCount": 0,
+      "originCount": 0,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "messages",
+      "backupCount": 82,
+      "originCount": 85,
+      "testCount": 82,
+      "match": true,
+      "testHash": "72f12d9f71"
+    },
+    {
+      "table": "methodologies",
+      "backupCount": 20,
+      "originCount": 21,
+      "testCount": 20,
+      "match": true,
+      "testHash": "2592505d3e"
+    },
+    {
+      "table": "methodology_documents",
+      "backupCount": 0,
+      "originCount": 0,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "oauth_connections",
+      "backupCount": 0,
+      "originCount": 0,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "organizations",
+      "backupCount": 31,
+      "originCount": 34,
+      "testCount": 31,
+      "match": true,
+      "testHash": "24fc2bcdd0"
+    },
+    {
+      "table": "plans",
+      "backupCount": 5,
+      "originCount": 5,
+      "testCount": 5,
+      "match": true,
+      "testHash": "9d46b966be"
+    },
+    {
+      "table": "project_documents",
+      "backupCount": 0,
+      "originCount": 0,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "project_events",
+      "backupCount": 35,
+      "originCount": 39,
+      "testCount": 35,
+      "match": true,
+      "testHash": "d6e30a1993"
+    },
+    {
+      "table": "project_issues",
+      "backupCount": 0,
+      "originCount": 2,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "project_members",
+      "backupCount": 74,
+      "originCount": 78,
+      "testCount": 74,
+      "match": true,
+      "testHash": "8e77bbc35c"
+    },
+    {
+      "table": "project_milestones",
+      "backupCount": 12,
+      "originCount": 14,
+      "testCount": 12,
+      "match": true,
+      "testHash": "ff9760c9f0"
+    },
+    {
+      "table": "project_risks",
+      "backupCount": 0,
+      "originCount": 2,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "projects",
+      "backupCount": 117,
+      "originCount": 130,
+      "testCount": 117,
+      "match": true,
+      "testHash": "8d30aa1a60"
+    },
+    {
+      "table": "roles",
+      "backupCount": 7,
+      "originCount": 7,
+      "testCount": 7,
+      "match": true,
+      "testHash": "dcb964fb84"
+    },
+    {
+      "table": "security_events",
+      "backupCount": 19460,
+      "originCount": 19853,
+      "testCount": 19460,
+      "match": true,
+      "testHash": "b8573bbebf"
+    },
+    {
+      "table": "sprints",
+      "backupCount": 3,
+      "originCount": 5,
+      "testCount": 3,
+      "match": true,
+      "testHash": "c8c51fe13e"
+    },
+    {
+      "table": "stored_assets",
+      "backupCount": 22,
+      "originCount": 22,
+      "testCount": 22,
+      "match": true,
+      "testHash": "dff59481f1"
+    },
+    {
+      "table": "task_dependencies",
+      "backupCount": 0,
+      "originCount": 0,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "task_documents",
+      "backupCount": 0,
+      "originCount": 0,
+      "testCount": 0,
+      "match": true,
+      "testHash": "N/A"
+    },
+    {
+      "table": "tasks",
+      "backupCount": 122,
+      "originCount": 129,
+      "testCount": 122,
+      "match": true,
+      "testHash": "03830bc53f"
+    },
+    {
+      "table": "user_sessions",
+      "backupCount": 1,
+      "originCount": 11,
+      "testCount": 1,
+      "match": true,
+      "testHash": "13541107ac"
+    },
+    {
+      "table": "users",
+      "backupCount": 294,
+      "originCount": 331,
+      "testCount": 294,
+      "match": true,
+      "testHash": "6767b9335d"
+    }
+  ]
+}
