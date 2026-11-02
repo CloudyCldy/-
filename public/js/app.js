@@ -6473,8 +6473,307 @@ function musicEmbed(url){const value=String(url||'');const youtube=value.match(/
 function loadSoundCloudWidget(){return new Promise(resolve=>{if(window.SC?.Widget){resolve();return}const script=document.createElement('script');script.src='https://w.soundcloud.com/player/api.js';script.onload=resolve;script.onerror=resolve;document.head.append(script)})}
 async function playSoundCloud(frame,fallbackUrl){await loadSoundCloudWidget();if(!window.SC?.Widget)return;const widget=window.SC.Widget(frame);widget.bind(window.SC.Widget.Events.READY,()=>widget.play());widget.bind(window.SC.Widget.Events.ERROR,()=>notify('SoundCloud no puede reproducir esta pista (restringida o no disponible). Prueba otra, o ábrela directo en SoundCloud.'))}
 async function renderRelax(){layout(await relax());const form=document.querySelector('#music-search');document.querySelectorAll('.source-pill').forEach(pill=>pill.onclick=()=>{relaxSource=pill.dataset.source;form.elements.source.value=relaxSource;document.querySelectorAll('.source-pill').forEach(p=>p.classList.toggle('active',p===pill))});form.onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.target));const results=document.querySelector('#music-results');results.className='music-results empty';results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('music')}</div><p>Buscando...</p></div>`;try{const data=await api(`/music/search?q=${encodeURIComponent(values.q)}&source=${encodeURIComponent(values.source)}`);if(!data.configured){results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('block')}</div><p>MusicAPI no está configurada en el servidor.</p></div>`;return}if(!data.tracks.length){results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('search')}</div><p>No encontramos pistas.</p></div>`;return}results.className='music-results';results.innerHTML=data.tracks.map((track,index)=>{const title=track.title||track.name||'Pista sin título';const artist=track.artist?.name||track.artist||track.artistNames?.join(', ')||track.artists?.[0]?.name||'Artista desconocido';const url=musicUrl(track);const img=trackImage(track);return `<article class="music-track" data-index="${index}"><div class="music-track-cover" style="${img?`background-image:url('${esc(img)}')`:''}">${img?'':icon('music')}</div><div class="music-track-info"><strong>${esc(title)}</strong><small class="muted">${esc(artist)}</small><span class="badge music-track-source">${esc(sourceLabel(values.source))}</span></div><button class="btn play-track" data-index="${index}" ${url?'':'disabled'}>${icon('play')}${url?'Reproducir':'Sin preview'}</button></article>`}).join('');results.querySelectorAll('.play-track').forEach(button=>button.onclick=async()=>{document.querySelectorAll('.music-track').forEach(node=>node.classList.toggle('is-playing',node.dataset.index===button.dataset.index));const track=data.tracks[Number(button.dataset.index)];const url=musicUrl(track);const embed=musicEmbed(url);const player=document.querySelector('#music-player');const audio=document.querySelector('#music-audio');const title=track.title||track.name||'Pista';const artist=track.artist?.name||track.artist||track.artistNames?.join(', ')||'';const img=trackImage(track);document.querySelector('#music-title').textContent=title;document.querySelector('#music-artist').textContent=artist;document.querySelector('#music-link').href=url||'#';const art=document.querySelector('#music-art');if(img){art.style.backgroundImage=`url('${img}')`;art.textContent=''}else{art.style.backgroundImage='';art.innerHTML=icon('music')}player.classList.add('is-playing');if(embed){audio.hidden=true;let frame=document.querySelector('#music-embed');if(!frame){frame=document.createElement('iframe');frame.id='music-embed';frame.className='music-embed';frame.allow='autoplay; encrypted-media; clipboard-write';frame.referrerPolicy='strict-origin-when-cross-origin';audio.after(frame)}frame.src=embed;frame.hidden=false;if(embed.includes('soundcloud.com/player'))playSoundCloud(frame,url)}else if(track.previewUrl||track.preview_url||track.audio){document.querySelector('#music-embed')?.remove();audio.hidden=false;audio.src=track.previewUrl||track.preview_url||track.audio;audio.play().catch(()=>notify('Pulsa reproducir para iniciar el audio.'))}else{audio.hidden=true;document.querySelector('#music-embed')?.remove();player.classList.remove('is-playing');notify('Este servicio no entrega preview de audio. Usa el reproductor embebido o abre el servicio.')}player.hidden=false})}catch(error){results.innerHTML=`<div class="relax-empty"><div class="relax-empty-icon">${icon('block')}</div><p>${esc(error.message)}</p></div>`}}}
-async function assistant(){return `${heading('Asistente IA','Controla el proyecto con preguntas sobre tareas, responsables y fechas.')}<section class="assistant-shell"><div class="assistant-intro"><div><span class="assistant-kicker">Sanzu / Sakura Coffee</span><h2>Tu copiloto de operaciones</h2><p>Consulta el estado del proyecto y recibe respuestas basadas en la información actual del panel.</p></div><span class="assistant-status"><i></i>Conectado al panel</span></div><div class="assistant-suggestions"><button type="button" class="btn secondary assistant-suggestion">¿Qué tareas están vencidas?</button><button type="button" class="btn secondary assistant-suggestion">¿Cuál es el progreso del proyecto?</button><button type="button" class="btn secondary assistant-suggestion">Dame un resumen para la reunión</button><button type="button" class="btn secondary assistant-suggestion">¿Cuáles son las tareas críticas?</button><button type="button" class="btn secondary assistant-suggestion">¿Cómo está la carga de trabajo (workload)?</button><button type="button" class="btn secondary assistant-suggestion">¿Qué riesgos detectas en el proyecto?</button><button type="button" class="btn secondary assistant-suggestion">¿Hay documentación faltante?</button><button type="button" class="btn secondary assistant-suggestion">¿Cuáles son las prioridades actuales?</button></div><div class="assistant-messages" id="assistant-messages"><article class="assistant-message assistant-bot"><span class="assistant-avatar">S</span><div><strong>Sanzu</strong><p>Hola, ${esc(state.user.name)}. Puedo ayudarte a detectar riesgos, revisar tareas críticas, retrasos, workload y preparar el siguiente paso del proyecto.</p><small>Listo para consultar Sakura Coffee</small></div></article></div><form class="assistant-form" id="assistant-form"><textarea class="textarea" name="message" rows="2" placeholder="Pregunta por retrasos, tareas críticas, riesgos, workload o documentación..." required></textarea><button type="submit" class="btn assistant-send" aria-label="Enviar pregunta">${icon('send')} Enviar</button></form></section>`}
-async function renderAssistant(){layout(await assistant());const messages=document.querySelector('#assistant-messages');const form=document.querySelector('#assistant-form');const sendBtn=form?.querySelector('.assistant-send');const textarea=form?.querySelector('textarea[name="message"]');const suggestionButtons=document.querySelectorAll('.assistant-suggestion');let conversationId=localStorage.getItem('haitani-assistant-conversation-id')||`conv-${Date.now()}`;localStorage.setItem('haitani-assistant-conversation-id',conversationId);let isAsking=false;const setBusy=busy=>{isAsking=busy;if(sendBtn)sendBtn.disabled=busy;if(textarea)textarea.disabled=busy;suggestionButtons.forEach(btn=>btn.disabled=busy)};const ask=async rawMessage=>{const message=String(rawMessage||'').trim();if(!message||isAsking)return;setBusy(true);messages?.insertAdjacentHTML('beforeend',`<article class="assistant-message assistant-user"><span class="assistant-avatar">${esc(state.user?.name?.[0]||'U')}</span><div><strong>Tú</strong><p>${esc(message)}</p></div></article>`);if(form)form.reset();messages?.insertAdjacentHTML('beforeend','<div class="assistant-loading" id="assistant-loading">Sanzu está analizando el proyecto...</div>');if(messages)messages.scrollTop=messages.scrollHeight;try{const result=await api('/assistant/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,conversationId})});if(result.conversationId){conversationId=result.conversationId;localStorage.setItem('haitani-assistant-conversation-id',conversationId);}document.querySelector('#assistant-loading')?.remove();const sourceLabel=result.source==='sanzu'?'IA remota':'Modo local';const warningText=result.warning?esc(result.warning):'Contexto actualizado desde el proyecto';messages?.insertAdjacentHTML('beforeend',`<article class="assistant-message assistant-bot"><span class="assistant-avatar">S</span><div><strong>Sanzu <small class="assistant-source">${sourceLabel}</small></strong><p style="white-space:pre-line">${esc(result.answer)}</p><small>${warningText}</small></div></article>`);if(messages)messages.scrollTop=messages.scrollHeight}catch(error){document.querySelector('#assistant-loading')?.remove();const errorMsg=error.message||'No fue posible obtener respuesta del asistente.';messages?.insertAdjacentHTML('beforeend',`<article class="assistant-message assistant-bot"><span class="assistant-avatar" style="background:#ef4444;color:#fff">!</span><div><strong style="color:#ef4444">Sanzu</strong><p style="border-color:#ef4444;color:#ef4444">${esc(errorMsg)}</p><small>Error al consultar. Puedes volver a intentarlo.</small></div></article>`);if(messages)messages.scrollTop=messages.scrollHeight;notify(errorMsg)}finally{setBusy(false);if(textarea)textarea.focus()}};if(form){form.onsubmit=event=>{event.preventDefault();const msg=textarea?textarea.value:'';if(msg.trim())ask(msg)}};if(textarea){textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(form){form.requestSubmit?form.requestSubmit():form.dispatchEvent(new Event('submit',{cancelable:true}))}}})};suggestionButtons.forEach(button=>{button.onclick=e=>{e.preventDefault();const q=button.textContent.trim();if(q)ask(q)}})}
+async function assistant(){
+  return `${heading('Asistente IA','Controla el proyecto con preguntas sobre tareas, métricas y metodología.')}
+  <div class="assistant-container">
+    <aside class="assistant-history-sidebar" id="assistant-history-sidebar">
+      <div class="assistant-sidebar-top">
+        <button type="button" class="btn btn-block" id="btn-new-chat">
+          ${icon('plus')}Nueva conversación
+        </button>
+      </div>
+      <div class="assistant-history-header">
+        <span>Historial</span>
+        <small class="muted" id="assistant-history-count">0</small>
+      </div>
+      <div class="assistant-history-list" id="assistant-history-list">
+        <div class="assistant-history-empty muted">No hay conversaciones previas.</div>
+      </div>
+    </aside>
+
+    <section class="assistant-shell">
+      <div class="assistant-intro">
+        <div>
+          <span class="assistant-kicker">Sanzu / Sakura Coffee</span>
+          <h2>Tu copiloto de operaciones</h2>
+          <p>Consulta el estado del proyecto y recibe respuestas basadas en la información actual del panel.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--sp-2)">
+          <button type="button" class="btn secondary mini btn-toggle-history-mobile" id="btn-toggle-history" title="Ver historial">
+            Historial
+          </button>
+          <span class="assistant-status"><i></i>Conectado al panel</span>
+        </div>
+      </div>
+      <div class="assistant-suggestions">
+        <button type="button" class="btn secondary assistant-suggestion">¿Qué tareas están vencidas?</button>
+        <button type="button" class="btn secondary assistant-suggestion">¿Cuál es el progreso del proyecto?</button>
+        <button type="button" class="btn secondary assistant-suggestion">Dame un resumen para la reunión</button>
+        <button type="button" class="btn secondary assistant-suggestion">¿Cuáles son las métricas del proyecto?</button>
+        <button type="button" class="btn secondary assistant-suggestion">¿Cómo funciona la metodología del proyecto?</button>
+        <button type="button" class="btn secondary assistant-suggestion">¿Cuáles son las tareas críticas?</button>
+        <button type="button" class="btn secondary assistant-suggestion">¿Cómo está la carga de trabajo (workload)?</button>
+        <button type="button" class="btn secondary assistant-suggestion">¿Qué riesgos detectas en el proyecto?</button>
+        <button type="button" class="btn secondary assistant-suggestion">¿Hay documentación faltante?</button>
+        <button type="button" class="btn secondary assistant-suggestion">¿Cuáles son las prioridades actuales?</button>
+      </div>
+      <div class="assistant-messages" id="assistant-messages">
+        <article class="assistant-message assistant-bot">
+          <span class="assistant-avatar">S</span>
+          <div>
+            <strong>Sanzu</strong>
+            <p>Hola, ${esc(state.user.name)}. Puedo ayudarte a detectar riesgos, revisar tareas críticas, retrasos, workload y preparar el siguiente paso del proyecto.</p>
+            <small>Listo para consultar Sakura Coffee</small>
+          </div>
+        </article>
+      </div>
+      <form class="assistant-form" id="assistant-form">
+        <textarea class="textarea" name="message" rows="2" placeholder="Pregunta por tareas, métricas, metodología, riesgos o prioridades..." required></textarea>
+        <button type="submit" class="btn assistant-send" aria-label="Enviar pregunta">${icon('send')} Enviar</button>
+      </form>
+    </section>
+  </div>`;
+}
+
+async function renderAssistant(){
+  layout(await assistant());
+  const messages=document.querySelector('#assistant-messages');
+  const form=document.querySelector('#assistant-form');
+  const sendBtn=form?.querySelector('.assistant-send');
+  const textarea=form?.querySelector('textarea[name="message"]');
+  const suggestionButtons=document.querySelectorAll('.assistant-suggestion');
+  const historyList=document.querySelector('#assistant-history-list');
+  const historyCount=document.querySelector('#assistant-history-count');
+  const newChatBtn=document.querySelector('#btn-new-chat');
+  const toggleHistoryBtn=document.querySelector('#btn-toggle-history');
+  const historySidebar=document.querySelector('#assistant-history-sidebar');
+
+  let activeConversationId=localStorage.getItem('haitani-assistant-conversation-id')||`conv-${Date.now()}`;
+  localStorage.setItem('haitani-assistant-conversation-id',activeConversationId);
+  let isAsking=false;
+
+  const setBusy=busy=>{
+    isAsking=busy;
+    if(sendBtn)sendBtn.disabled=busy;
+    if(textarea)textarea.disabled=busy;
+    suggestionButtons.forEach(btn=>btn.disabled=busy);
+  };
+
+  const loadConversations=async()=>{
+    try{
+      const res=await api('/chatbot/conversations').catch(()=>api('/assistant/conversations')).catch(()=>({conversations:[]}));
+      const convs=res.conversations||[];
+      if(historyCount)historyCount.textContent=convs.length;
+
+      if(!convs.length){
+        if(historyList)historyList.innerHTML='<div class="assistant-history-empty muted">No hay conversaciones previas.</div>';
+        return;
+      }
+
+      if(historyList){
+        historyList.innerHTML=convs.map(c=>`
+          <div class="assistant-conv-item ${c.id===activeConversationId?'active':''}" data-id="${esc(c.id)}">
+            <div class="assistant-conv-text">
+              <strong class="assistant-conv-title" title="${esc(c.title||'Conversación')}">${esc(c.title||'Conversación')}</strong>
+              <small class="muted">${c.message_count?`${c.message_count} msgs`:''}</small>
+            </div>
+            <button type="button" class="btn-delete-conv" data-delete-id="${esc(c.id)}" title="Eliminar conversación" aria-label="Eliminar conversación">×</button>
+          </div>
+        `).join('');
+
+        historyList.querySelectorAll('.assistant-conv-item').forEach(item=>{
+          item.onclick=async(e)=>{
+            if(e.target.closest('.btn-delete-conv'))return;
+            await selectConversation(item.dataset.id);
+          };
+        });
+
+        historyList.querySelectorAll('.btn-delete-conv').forEach(btn=>{
+          btn.onclick=async(e)=>{
+            e.stopPropagation();
+            const id=btn.dataset.deleteId;
+            if(!confirm('¿Deseas eliminar esta conversación del historial?'))return;
+            try{
+              await api(`/chatbot/conversations/${id}`,{method:'DELETE'}).catch(()=>api(`/assistant/conversations/${id}`,{method:'DELETE'}));
+              notify('Conversación eliminada');
+              if(activeConversationId===id){
+                resetChat();
+              }
+              await loadConversations();
+            }catch(err){
+              notify(err.message||'Error al eliminar');
+            }
+          };
+        });
+      }
+    }catch{}
+  };
+
+  const selectConversation=async(id)=>{
+    activeConversationId=id;
+    localStorage.setItem('haitani-assistant-conversation-id',id);
+    document.querySelectorAll('.assistant-conv-item').forEach(i=>i.classList.toggle('active',i.dataset.id===id));
+    if(window.innerWidth<768){
+      historySidebar?.classList.remove('open');
+    }
+
+    try{
+      const res=await api(`/chatbot/conversations/${id}`).catch(()=>api(`/assistant/conversations/${id}`));
+      if(res&&res.messages&&messages){
+        messages.innerHTML='';
+        if(res.messages.length===0){
+          messages.innerHTML=`<article class="assistant-message assistant-bot"><span class="assistant-avatar">S</span><div><strong>Sanzu</strong><p>Hola, ${esc(state.user.name)}. Puedes consultar tareas, métricas y metodología del proyecto.</p><small>Listo para consultar</small></div></article>`;
+        }else{
+          res.messages.forEach(m=>{
+            const isUser=m.sender==='user';
+            const avatar=isUser?esc(state.user?.name?.[0]||'U'):'S';
+            const name=isUser?'Tú':'Sanzu';
+            const sourceBadge=m.source&&m.source!=='user'?`<small class="assistant-source">${m.source==='sanzu'?'IA remota':'Modo local'}</small>`:'';
+            messages.insertAdjacentHTML('beforeend',`
+              <article class="assistant-message ${isUser?'assistant-user':'assistant-bot'}">
+                <span class="assistant-avatar">${avatar}</span>
+                <div>
+                  <strong>${name} ${sourceBadge}</strong>
+                  <p style="white-space:pre-line">${esc(m.message)}</p>
+                </div>
+              </article>
+            `);
+          });
+        }
+        messages.scrollTop=messages.scrollHeight;
+      }
+    }catch{}
+  };
+
+  const resetChat=()=>{
+    activeConversationId=`conv-${Date.now()}`;
+    localStorage.setItem('haitani-assistant-conversation-id',activeConversationId);
+    document.querySelectorAll('.assistant-conv-item').forEach(i=>i.classList.remove('active'));
+    if(messages){
+      messages.innerHTML=`
+        <article class="assistant-message assistant-bot">
+          <span class="assistant-avatar">S</span>
+          <div>
+            <strong>Sanzu</strong>
+            <p>Hola, ${esc(state.user.name)}. Puedo ayudarte a detectar riesgos, revisar tareas críticas, retrasos, workload y preparar el siguiente paso del proyecto.</p>
+            <small>Listo para consultar Sakura Coffee</small>
+          </div>
+        </article>
+      `;
+    }
+  };
+
+  newChatBtn?.addEventListener('click',()=>{
+    resetChat();
+    textarea?.focus();
+  });
+
+  toggleHistoryBtn?.addEventListener('click',()=>{
+    historySidebar?.classList.toggle('open');
+  });
+
+  const ask=async rawMessage=>{
+    const message=String(rawMessage||'').trim();
+    if(!message||isAsking)return;
+    setBusy(true);
+
+    if(!activeConversationId){
+      activeConversationId=`conv-${Date.now()}`;
+      localStorage.setItem('haitani-assistant-conversation-id',activeConversationId);
+    }
+
+    messages?.insertAdjacentHTML('beforeend',`<article class="assistant-message assistant-user"><span class="assistant-avatar">${esc(state.user?.name?.[0]||'U')}</span><div><strong>Tú</strong><p>${esc(message)}</p></div></article>`);
+    if(form)form.reset();
+    messages?.insertAdjacentHTML('beforeend','<div class="assistant-loading" id="assistant-loading">Sanzu está analizando el proyecto...</div>');
+    if(messages)messages.scrollTop=messages.scrollHeight;
+
+    try{
+      let result;
+      try{
+        result=await api('/chatbot/message',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({message,conversationId:activeConversationId})
+        });
+      }catch{
+        result=await api('/assistant/chat',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({message,conversationId:activeConversationId})
+        });
+      }
+
+      if(result.conversationId){
+        activeConversationId=result.conversationId;
+        localStorage.setItem('haitani-assistant-conversation-id',activeConversationId);
+      }
+
+      document.querySelector('#assistant-loading')?.remove();
+      const sourceLabel=result.source==='sanzu'?'IA remota':'Modo local';
+      const warningText=result.warning?esc(result.warning):'Contexto actualizado desde el proyecto';
+
+      messages?.insertAdjacentHTML('beforeend',`
+        <article class="assistant-message assistant-bot">
+          <span class="assistant-avatar">S</span>
+          <div>
+            <strong>Sanzu <small class="assistant-source">${sourceLabel}</small></strong>
+            <p style="white-space:pre-line">${esc(result.answer)}</p>
+            <small>${warningText}</small>
+          </div>
+        </article>
+      `);
+      if(messages)messages.scrollTop=messages.scrollHeight;
+      await loadConversations();
+    }catch(error){
+      document.querySelector('#assistant-loading')?.remove();
+      const errorMsg=error.message||'No fue posible obtener respuesta del asistente.';
+      messages?.insertAdjacentHTML('beforeend',`
+        <article class="assistant-message assistant-bot">
+          <span class="assistant-avatar" style="background:#ef4444;color:#fff">!</span>
+          <div>
+            <strong style="color:#ef4444">Sanzu</strong>
+            <p style="border-color:#ef4444;color:#ef4444">${esc(errorMsg)}</p>
+            <small>Error al consultar. Puedes volver a intentarlo.</small>
+          </div>
+        </article>
+      `);
+      if(messages)messages.scrollTop=messages.scrollHeight;
+      notify(errorMsg);
+    }finally{
+      setBusy(false);
+      if(textarea)textarea.focus();
+    }
+  };
+
+  if(form){
+    form.onsubmit=event=>{
+      event.preventDefault();
+      const msg=textarea?textarea.value:'';
+      if(msg.trim())ask(msg);
+    };
+  }
+
+  if(textarea){
+    textarea.addEventListener('keydown',e=>{
+      if(e.key==='Enter'&&!e.shiftKey){
+        e.preventDefault();
+        if(form){
+          form.requestSubmit?form.requestSubmit():form.dispatchEvent(new Event('submit',{cancelable:true}));
+        }
+      }
+    });
+  }
+
+  suggestionButtons.forEach(button=>{
+    button.onclick=e=>{
+      e.preventDefault();
+      const q=button.textContent.trim();
+      if(q)ask(q);
+    };
+  });
+
+  loadConversations();
+}
 async function settings(){
   return `
     ${heading('Configuración & Integraciones', 'Configura las conexiones externas con Sanzu IA y repositorios de GitHub.')}

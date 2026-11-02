@@ -1,8 +1,15 @@
 const sanzuService = require('../services/sanzuService');
 
-async function projectContext(database, organizationId) {
+async function projectContext(database, organizationId, projectId = null) {
+  let projectPromise;
+  if (projectId) {
+    projectPromise = database.prepare('SELECT * FROM projects WHERE id = ? AND organization_id = ?').get(projectId, organizationId).catch(() => null);
+  } else {
+    projectPromise = database.prepare('SELECT * FROM projects WHERE organization_id = ? ORDER BY id LIMIT 1').get(organizationId);
+  }
+
   const [project, tasks, users, github, risks, files, sprints, milestones, issues] = await Promise.all([
-    database.prepare('SELECT * FROM projects WHERE organization_id = ? ORDER BY id LIMIT 1').get(organizationId),
+    projectPromise,
     database.prepare(`SELECT tasks.id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.due_date, tasks.assigned_to, tasks.progress, users.name AS assignee_name FROM tasks LEFT JOIN users ON users.id = tasks.assigned_to WHERE tasks.organization_id = ? ORDER BY tasks.due_date`).all(organizationId),
     database.prepare('SELECT id, name, role, active FROM users WHERE organization_id = ? ORDER BY name').all(organizationId),
     database.prepare('SELECT repository FROM github_project_configurations WHERE organization_id = ? ORDER BY updated_at DESC LIMIT 1').get(organizationId),
@@ -13,8 +20,13 @@ async function projectContext(database, organizationId) {
     database.prepare(`SELECT id, title, status, priority, severity FROM project_issues WHERE organization_id = ? AND status <> 'resolved' ORDER BY id DESC`).all(organizationId).catch(() => [])
   ]);
   const activeSprint = (sprints || []).find(s => s.status === 'activo') || (sprints || [])[0] || null;
+  const methodologyRecord = project?.methodology_id
+    ? await database.prepare('SELECT * FROM methodologies WHERE id = ?').get(project.methodology_id).catch(() => null)
+    : null;
+
   return {
     project,
+    methodology: methodologyRecord,
     tasks: tasks || [],
     users: users || [],
     github,
@@ -215,14 +227,116 @@ function localAnswer(message, context) {
     return `No hay incidencias ni bugs no resueltos registrados en este momento.`;
   }
 
-  // 10. PROGRESO / AVANCE
+  // 10. MÉTRICAS / KPIS / ESTADÍSTICAS DEL PROYECTO
+  if (normalized.includes('metrica') || normalized.includes('kpi') || normalized.includes('estadistic') || normalized.includes('rendimiento') || normalized.includes('velocidad') || normalized.includes('salud') || normalized.includes('tasa')) {
+    const totalTasks = (context.tasks || []).length;
+    const completedTasks = (context.tasks || []).filter(t => t.status === 'completada').length;
+    const completionRate = totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    const onTimeRate = openTasks.length ? Math.round(((openTasks.length - overdue.length) / openTasks.length) * 100) : 100;
+    const criticalTasks = openTasks.filter(t => t.priority === 'alta' || t.priority === 'critica');
+    const criticalRate = openTasks.length ? Math.round((criticalTasks.length / openTasks.length) * 100) : 0;
+    const activeMembers = (context.users || []).filter(u => u.active).length;
+    const avgTasksPerMember = activeMembers ? (openTasks.length / activeMembers).toFixed(1) : '0';
+    const openRisks = (context.risks || []).filter(r => r.status === 'open' || r.status === 'activo');
+    const openIssues = (context.issues || []).length;
+
+    let healthStatus = 'Óptimo';
+    let healthDetail = 'El proyecto avanza según lo planificado y sin desviaciones críticas.';
+    if (overdue.length > 2 || openRisks.length > 3 || openIssues > 3) {
+      healthStatus = 'Crítico';
+      healthDetail = 'Se detectan desviaciones severas en cronograma o riesgos sin mitigar que requieren intervención inmediata.';
+    } else if (overdue.length > 0 || criticalTasks.length > 2 || openRisks.length > 0) {
+      healthStatus = 'En Observación / Riesgo Moderado';
+      healthDetail = 'Existen tareas con retraso o riesgos abiertos que requieren seguimiento en el ciclo actual.';
+    }
+
+    return `Métricas y KPIs clave del proyecto (${context.project?.name || 'General'} - Metodología: ${methodology}):\n` +
+      `• Tasa de avance (Completion Rate): ${completionRate}% (${completedTasks} de ${totalTasks} tareas completadas)\n` +
+      `• Cumplimiento de plazos (On-Time Delivery): ${onTimeRate}% (${openTasks.length - overdue.length} de ${openTasks.length} tareas a tiempo)\n` +
+      `• Tareas críticas en cola: ${criticalTasks.length} (${criticalRate}% de las abiertas)\n` +
+      `• Balance de equipo (Workload): ${avgTasksPerMember} tareas abiertas/integrante activo (${activeMembers} miembros)\n` +
+      `• Riesgos e Incidencias activas: ${openRisks.length} riesgo(s) abierto(s), ${openIssues} incidencia(s)\n` +
+      `• Estado de Salud del Proyecto: [${healthStatus}] - ${healthDetail}`;
+  }
+
+  // 11. METODOLOGÍA DEL PROYECTO
+  if (normalized.includes('metodolog') || normalized.includes('framework') || normalized.includes('scrum') || normalized.includes('kanban') || normalized.includes('waterfall') || normalized.includes('xp') || normalized.includes('lean') || normalized.includes('hibrid') || normalized.includes('agil')) {
+    const meth = context.methodology || {};
+    const methName = meth.name || methodology || 'Ágil Genérico';
+    const methDesc = meth.description || 'Marco de trabajo adoptado por el proyecto para gobernar las entregas.';
+    let principlesStr = '';
+    if (meth.principles) {
+      try {
+        const pList = typeof meth.principles === 'string' ? JSON.parse(meth.principles) : meth.principles;
+        if (Array.isArray(pList) && pList.length) principlesStr = `\n• Principios: ${pList.join(', ')}`;
+      } catch {}
+    }
+    let practicesStr = '';
+    if (meth.practices) {
+      try {
+        const prList = typeof meth.practices === 'string' ? JSON.parse(meth.practices) : meth.practices;
+        if (Array.isArray(prList) && prList.length) practicesStr = `\n• Prácticas recomendadas: ${prList.join(', ')}`;
+      } catch {}
+    }
+
+    let operationalContext = '';
+    const upperId = String(context.project?.methodology_id || methodology).toUpperCase();
+    if (upperId === 'SCRUM') {
+      const sp = context.activeSprint;
+      operationalContext = sp
+        ? `\nAplicación en el proyecto: El equipo opera en sprints iterativos. Sprint en curso: "${sp.name}" (${sp.start_date} al ${sp.end_date}, estado: ${sp.status}). Objetivo: "${sp.goal || 'Entrega continua'}".`
+        : `\nAplicación en el proyecto: Se utiliza Scrum con ceremonias y sprints. No hay un sprint activo en este momento.`;
+    } else if (upperId === 'KANBAN') {
+      const wip = openTasks.filter(t => t.status === 'en_proceso').length;
+      operationalContext = `\nAplicación en el proyecto: Se gestiona el flujo visual continuo. WIP actual en progreso: ${wip} tarea(s). Se recomienda limitar el WIP para evitar cuellos de botella.`;
+    } else if (upperId === 'WATERFALL') {
+      operationalContext = `\nAplicación en el proyecto: Control predictivo por fases e hitos secuenciales (${context.milestones?.length || 0} hitos definidos). Se enfatiza la verificación de entregables antes de avanzar de fase.`;
+    } else if (upperId === 'XP') {
+      operationalContext = `\nAplicación en el proyecto: Enfoque de Extreme Programming centrado en pruebas automatizadas (TDD), pair programming y retroalimentación técnica inmediata.`;
+    } else if (upperId === 'HYBRID') {
+      operationalContext = `\nAplicación en el proyecto: Combinación de gobernanza estructurada (cronograma y presupuesto de $${context.project?.budget || 0}) con ciclos ágiles de desarrollo iterativo.`;
+    } else {
+      operationalContext = `\nAplicación en el proyecto: Enfoque adaptativo con iteraciones cortas, retroalimentación constante y entrega de valor incremental.`;
+    }
+
+    return `Metodología del proyecto (${context.project?.name || 'General'}):\n` +
+      `• Marco: ${methName} (${meth.category || 'Ágil'})\n` +
+      `• Descripción: ${methDesc}` +
+      principlesStr +
+      practicesStr +
+      operationalContext;
+  }
+
+  // 12. ESTADO Y DESGLOSE DE TAREAS
+  if (normalized.includes('tarea') && (normalized.includes('todas') || normalized.includes('estado') || normalized.includes('lista') || normalized.includes('abiertas') || normalized.includes('pendientes') || normalized.includes('cuales') || normalized.includes('que hay'))) {
+    const total = (context.tasks || []).length;
+    const completed = (context.tasks || []).filter(t => t.status === 'completada').length;
+    const inProgress = (context.tasks || []).filter(t => t.status === 'en_proceso' || t.status === 'in_progress').length;
+    const pending = (context.tasks || []).filter(t => t.status === 'pendiente' || t.status === 'todo').length;
+    const blocked = (context.tasks || []).filter(t => t.status === 'bloqueada').length;
+
+    const sample = openTasks.slice(0, 5).map(t => {
+      const resp = t.assignee_name ? ` (Asignada a: ${t.assignee_name})` : ' (Sin asignar)';
+      const due = t.due_date ? ` [Límite: ${t.due_date}]` : '';
+      return `• [${t.status.toUpperCase()}] "${t.title}"${resp}${due}`;
+    }).join('\n');
+
+    return `Estado actual de tareas en el proyecto (${context.project?.name || 'General'}) con metodología ${methodology}:\n` +
+      `• Total registradas: ${total}\n` +
+      `• Abiertas: ${openTasks.length} (${pending} pendientes, ${inProgress} en proceso${blocked ? `, ${blocked} bloqueadas` : ''})\n` +
+      `• Completadas: ${completed}\n` +
+      `• Con retraso: ${overdue.length}\n\n` +
+      `Tareas destacadas en curso:\n${sample || 'No hay tareas abiertas.'}`;
+  }
+
+  // 13. PROGRESO / AVANCE
   if (normalized.includes('progreso') || normalized.includes('avance')) {
     const completed = (context.tasks || []).filter(task => task.status === 'completada').length;
     const progress = context.tasks?.length ? Math.round(completed / context.tasks.length * 100) : 0;
     return `Con metodología ${methodology}, el proyecto tiene un avance estimado del ${progress}% (${completed} de ${context.tasks?.length || 0} tareas completadas) y ${openTasks.length} pendientes.`;
   }
 
-  // 11. INFORMACIÓN GENERAL DEL PROYECTO
+  // 14. INFORMACIÓN GENERAL DEL PROYECTO
   if (normalized.includes('proyecto') || normalized.includes('alcance') || normalized.includes('presupuesto')) {
     const proj = context.project;
     if (proj) {

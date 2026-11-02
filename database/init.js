@@ -580,6 +580,29 @@ async function init() {
       category = EXCLUDED.category,
       principles = EXCLUDED.principles,
       practices = EXCLUDED.practices;
+
+    -- SB-12: Chatbot contextual con historial de conversaciones
+    CREATE TABLE IF NOT EXISTS chatbot_conversations (
+      id TEXT PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      title TEXT NOT NULL DEFAULT 'Nueva conversación',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS chatbot_conv_org_user_idx ON chatbot_conversations (organization_id, user_id, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS chatbot_messages (
+      id SERIAL PRIMARY KEY,
+      conversation_id TEXT NOT NULL REFERENCES chatbot_conversations(id) ON DELETE CASCADE,
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      sender TEXT NOT NULL CHECK (sender IN ('user', 'bot', 'system')),
+      message TEXT NOT NULL,
+      source TEXT DEFAULT 'local',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS chatbot_msg_conv_idx ON chatbot_messages (conversation_id, created_at ASC);
   `);
   console.log('PostgreSQL inicializado correctamente.');
 }
