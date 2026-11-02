@@ -5034,9 +5034,122 @@ img.message-avatar {
 @media(max-width:700px){.music-player{align-items:stretch;flex-direction:column}.music-player audio{width:100%}.music-player-info{min-width:0}.relax-search-form{flex-direction:column;align-items:stretch}.source-pills{justify-content:space-between}}
 
 /* =========================================================
-   ASISTENTE IA
+   ASISTENTE IA CON HISTORIAL DE CONVERSACIONES (SB-12)
    ========================================================= */
-.assistant-shell{max-width:980px;background:var(--color-paper-white);border:1px solid #ececec;border-radius:var(--radius-cards);overflow:hidden;box-shadow:var(--shadow-subtle-3)}
+.assistant-container {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: flex-start;
+  max-width: 1200px;
+  width: 100%;
+}
+.assistant-history-sidebar {
+  width: 270px;
+  flex: 0 0 270px;
+  background: var(--color-paper-white);
+  border: 1px solid #ececec;
+  border-radius: var(--radius-cards);
+  box-shadow: var(--shadow-subtle-3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 720px;
+}
+.assistant-sidebar-top {
+  padding: var(--sp-4);
+  border-bottom: 1px solid #ececec;
+  background: var(--color-fog-white);
+}
+.assistant-sidebar-top .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  font-size: 13px;
+  font-weight: 500;
+}
+.assistant-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--sp-3) var(--sp-4);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 600;
+  color: var(--color-slate-gray);
+  border-bottom: 1px solid #ececec;
+}
+.assistant-history-list {
+  padding: var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  min-height: 180px;
+  max-height: 560px;
+}
+.assistant-history-empty {
+  padding: var(--sp-4);
+  text-align: center;
+  font-size: 12px;
+}
+.assistant-conv-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: var(--radius-inputs);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  border: 1px solid transparent;
+  gap: var(--sp-2);
+}
+.assistant-conv-item:hover {
+  background: var(--color-mist-gray);
+}
+.assistant-conv-item.active {
+  background: var(--color-fog-white);
+  border-color: var(--color-ink-black);
+}
+.assistant-conv-text {
+  min-width: 0;
+  flex: 1;
+}
+.assistant-conv-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-ink-black);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.assistant-conv-text small {
+  font-size: 10px;
+}
+.btn-delete-conv {
+  background: transparent;
+  border: none;
+  color: var(--color-slate-gray);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+.btn-delete-conv:hover {
+  opacity: 1;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+.btn-toggle-history-mobile {
+  display: none;
+}
+.assistant-shell{flex: 1; min-width: 0; background:var(--color-paper-white);border:1px solid #ececec;border-radius:var(--radius-cards);overflow:hidden;box-shadow:var(--shadow-subtle-3)}
 .assistant-intro{display:flex;justify-content:space-between;gap:var(--sp-5);align-items:flex-start;padding:var(--sp-6);background:var(--color-fog-white);border-bottom:1px solid #ececec}
 .assistant-intro h2{margin:7px 0 var(--sp-2);font-family:var(--font-signifier);font-weight:400;font-size:26px;letter-spacing:-0.4px}
 .assistant-intro p{margin:0;color:var(--color-slate-gray);max-width:46ch}
@@ -5062,7 +5175,21 @@ img.message-avatar {
 .assistant-form .textarea{resize:none;line-height:1.5;min-height:48px;border-radius:var(--radius-inputs)}
 .assistant-send{height:46px;white-space:nowrap;border-radius:var(--radius-buttons);padding:0 22px}
 .assistant-send span{font-size:16px;margin-left:5px}
+
+@media(max-width:860px){
+  .assistant-container { flex-direction: column; }
+  .assistant-history-sidebar { width: 100%; flex: auto; max-height: 220px; }
+  .btn-toggle-history-mobile { display: inline-flex; }
+  .assistant-history-sidebar:not(.open) { display: none; }
+}
 @media(max-width:700px){.assistant-intro{padding:var(--sp-5);flex-direction:column}.assistant-messages{padding:var(--sp-5) var(--sp-4)}.assistant-form{padding:var(--sp-4);align-items:stretch;flex-direction:column}.assistant-send{width:100%}}
+
+:root[data-theme="ran"] .assistant-history-sidebar { background: #201B19; border-color: #2A3541; }
+:root[data-theme="ran"] .assistant-sidebar-top { background: #181413; border-color: #2A3541; }
+:root[data-theme="ran"] .assistant-history-header { border-color: #2A3541; color: #7D9B9F; }
+:root[data-theme="ran"] .assistant-conv-item:hover { background: #2A3541; }
+:root[data-theme="ran"] .assistant-conv-item.active { background: #2A3541; border-color: #C4B5C8; }
+:root[data-theme="ran"] .assistant-conv-title { color: #FEFCEA; }
 
 /* =========================================================
    LANDING PAGE — Modern Workspace Design
