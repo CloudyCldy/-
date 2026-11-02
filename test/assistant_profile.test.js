@@ -25,7 +25,7 @@ describe('Pruebas funcionales de Sanzu Asistente y Acceso a Perfil', () => {
   const tasksData = [
     { id: 1, organization_id: orgA.id, project_id: projectA.id, title: 'Diseño de arquitectura', status: 'completada', priority: 'alta', due_date: '2026-09-01' },
     { id: 2, organization_id: orgA.id, project_id: projectA.id, title: 'Migración de base de datos', status: 'en_proceso', priority: 'critica', due_date: '2026-09-10' }, // Vencida
-    { id: 3, organization_id: orgA.id, project_id: projectA.id, title: 'Pruebas de pasarela de pago', status: 'pendiente', priority: 'media', due_date: '2026-11-01' } // Futura
+    { id: 3, organization_id: orgA.id, project_id: projectA.id, title: 'Pruebas de pasarela de pago', status: 'pendiente', priority: 'media', due_date: '2026-12-31' } // Futura
   ];
 
   function createMockDb() {
