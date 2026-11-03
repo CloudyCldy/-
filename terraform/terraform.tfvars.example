@@ -1,0 +1,24 @@
+# ==============================================================================
+# Ejemplo de Variables - terraform.tfvars.example
+# Copiar este archivo a 'terraform.tfvars' y reemplazar con tus valores reales
+# ==============================================================================
+
+project_name        = "haitani"
+environment         = "prod"
+resource_suffix     = "std01" # Cambiar si algún nombre global ya estuviera ocupado
+location            = "eastus2" # Región económica de Azure
+resource_group_name = "rg-haitani-prod"
+
+# Credenciales de la Base de Datos PostgreSQL
+db_admin_username   = "haitaniadmin"
+db_admin_password   = "CambiarPorPasswordFuerte2026!" # Min 8 caracteres con mayúsculas y números
+
+# Secreto de Sesión (express-session)
+session_secret      = "clave-super-secreta-para-sesiones-haitani-2026"
+
+# Orígenes permitidos (CORS)
+cors_origin         = "*"
+
+# Notificaciones de Presupuesto Azure for Students
+alert_email         = "tu_correo_institucional@universidad.edu"
+budget_amount       = 100

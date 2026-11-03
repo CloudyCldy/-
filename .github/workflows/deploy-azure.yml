@@ -1,0 +1,76 @@
+name: CI/CD Pipeline - Azure Web App Deployment
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'terraform/**'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build, Test & Prisma Client Generation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código fuente
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar dependencias limpias
+        run: npm ci
+
+      - name: Generar cliente de Prisma ORM
+        run: npx prisma generate
+
+      - name: Ejecutar suite de pruebas unitarias
+        run: npm test
+
+      - name: Empaquetar artefacto para despliegue
+        run: |
+          zip -r release.zip . -x \
+            "node_modules/*" \
+            ".git/*" \
+            "terraform/*" \
+            ".github/*" \
+            "backups/*"
+
+      - name: Subir artefacto compilado
+        uses: actions/upload-artifact@v4
+        with:
+          name: haitani-release
+          path: release.zip
+          retention-days: 1
+
+  deploy-to-azure:
+    name: Despliegue en Azure App Service
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    steps:
+      - name: Descargar artefacto compilado
+        uses: actions/download-artifact@v4
+        with:
+          name: haitani-release
+
+      - name: Desplegar en Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: release.zip
