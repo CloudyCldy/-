@@ -41,7 +41,6 @@ async function init() {
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_api_url TEXT DEFAULT 'https://sanzu.onrender.com';
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_connected BOOLEAN DEFAULT false;
     ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sanzu_last_tested_at TIMESTAMPTZ;
-    ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
     ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_status_check;
     ALTER TABLE organizations ADD CONSTRAINT organizations_status_check
       CHECK (status IN ('active', 'pending', 'approved', 'rejected', 'suspended'));
@@ -138,6 +137,7 @@ async function init() {
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_synced_at TIMESTAMPTZ;
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_sync_status TEXT DEFAULT 'pending';
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_sync_error TEXT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_api_key TEXT;
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS sanzu_external_ref TEXT;
     CREATE UNIQUE INDEX IF NOT EXISTS projects_sanzu_external_ref_idx ON projects (sanzu_external_ref) WHERE sanzu_external_ref IS NOT NULL;
     UPDATE projects SET methodology_id = 'AGILE' WHERE methodology_id IS NULL;
