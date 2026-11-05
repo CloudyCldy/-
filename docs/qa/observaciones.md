@@ -18,6 +18,9 @@
 | **OBS-05** | Deadlock concurrente en DDL durante `npm test` | **Media** | Suite Automatizada | **Mitigado** | Dev / QA |
 | **OBS-06** | Fallo DDL en `init.js` por orden de `ALTER TABLE projects` | **Alta** | OAT-05 | **Corregido** | QA / Dev |
 | **OBS-07** | Pérdida de FKs y mutación de `project_members` en `restore_db.js` | **Crítica** | OAT-05 | **Corregido** | QA / Dev |
+| **OBS-08** | Grupos de chat aceptaban integrantes de otra organización | **Alta** | UIT - HB-09.1 | **Corregido** | Alberto |
+| **OBS-09** | Mensaje duplicado al presionar Enter varias veces (D-03) | **Media** | UIT - HB-09.1 | **Corregido** | Alberto |
+| **OBS-10** | `/api/organizations/usage` tumbaba el servidor sin plan asignado (D-14) | **Crítica** | Pruebas de la app móvil | **Corregido** | Alberto |
 
 ---
 
@@ -99,3 +102,41 @@
   1. Se modificó el paso 4.3 para consultar `pg_get_constraintdef(oid)` preservando la definición exacta de cada Foreign Key.
   2. Se actualizó el paso 4.7 para reestablecer individualmente cada restricción mediante `ALTER TABLE <tabla> ADD CONSTRAINT <nombre> <definicion>`.
   3. Se eliminó la invocación mutativa a `init()` al término de la carga, logrando una restauración 100% fiel con 86 restricciones Foreign Key activas y los 74 registros legítimos de miembros de proyecto.
+
+---
+
+### OBS-08: Grupos de chat aceptaban integrantes de otra organización
+- **Descripción:** Al crear un grupo con `POST /api/messages/groups`, el servidor guardaba como miembro a cualquier `user_id` enviado, aunque perteneciera a otra organización.
+- **Severidad:** **Alta** (rompe el aislamiento entre organizaciones).
+- **Pasos para reproducir:**
+  1. Como administrador de la organización A, crear un grupo enviando en `members` el id de un usuario de la organización B.
+  2. Consultar `chat_group_members` del grupo creado.
+- **Causa raíz:** `createGroup` no filtraba los miembros por organización ni por usuarios activos.
+- **Estado:** **Corregido** el 3 de noviembre de 2026. `createGroup` solo agrega usuarios activos de la misma organización. Cubierto por `test/chat_mensajes.test.js` (UIT-168 y UIT-169). Pull request #11.
+
+---
+
+### OBS-09: Mensaje duplicado al presionar Enter varias veces (D-03)
+- **Descripción:** Con varios envíos simultáneos del mismo mensaje (mismo `client_message_id`), el servidor guardaba el mensaje dos veces.
+- **Severidad:** **Media**.
+- **Pasos para reproducir:** Enviar tres peticiones `POST /api/messages` al mismo tiempo con el mismo `client_message_id`.
+- **Causa raíz:** La consulta que evita duplicados se ejecutaba en paralelo para las tres peticiones antes de que alguna terminara de guardar.
+- **Estado:** **Corregido** el 3 de noviembre de 2026. El servidor atiende una por una las peticiones con el mismo `client_message_id` y la interfaz web ignora los Enter mientras envía. Cubierto por `test/chat_mensajes.test.js` (UIT-170 y UIT-171) y `test/chat_archivos.test.js`. Pull request #11.
+
+---
+
+### OBS-10: `/api/organizations/usage` tumbaba el servidor cuando la organización no tenía plan (D-14)
+- **Descripción:** Al abrir **Más › Panel de administración** en la app móvil, el servidor se apagaba por completo. En Render tardaba cerca de un minuto en levantarse y, mientras tanto, todos los usuarios (web y app) recibían errores; la app 1.0.2 lo interpretaba como sesión cerrada.
+- **Severidad:** **Crítica** (caída total del servicio provocada por una acción normal de un administrador).
+- **Pasos para reproducir:**
+  1. Organización con `plan_id = NULL` (caso de la organización de producción).
+  2. Ejecutar `GET /api/organizations/usage` con sesión de administrador.
+  3. Consultar `GET /api/health`: ya no responde.
+- **Causa raíz:**
+  1. `usage` hacía `JOIN plans` y, sin plan, leía `plan.subscription_status` de un valor vacío (`TypeError`).
+  2. Express 4 no atrapa los errores de funciones `async`: la promesa rechazada quedaba sin atender y Node cerraba el proceso.
+- **Estado:** **Corregido**.
+  1. `server/lib/asyncErrors.js` envía los errores de rutas `async` al manejador de errores (responde 500 sin apagar el servidor) y `app.js` registra las promesas rechazadas sueltas.
+  2. `usage` usa `LEFT JOIN` y, sin plan, responde sin límites, igual que `planMiddleware`.
+  3. La app móvil 1.0.4 ya no consulta esa ruta (MB-11).
+  4. Cubierto por `test/estabilidad_servidor.test.js`. Ver `docs/qa/resultados_mensajeria_estabilidad.md`.
