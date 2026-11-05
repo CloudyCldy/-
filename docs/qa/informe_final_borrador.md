@@ -47,7 +47,7 @@ El ensayo previo realizado el 29 de octubre de 2026 sobre la URL de producción 
 
 ## 3. Estado de Observaciones y Plan de Remediación
 
-Las 7 observaciones identificadas se encuentran bajo control o resueltas:
+Las 10 observaciones identificadas se encuentran bajo control o resueltas:
 - **OBS-01 (Alta - Respaldo en BD de Prueba):** Mitigado. Base de datos `haitani_qa_test` creada de forma segura sin tocar producción.
 - **OBS-02 (Baja - Clave histórica en commit antiguo):** Resuelto. `.env.example` eliminado del árbol de trabajo.
 - **OBS-03 (Media - Límite de proyectos en UAT):** Corregido. Organización 1 actualizada a plan ilimitado para testing.
@@ -55,6 +55,9 @@ Las 7 observaciones identificadas se encuentran bajo control o resueltas:
 - **OBS-05 (Media - Concurrencia de DDL en tests):** Mitigado. Suites unitarias corren con 100% de éxito en modo secuencial.
 - **OBS-06 (Alta - Orden DDL en `init.js`):** Corregido. Sentencia `ALTER TABLE projects` reubicada tras creación de tabla.
 - **OBS-07 (Crítica - Pérdida de FKs en `restore_db.js`):** Corregido. Preservación explícita de definiciones DDL y reestablecimiento de 86 constraints relacionales.
+- **OBS-08 (Alta - Grupos con integrantes de otra organización):** Corregido. Solo se agregan usuarios activos de la misma organización.
+- **OBS-09 (Media - Mensaje duplicado con Enter):** Corregido. Un mismo `client_message_id` se guarda una sola vez.
+- **OBS-10 (Crítica - Caída del servidor en `/api/organizations/usage`):** Corregido. Los errores de rutas async ya no apagan el servidor y la app 1.0.4 ya no usa esa ruta.
 
 ---
 

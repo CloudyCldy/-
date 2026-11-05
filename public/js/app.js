@@ -3704,6 +3704,15 @@ function bindActiveChatEvents() {
     }
 
     // Enviar nuevo mensaje
+    // D-03: Enter varias veces seguidas no debe mandar el mensaje repetido. Mientras se envía se ignoran
+    // los demás Enter, y el mismo borrador conserva su client_message_id si hay que reintentarlo.
+    if (chatState.sendingMessage) return;
+    chatState.sendingMessage = true;
+    const draftKey = `${chatState.activeType}:${chatState.activeId}:${content}:${file ? file.name + file.size : ''}`;
+    if (!chatState.pendingClientMessageId || chatState.pendingDraftKey !== draftKey) {
+      chatState.pendingClientMessageId = `cmsg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      chatState.pendingDraftKey = draftKey;
+    }
     const sendBtn = document.querySelector('#btn-send-message');
     if (sendBtn) sendBtn.disabled = true;
 
@@ -3712,7 +3721,7 @@ function bindActiveChatEvents() {
       formData.append('content', content);
       if (file) formData.append('file', file);
       if (chatState.replyingTo) formData.append('reply_to_id', chatState.replyingTo.id);
-      formData.append('client_message_id', `cmsg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+      formData.append('client_message_id', chatState.pendingClientMessageId);
 
       let sentMsg = null;
       if (chatState.activeType === 'direct') {
@@ -3741,10 +3750,13 @@ function bindActiveChatEvents() {
       chatState.selectedFiles = [];
       renderAttachmentPreviews();
       chatState.replyingTo = null;
+      chatState.pendingClientMessageId = null;
+      chatState.pendingDraftKey = null;
       document.querySelector('#composer-reply-banner')?.setAttribute('hidden', '');
     } catch (err) {
       notify(err.message);
     } finally {
+      chatState.sendingMessage = false;
       if (sendBtn) sendBtn.disabled = false;
     }
   });

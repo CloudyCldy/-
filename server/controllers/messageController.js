@@ -1,3 +1,29 @@
+// D-03: si el mismo mensaje llega varias veces al mismo tiempo (Enter repetido, doble clic o reintento
+// de la red), las peticiones con el mismo client_message_id se atienden una por una. Así la segunda
+// encuentra el mensaje que guardó la primera y no se crea un duplicado.
+const sendLocks = new Map();
+async function oneAtATime(key, task) {
+  if (!key) return task();
+  const previous = sendLocks.get(key) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => { release = resolve; });
+  const chain = previous.then(() => current);
+  sendLocks.set(key, chain);
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+    if (sendLocks.get(key) === chain) sendLocks.delete(key);
+  }
+}
+
+function sendLockKey(req) {
+  const clientMsgId = req.body?.client_message_id ? String(req.body.client_message_id).slice(0, 100) : '';
+  if (!clientMsgId) return null;
+  return `${req.session.user.organization_id}:${req.session.user.id}:${clientMsgId}`;
+}
+
 function parseId(val) {
   const num = Number(val);
   return Number.isInteger(num) && num > 0 ? num : null;
@@ -400,6 +426,10 @@ async function list(req, res) {
 // 3. Envío de mensaje directo (con idempotencia y WebSockets)
 // -------------------------------------------------------------
 async function create(req, res) {
+  return oneAtATime(sendLockKey(req), () => createDirectMessage(req, res));
+}
+
+async function createDirectMessage(req, res) {
   const currentId = req.session.user.id;
   const orgId = req.session.user.organization_id;
   const wsHub = req.app.locals.wsHub;
@@ -508,6 +538,10 @@ async function create(req, res) {
 // 4. Envío de mensaje en grupo
 // -------------------------------------------------------------
 async function sendGroupMessage(req, res) {
+  return oneAtATime(sendLockKey(req), () => createGroupMessage(req, res));
+}
+
+async function createGroupMessage(req, res) {
   const currentId = req.session.user.id;
   const orgId = req.session.user.organization_id;
   const wsHub = req.app.locals.wsHub;
@@ -1111,7 +1145,15 @@ async function createGroup(req, res) {
   const memberIds = Array.isArray(rawMembers)
     ? rawMembers.map(Number).filter(v => Number.isInteger(v) && v > 0)
     : [];
-  const uniqueMemberIds = [...new Set([...memberIds, currentId])];
+  // Solo se agregan personas activas de la misma organización
+  const sameOrgIds = [];
+  for (const uid of new Set(memberIds)) {
+    const member = await req.app.locals.database.prepare(
+      'SELECT id FROM users WHERE id = ? AND organization_id = ? AND active = 1'
+    ).get(uid, orgId);
+    if (member) sameOrgIds.push(uid);
+  }
+  const uniqueMemberIds = [...new Set([...sameOrgIds, currentId])];
 
   const result = await req.app.locals.database.prepare(`
     INSERT INTO chat_groups (organization_id, name, description, avatar_url, project_id, created_by)

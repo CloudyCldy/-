@@ -1,6 +1,8 @@
 async function dashboard(req, res) {
   const database = req.app.locals.database;
   const orgId = req.session.user.organization_id;
+  // Un integrante (member) ve solo sus tareas: sus totales, sus vencidas y su salud.
+  // El administrador y el project manager ven los números de toda la organización.
   const isMember = req.session.user.role === 'member';
 
   const taskWhere = isMember ? 'WHERE organization_id = ? AND assigned_to = ?' : 'WHERE organization_id = ?';
@@ -31,8 +33,8 @@ async function dashboard(req, res) {
         COUNT(*) FILTER (WHERE start_date IS NULL OR due_date IS NULL)::integer AS unscheduled_count,
         COUNT(*) FILTER (WHERE status <> 'completada' AND priority IN ('alta', 'critica'))::integer AS critical_count
       FROM tasks
-      WHERE organization_id = $1
-    `).all(orgId, todayStr, nextWeekStr),
+      WHERE organization_id = $1${isMember ? ' AND assigned_to = $4' : ''}
+    `).all(...(isMember ? [orgId, todayStr, nextWeekStr, req.session.user.id] : [orgId, todayStr, nextWeekStr])),
     database.prepare(`
       SELECT users.name,
              COUNT(tasks.id)::integer AS total,
