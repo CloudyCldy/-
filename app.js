@@ -4,6 +4,7 @@ const path = require('path');
 const http = require('http');
 const signature = require('cookie-signature');
 const express = require('express');
+require('./server/lib/asyncErrors');
 const WebSocket = require('ws');
 const session = require('express-session');
 const connectPgSimple = require('connect-pg-simple');
@@ -21,6 +22,7 @@ const app = express();
 app.set('trust proxy', 1);
 const port = Number(process.env.PORT || 3000);
 const PgSession = connectPgSimple(session);
+const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 app.locals.database = database;
 
@@ -429,8 +431,11 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'change-this-secret',
   resave: false,
   saveUninitialized: false,
+  // La sesión dura 30 días desde la última vez que se usa (rolling): quien usa la app
+  // seguido no tiene que volver a entrar, y una sesión abandonada se cierra sola.
+  rolling: true,
   // 'none' permite peticiones cross-origin; los navegadores exigen secure: true en ese caso.
-  cookie: { httpOnly: true, sameSite: isProd ? 'none' : 'lax', secure: isProd, maxAge: 1000 * 60 * 60 * 12 }
+  cookie: { httpOnly: true, sameSite: isProd ? 'none' : 'lax', secure: isProd, maxAge: SESSION_MAX_AGE_MS }
 }));
 app.use(securityAudit);
 app.use(requireAllowedIp);
@@ -513,6 +518,7 @@ app.get('*', (req, res) => {
 });
 app.use((error, req, res, next) => {
   console.error(error);
+  if (res.headersSent) return next(error);
   if (error.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'El archivo supera el tamaño permitido.' });
   res.status(error.status || 500).json({ error: error.message || 'Error interno del servidor.' });
 });
@@ -533,6 +539,10 @@ async function start() {
 }
 
 if (require.main === module) {
+  // Último respaldo: un error suelto (fuera de una ruta) se registra en lugar de apagar el servidor.
+  process.on('unhandledRejection', (reason) => {
+    console.error('Promesa rechazada sin atender:', reason);
+  });
   start().catch(error => {
     console.error('Fallo al iniciar Haitani:', error);
     process.exit(1);
