@@ -10,13 +10,17 @@ const dimensions = [
 ];
 
 async function acceptPrivacyNotice(page) {
+  const acceptButton = page.getByRole("button", { name: "He leído y acepto" });
   try {
-    const acceptButton = page.locator('#accept-privacy');
-    await acceptButton.waitFor({ state: 'attached', timeout: 5000 });
-    await acceptButton.scrollIntoViewIfNeeded();
-    await acceptButton.click({ force: true });
-    await expect(page.locator('#privacy-notice')).toHaveCount(0, { timeout: 5000 });
-  } catch {}
+    await acceptButton.waitFor({ state: "visible", timeout: 3000 });
+    await acceptButton.click();
+    await expect(page.locator("#privacy-notice")).toHaveCount(0, { timeout: 3000 });
+  } catch {
+    await page.evaluate(() => {
+      localStorage.setItem("haitani-privacy-accepted-v1", "1");
+      document.querySelector("#privacy-notice")?.remove();
+    });
+  }
 }
 
 async function loginAsAdmin(page) {
