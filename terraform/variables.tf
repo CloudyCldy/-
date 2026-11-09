@@ -1,77 +1,117 @@
-# ==============================================================================
-# Variables de Entrada - Entorno Académico Azure for Students
-# ==============================================================================
-
-variable "project_name" {
-  description = "Prefijo base para nombrar los recursos"
+# ---------------- General ----------------
+variable "subscription_id" {
+  description = "ID de la suscripción Azure for Students"
   type        = string
-  default     = "haitani"
-}
-
-variable "environment" {
-  description = "Nombre del ambiente desplegado"
-  type        = string
-  default     = "prod"
-}
-
-variable "resource_suffix" {
-  description = "Sufijo alfanumérico para garantizar nombres únicos en Azure (letras y números, sin guiones)"
-  type        = string
-  default     = "std01"
 }
 
 variable "location" {
-  description = "Región de Azure recomendada por costo y disponibilidad para estudiantes (East US o East US 2)"
+  description = "Región. Mexico Central está bloqueada en Azure for Students; North Central US sí está permitida."
   type        = string
-  default     = "eastus2"
+  default     = "northcentralus"
 }
 
-variable "resource_group_name" {
-  description = "Nombre del Resource Group centralizado"
+variable "project" {
+  type    = string
+  default = "haitani"
+}
+
+variable "environment" {
+  type    = string
+  default = "prod"
+}
+
+variable "tags" {
+  type = map(string)
+  default = {
+    proyecto    = "haitani"
+    escuela     = "UTVT"
+    environment = "prod"
+    managed_by  = "terraform"
+  }
+}
+
+# ---------------- Red ----------------
+variable "vnet_address_space" {
+  type    = list(string)
+  default = ["10.0.0.0/16"]
+}
+
+variable "subnet_prefixes" {
+  type = map(string)
+  default = {
+    app   = "10.0.1.0/24" # VNet Integration del App Service
+    pe    = "10.0.2.0/24" # Private Endpoints (PostgreSQL)
+    admin = "10.0.3.0/24" # VM de administración (opcional)
+  }
+}
+
+# ---------------- App Service ----------------
+variable "node_version" {
+  description = "Versión LTS de Node.js para App Service Linux"
   type        = string
-  default     = "rg-haitani-prod"
+  default     = "22-lts"
 }
 
-# --- Base de Datos PostgreSQL ---
-variable "db_admin_username" {
-  description = "Usuario administrador de PostgreSQL Flexible Server"
+variable "existing_service_plan_id" {
+  description = "ID de un plan de App Service Linux existente para reutilizarlo (opcional). Si es null se crea un plan B1 nuevo."
   type        = string
-  default     = "haitaniadmin"
+  default     = null
 }
 
-variable "db_admin_password" {
-  description = "Contraseña del administrador de PostgreSQL (mínimo 8 caracteres, mayúsculas, minúsculas y números)"
-  type        = string
-  sensitive   = true
-}
-
-# --- Configuración de la Aplicación ---
-variable "session_secret" {
-  description = "Secreto de cifrado para las sesiones express-session / connect-pg-simple"
-  type        = string
-  sensitive   = true
-}
-
-variable "cors_origin" {
-  description = "Orígenes permitidos para CORS (usar dominio de frontend o * si es monolito)"
-  type        = string
-  default     = "*"
-}
-
-# --- Monitoreo y Presupuesto ---
-variable "alert_email" {
-  description = "Correo electrónico del estudiante para recibir alertas de presupuesto y caídas de servicio"
-  type        = string
-}
-
-variable "budget_amount" {
-  description = "Monto límite en USD para el presupuesto (por defecto $100 USD de Azure for Students)"
-  type        = number
-  default     = 100
-}
-
-variable "extra_tags" {
-  description = "Etiquetas adicionales opcionales para los recursos"
+variable "extra_app_settings" {
+  description = "Variables de entorno NO secretas de la app (ej. SANZU_API_URL, SANDBOX_MODE)"
   type        = map(string)
   default     = {}
+}
+
+variable "app_secrets" {
+  description = "Variables secretas de la app. Se guardan en Key Vault y la app las lee como referencia. Ej: { SANZU_API_KEY = \"...\" }"
+  type        = map(string)
+  default     = {}
+  sensitive   = true
+}
+
+# ---------------- PostgreSQL ----------------
+variable "pg_admin_user" {
+  type    = string
+  default = "haitaniadmin"
+}
+
+variable "pg_version" {
+  type    = string
+  default = "16"
+}
+
+variable "pg_database_name" {
+  type    = string
+  default = "haitani"
+}
+
+# ---------------- Opcionales ----------------
+variable "enable_admin_vm" {
+  description = "Crea una VM Linux pequeña + Azure Bastion Developer (gratis) para administrar la base privada con psql."
+  type        = bool
+  default     = false
+}
+
+variable "admin_vm_size" {
+  type    = string
+  default = "Standard_B2ats_v2"
+}
+
+variable "enable_budget" {
+  description = "Crea alertas de presupuesto (50/75/90 USD) sobre el grupo de recursos. Algunas suscripciones de estudiante no lo permiten."
+  type        = bool
+  default     = false
+}
+
+variable "budget_alert_email" {
+  type    = string
+  default = ""
+}
+
+variable "budget_start_date" {
+  description = "Primer día del mes en formato RFC3339"
+  type        = string
+  default     = "2026-11-01T00:00:00Z"
 }

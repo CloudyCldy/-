@@ -1,71 +1,73 @@
-# ==============================================================================
-# Capa de Monitoreo y Control de Presupuesto (FinOps Estudiantil)
-# Log Analytics (Límite 5 GB gratis), Application Insights y Alertas de Costos
-# ==============================================================================
-
-# Espacio de trabajo de Log Analytics con cuota diaria de seguridad
+# =====================================================================
+# Observabilidad: Log Analytics + Application Insights
+# =====================================================================
 resource "azurerm_log_analytics_workspace" "law" {
-  name                = local.log_analytics_name
-  resource_group_name = azurerm_resource_group.rg.name
+  name                = "log-${local.base}"
   location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
-  daily_quota_gb      = 0.16 # ~5 GB/mes (Garantiza costo $0 de ingesta dentro de la capa gratuita)
-
-  tags = local.common_tags
+  daily_quota_gb      = 0.15 # ~5 GB/mes, dentro de lo gratuito
+  tags                = var.tags
 }
 
-# Application Insights para telemetría de Express, WebSockets, latencia y errores 5xx
 resource "azurerm_application_insights" "appi" {
-  name                = local.app_insights_name
-  resource_group_name = azurerm_resource_group.rg.name
+  name                = "appi-${local.base}"
   location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
   workspace_id        = azurerm_log_analytics_workspace.law.id
   application_type    = "Node.JS"
-
-  tags = local.common_tags
+  tags                = var.tags
 }
 
-# Alerta de Presupuesto en el Grupo de Recursos para proteger los créditos de Azure for Students
-resource "azurerm_consumption_budget_resource_group" "budget" {
-  name              = "budget-${var.project_name}-students"
-  resource_group_id = azurerm_resource_group.rg.id
+# Logs de consola y HTTP del App Service hacia Log Analytics
+resource "azurerm_monitor_diagnostic_setting" "app" {
+  name                       = "diag-app-${local.base}"
+  target_resource_id         = azurerm_linux_web_app.app.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
 
-  amount     = var.budget_amount # Límite en USD ($100 por defecto)
-  time_grain = "Monthly"
+  enabled_log {
+    category = "AppServiceConsoleLogs"
+  }
+  enabled_log {
+    category = "AppServiceHTTPLogs"
+  }
+  enabled_log {
+    category = "AppServiceAppLogs"
+  }
+}
+
+# Logs de PostgreSQL hacia Log Analytics
+resource "azurerm_monitor_diagnostic_setting" "pg" {
+  name                       = "diag-psql-${local.base}"
+  target_resource_id         = azurerm_postgresql_flexible_server.pg.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
+
+  enabled_log {
+    category = "PostgreSQLLogs"
+  }
+}
+
+# Alertas de presupuesto (opcional)
+resource "azurerm_consumption_budget_resource_group" "budget" {
+  count             = var.enable_budget ? 1 : 0
+  name              = "budget-${local.base}"
+  resource_group_id = azurerm_resource_group.rg.id
+  amount            = 90
+  time_grain        = "Monthly"
 
   time_period {
-    start_date = formatdate("YYYY-MM-01'T'00:00:00'Z'", timestamp())
+    start_date = var.budget_start_date
   }
 
-  # Notificación al alcanzar el 50% ($50 USD)
-  notification {
-    enabled        = true
-    threshold      = 50.0
-    operator       = "GreaterThan"
-    threshold_type = "Actual"
-    contact_emails = [var.alert_email]
-  }
-
-  # Notificación al alcanzar el 75% ($75 USD)
-  notification {
-    enabled        = true
-    threshold      = 75.0
-    operator       = "GreaterThan"
-    threshold_type = "Actual"
-    contact_emails = [var.alert_email]
-  }
-
-  # Notificación al alcanzar el 90% ($90 USD) - Alerta de apagado preventivo
-  notification {
-    enabled        = true
-    threshold      = 90.0
-    operator       = "GreaterThan"
-    threshold_type = "Actual"
-    contact_emails = [var.alert_email]
-  }
-
-  lifecycle {
-    ignore_changes = [time_period]
+  dynamic "notification" {
+    for_each = { "50" = 55, "75" = 83, "90" = 100 } # 50, 75 y 90 USD sobre 90
+    content {
+      enabled        = true
+      threshold      = notification.value
+      operator       = "GreaterThanOrEqualTo"
+      threshold_type = "Actual"
+      contact_emails = [var.budget_alert_email]
+    }
   }
 }
