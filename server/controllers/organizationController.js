@@ -208,9 +208,15 @@ async function usage(req, res) {
            plans.key, plans.name, plans.price_cents, plans.currency, plans.max_users, plans.max_projects,
            plans.max_storage_mb, plans.features
     FROM organizations
-    JOIN plans ON plans.id = organizations.plan_id
+    LEFT JOIN plans ON plans.id = organizations.plan_id
     WHERE organizations.id = ?
   `).get(organizationId);
+  if (!plan) return res.status(404).json({ error: 'Organización no encontrada.' });
+  // Organizaciones creadas antes de los planes no tienen plan_id. Igual que planMiddleware
+  // (que no aplica límites sin plan), se responde sin límites en lugar de tronar.
+  if (!plan.plan_id) {
+    Object.assign(plan, { key: 'none', name: 'Sin plan asignado', max_users: null, max_projects: null, max_storage_mb: null });
+  }
 
   const [users, projects, files] = await Promise.all([
     database.prepare('SELECT COUNT(*)::integer AS count FROM users WHERE organization_id = ?').get(organizationId),
