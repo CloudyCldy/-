@@ -408,28 +408,45 @@ function loginView(error='') {
 function sidebar(){
   const admin=state.user.role==='admin';
   const isNavActive=href=>{
-    const h=location.hash||'';
-    return h===href || (href!=='/' && (h.startsWith(href+'/') || h.startsWith(href+'?')));
+    const h=(location.hash||'').replace(/^#/, '');
+    const cleanHref=href.replace(/^#/, '');
+    if (h === cleanHref || h.startsWith(cleanHref + '?')) return true;
+    if (cleanHref !== '/' && cleanHref !== '/admin/github' && cleanHref !== '/member/github' && h.startsWith(cleanHref + '/')) {
+      return true;
+    }
+    return false;
   };
   const sections=admin?[
     {
-      title: 'Workspace',
+      title: 'General',
       links: [
         ['/admin/dashboard','Dashboard','dashboard'],
         ['/admin/projects','Proyectos','briefcase'],
         ['/admin/overview','Project Overview','pieChart'],
-        ['/admin/tasks','Tareas','tasks','tasks'],
-        ['/admin/milestones','Hitos','flag'],
-        ['/admin/issues','Incidencias','alertTriangle'],
-        ['/admin/methodologies','Metodologías','bookOpen'],
-        ['/admin/sprints','Sprints','progress'],
-        ['/admin/backlog','Backlog','archive'],
-        ['/admin/kanban','Kanban','kanban'],
-        ['/admin/gantt','Gantt','gantt'],
       ]
     },
     {
-      title: 'Equipo & Comunicación',
+      title: 'Planificación y Tareas',
+      links: [
+        ['/admin/tasks','Tareas','tasks','tasks'],
+        ['/admin/backlog','Backlog','archive'],
+        ['/admin/sprints','Sprints','progress'],
+        ['/admin/kanban','Kanban','kanban'],
+        ['/admin/gantt','Gantt','gantt'],
+        ['/admin/milestones','Hitos','flag'],
+      ]
+    },
+    {
+      title: 'Seguimiento y Calidad',
+      links: [
+        ['/admin/issues','Incidencias','alertTriangle'],
+        ['/admin/risks','Risk Center','alertTriangle'],
+        ['/admin/knowledge','Knowledge Center','bookOpen'],
+        ['/admin/methodologies','Metodologías','layers'],
+      ]
+    },
+    {
+      title: 'Equipo y Comunicación',
       links: [
         ['/admin/messages','Mensajes','messages','messages'],
         ['/admin/announcements','Anuncios','announcements'],
@@ -439,19 +456,17 @@ function sidebar(){
       ]
     },
     {
-      title: 'Operaciones',
+      title: 'Desarrollo y Herramientas',
       links: [
-        ['/admin/knowledge','Knowledge Center','bookOpen'],
-        ['/admin/risks','Risk Center','alertTriangle'],
-        ['/admin/assistant','Asistente IA','sparkles'],
         ['/admin/github','GitHub','github'],
         ['/admin/github/commits','Commits','gitCommit'],
         ['/admin/team-activity','Actividad del equipo','activity'],
+        ['/admin/assistant','Asistente IA','sparkles'],
         ['/admin/relax','Relax 梵天','music'],
       ]
     },
     {
-      title: 'Cuenta & Ajustes',
+      title: 'Configuración y Cuenta',
       links: [
         ['/admin/billing','Facturación','creditCard'],
         ['/admin/settings/github','Configuración','settings'],
@@ -462,38 +477,48 @@ function sidebar(){
     }
   ]:[
     {
-      title: 'Workspace',
+      title: 'General',
       links: [
         ['/member/dashboard','Dashboard','dashboard'],
         ['/member/projects','Proyectos','briefcase'],
         ['/member/overview','Project Overview','pieChart'],
-        ['/member/tasks','Mis tareas','tasks','tasks'],
-        ['/member/milestones','Hitos','flag'],
-        ['/member/issues','Incidencias','alertTriangle'],
-        ['/member/methodologies','Metodologías','bookOpen'],
-        ['/member/sprints','Sprints','progress'],
-        ['/member/backlog','Backlog','archive'],
-        ['/member/kanban','Kanban','kanban'],
-        ['/member/gantt','Gantt','gantt'],
       ]
     },
     {
-      title: 'Equipo & Comunicación',
+      title: 'Planificación y Tareas',
+      links: [
+        ['/member/tasks','Mis tareas','tasks','tasks'],
+        ['/member/backlog','Backlog','archive'],
+        ['/member/sprints','Sprints','progress'],
+        ['/member/kanban','Kanban','kanban'],
+        ['/member/gantt','Gantt','gantt'],
+        ['/member/milestones','Hitos','flag'],
+      ]
+    },
+    {
+      title: 'Seguimiento y Calidad',
+      links: [
+        ['/member/issues','Incidencias','alertTriangle'],
+        ['/member/risks','Risk Center','alertTriangle'],
+        ['/member/knowledge','Knowledge Center','bookOpen'],
+        ['/member/methodologies','Metodologías','layers'],
+      ]
+    },
+    {
+      title: 'Equipo y Comunicación',
       links: [
         ['/member/messages','Mensajes','messages','messages'],
         ['/member/announcements','Anuncios','announcements'],
         ['/member/absences','Inasistencias','calendar'],
         ['/member/members','Equipo','users'],
         ['/member/files','Archivos','folder'],
-        ['/member/knowledge','Knowledge Center','bookOpen'],
-        ['/member/risks','Risk Center','alertTriangle'],
       ]
     },
     {
-      title: 'Herramientas & Cuenta',
+      title: 'Herramientas y Cuenta',
       links: [
-        ['/member/relax','Relax 梵天','music'],
         ['/member/github','GitHub','github'],
+        ['/member/relax','Relax 梵天','music'],
         ['/member/profile','Perfil','user'],
       ]
     }

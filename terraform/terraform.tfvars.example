@@ -1,0 +1,36 @@
+# Copia este archivo como terraform.tfvars (NO se sube a Git)
+
+# ID de tu suscripción: az account show --query id -o tsv
+subscription_id = "00000000-0000-0000-0000-000000000000"
+
+# Versión LTS de Node.js (20 ya no tiene soporte)
+node_version = "22-lts"
+
+# Variables NO secretas de la app
+extra_app_settings = {
+  SANZU_API_URL    = "https://sanzu.onrender.com"
+  SANZU_TIMEOUT_MS = "15000"
+  SANDBOX_MODE     = "true"
+  SUPPORT_EMAIL    = "soporte@ejemplo.com"
+}
+
+# Variables secretas: se guardan en Key Vault y la app las lee por referencia.
+# Pon solo las que tengan; las que no, bórralas.
+app_secrets = {
+  # SANZU_API_KEY              = "..."
+  # MERCADOPAGO_ACCESS_TOKEN   = "..."
+  # MERCADOPAGO_WEBHOOK_SECRET = "..."
+  # GITHUB_CLIENT_ID           = "..."
+  # GITHUB_CLIENT_SECRET       = "..."
+  # GITLAB_CLIENT_ID           = "..."
+  # GITLAB_CLIENT_SECRET       = "..."
+  # MUSICAPI_API_KEY           = "..."
+  # MUSICAPI_CLIENT_ID         = "..."
+  # MUSICAPI_CLIENT_SECRET     = "..."
+}
+
+# Opcionales
+# existing_service_plan_id = "/subscriptions/<id>/resourceGroups/<grupo>/providers/Microsoft.Web/serverFarms/<plan>"
+# enable_admin_vm    = true
+# enable_budget      = true
+# budget_alert_email = "tu_correo@utvtol.edu.mx"
