@@ -4,14 +4,24 @@ async function dashboard(req, res) {
   // Un integrante (member) ve solo sus tareas: sus totales, sus vencidas y su salud.
   // El administrador y el project manager ven los números de toda la organización.
   const isMember = req.session.user.role === 'member';
+  const projectId = req.query.project_id && Number.isInteger(Number(req.query.project_id)) ? Number(req.query.project_id) : null;
 
-  const taskWhere = isMember ? 'WHERE organization_id = ? AND assigned_to = ?' : 'WHERE organization_id = ?';
-  const args = isMember ? [orgId, req.session.user.id] : [orgId];
+  const taskWhere = projectId
+    ? (isMember ? 'WHERE organization_id = ? AND assigned_to = ? AND project_id = ?' : 'WHERE organization_id = ? AND project_id = ?')
+    : (isMember ? 'WHERE organization_id = ? AND assigned_to = ?' : 'WHERE organization_id = ?');
+  const args = projectId
+    ? (isMember ? [orgId, req.session.user.id, projectId] : [orgId, projectId])
+    : (isMember ? [orgId, req.session.user.id] : [orgId]);
 
   const now = new Date();
   const todayStr = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
   const nextWeekDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 7));
   const nextWeekStr = `${nextWeekDate.getUTCFullYear()}-${String(nextWeekDate.getUTCMonth() + 1).padStart(2, '0')}-${String(nextWeekDate.getUTCDate()).padStart(2, '0')}`;
+
+  const healthWhere = `WHERE organization_id = $1${isMember ? ' AND assigned_to = $4' : ''}${projectId ? (isMember ? ' AND project_id = $5' : ' AND project_id = $4') : ''}`;
+  const healthArgs = isMember
+    ? (projectId ? [orgId, todayStr, nextWeekStr, req.session.user.id, projectId] : [orgId, todayStr, nextWeekStr, req.session.user.id])
+    : (projectId ? [orgId, todayStr, nextWeekStr, projectId] : [orgId, todayStr, nextWeekStr]);
 
   const [
     tasksByStatus,
@@ -20,7 +30,8 @@ async function dashboard(req, res) {
     recentActivity,
     membersCountResult,
     filesCountResult,
-    firstProject
+    firstProject,
+    allProjects
   ] = await Promise.all([
     database.prepare(`SELECT status, COUNT(*)::integer AS count FROM tasks ${taskWhere} GROUP BY status`).all(...args),
     database.prepare(`
@@ -33,28 +44,35 @@ async function dashboard(req, res) {
         COUNT(*) FILTER (WHERE start_date IS NULL OR due_date IS NULL)::integer AS unscheduled_count,
         COUNT(*) FILTER (WHERE status <> 'completada' AND priority IN ('alta', 'critica'))::integer AS critical_count
       FROM tasks
-      WHERE organization_id = $1${isMember ? ' AND assigned_to = $4' : ''}
-    `).all(...(isMember ? [orgId, todayStr, nextWeekStr, req.session.user.id] : [orgId, todayStr, nextWeekStr])),
+      ${healthWhere}
+    `).all(...healthArgs),
     database.prepare(`
       SELECT users.name,
              COUNT(tasks.id)::integer AS total,
              COUNT(tasks.id) FILTER (WHERE tasks.status = 'completada')::integer AS completed
       FROM users
-      LEFT JOIN tasks ON tasks.assigned_to = users.id AND tasks.organization_id = ?
+      LEFT JOIN tasks ON tasks.assigned_to = users.id AND tasks.organization_id = ?${projectId ? ' AND tasks.project_id = ?' : ''}
       WHERE users.organization_id = ? AND users.role <> 'admin' AND users.active = 1
       GROUP BY users.id, users.name
       ORDER BY total DESC, users.name
-    `).all(orgId, orgId),
-    database.prepare('SELECT action, description, created_at FROM activities WHERE organization_id = ? ORDER BY created_at DESC LIMIT 5').all(orgId),
+    `).all(...(projectId ? [orgId, projectId, orgId] : [orgId, orgId])),
+    database.prepare(`SELECT action, description, created_at FROM activities WHERE organization_id = ?${projectId ? ' AND project_id = ?' : ''} ORDER BY created_at DESC LIMIT 5`).all(...(projectId ? [orgId, projectId] : [orgId])),
     database.prepare("SELECT COUNT(*)::integer AS count FROM users WHERE organization_id = ? AND role <> 'admin' AND active = 1").get(orgId),
     database.prepare('SELECT COUNT(*)::integer AS count FROM files WHERE organization_id = ?').get(orgId),
-    database.prepare(`SELECT projects.*,
-      (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id) AS tasks_total,
-      (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id AND t.status = 'completada') AS tasks_done,
-      (SELECT COALESCE(ROUND(AVG(CASE WHEN t.status = 'completada' THEN 100 ELSE LEAST(100, GREATEST(0, COALESCE(t.progress, 0))) END))::integer, 0) FROM tasks t WHERE t.project_id = projects.id) AS tasks_progress
-    FROM projects WHERE organization_id = ?
-    ORDER BY (SELECT COUNT(*) FROM tasks t WHERE t.project_id = projects.id AND t.status <> 'completada') DESC, projects.created_at DESC
-    LIMIT 1`).get(orgId)
+    projectId
+      ? database.prepare(`SELECT projects.*,
+          (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id) AS tasks_total,
+          (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id AND t.status = 'completada') AS tasks_done,
+          (SELECT COALESCE(ROUND(AVG(CASE WHEN t.status = 'completada' THEN 100 ELSE LEAST(100, GREATEST(0, COALESCE(t.progress, 0))) END))::integer, 0) FROM tasks t WHERE t.project_id = projects.id) AS tasks_progress
+        FROM projects WHERE organization_id = ? AND id = ?`).get(orgId, projectId)
+      : database.prepare(`SELECT projects.*,
+          (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id) AS tasks_total,
+          (SELECT COUNT(*)::integer FROM tasks t WHERE t.project_id = projects.id AND t.status = 'completada') AS tasks_done,
+          (SELECT COALESCE(ROUND(AVG(CASE WHEN t.status = 'completada' THEN 100 ELSE LEAST(100, GREATEST(0, COALESCE(t.progress, 0))) END))::integer, 0) FROM tasks t WHERE t.project_id = projects.id) AS tasks_progress
+        FROM projects WHERE organization_id = ?
+        ORDER BY (SELECT COUNT(*) FROM tasks t WHERE t.project_id = projects.id AND t.status <> 'completada') DESC, projects.created_at DESC
+        LIMIT 1`).get(orgId),
+    database.prepare('SELECT id, name, description, methodology_id FROM projects WHERE organization_id = ? ORDER BY name ASC').all(orgId)
   ]);
 
   const total = tasksByStatus.reduce((sum, item) => sum + item.count, 0);
@@ -95,6 +113,7 @@ async function dashboard(req, res) {
     user: req.session.user,
     organization: req.organization,
     project: firstProject,
+    projects: allProjects,
     stats: {
       totalTasks: total,
       completed,

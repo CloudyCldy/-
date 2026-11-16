@@ -1,7 +1,33 @@
-const state = { user: null, plan: null, tasks: [], users: [], files: [], announcements: [], dashboard: null, notifications: { messages: 0, tasks: 0 }, listPages: { files: 1, tasks: 1, members: 1, announcements: 1 }, kanbanTimer: null };
+const state = { user: null, plan: null, tasks: [], users: [], files: [], announcements: [], dashboard: null, notifications: { messages: 0, tasks: 0 }, listPages: { files: 1, tasks: 1, members: 1, announcements: 1 }, kanbanTimer: null, activeProjectId: null };
 const app = document.querySelector('#app') || document.getElementById('app') || document.body;
 const desktopNotificationState = { lastMessages: null, lastTasks: null, permissionRequested: false };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+function getActiveProjectId(){
+  if(state.activeProjectId) return Number(state.activeProjectId);
+  const saved = localStorage.getItem('haitani_active_project_id');
+  if(saved && Number(saved)) {
+    state.activeProjectId = Number(saved);
+    return state.activeProjectId;
+  }
+  return null;
+}
+function setActiveProjectId(id){
+  const numId = id ? Number(id) : null;
+  state.activeProjectId = numId;
+  if(numId){
+    localStorage.setItem('haitani_active_project_id', String(numId));
+    sessionStorage.setItem('preselected_project_id', String(numId));
+    localStorage.setItem('haitani-backlog-project', String(numId));
+    localStorage.setItem('haitani-github-project', String(numId));
+    if (typeof ganttProjectId !== 'undefined') ganttProjectId = String(numId);
+    state.activeSprintProjectId = numId;
+  } else {
+    localStorage.removeItem('haitani_active_project_id');
+    sessionStorage.removeItem('preselected_project_id');
+    if (typeof ganttProjectId !== 'undefined') ganttProjectId = '';
+    state.activeSprintProjectId = null;
+  }
+}
 function iconAsset(name, alt = '', className = '') { return `<img class="icon-image ${className}" src="/static/img/${name}.png" alt="${esc(alt || name)}">`; }
 function brandLogo(className = '') { return `<img class="brand-logo ${className}" src="/static/img/ht.png" alt="Haitani">`; }
 const SVG_ICONS = {
@@ -529,7 +555,9 @@ function sidebar(){
     ${sec.links.map(([href,label,iconName,type])=>`<button class="nav ${isNavActive(href)?'active':''}" data-route="${href}">${icon(iconName)}<span class="nav-label">${label}</span>${type?notificationDot(type):''}</button>`).join('')}
   `).join('');
 
-  return `<aside class="side" id="side"><div class="brand">${brandLogo()}</div><div class="project">${esc(state.user.organization_name||'Organización')}</div>${markup}<div class="nav-title">Sesión</div><button class="nav" id="logout">${icon('logout')}<span class="nav-label">Cerrar sesión</span></button></aside>`;
+  const activeProjId = getActiveProjectId();
+  const activeProjSubtitle = activeProjId ? `<div class="sidebar-active-proj" style="font-size:11px;opacity:0.8;margin-top:4px;display:flex;align-items:center;gap:4px;">${icon('briefcase')}<span>Proyecto activo</span></div>` : '';
+  return `<aside class="side" id="side"><div class="brand">${brandLogo()}</div><div class="project">${esc(state.user.organization_name||'Organización')}${activeProjSubtitle}</div>${markup}<div class="nav-title">Sesión</div><button class="nav" id="logout">${icon('logout')}<span class="nav-label">Cerrar sesión</span></button></aside>`;
 }
 function avatarMarkup(user,size='avatar'){return user.profile_photo?`<img class="${size}" src="${esc(user.profile_photo)}" alt="Foto de ${esc(user.name)}">`:`<span class="${size}">${esc(user.name?.[0]||'?')}</span>`}
 function layout(content){
@@ -598,14 +626,18 @@ function projectEditor(project){
 function methodologyWidgets(project){const method=project?.methodology_id;const links=[];links.push(`<a class="btn secondary" href="#/${state.user.role}/sprints">${icon('gantt')}Ver Sprints</a>`);if(['SCRUM','KANBAN','XP','AGILE'].includes(method))links.push(`<a class="btn secondary" href="#/${state.user.role}/kanban">${icon('kanban')}Abrir tablero</a>`);if(method==='WATERFALL'||method==='LEAN'||method==='HYBRID')links.push(`<a class="btn secondary" href="#/${state.user.role}/gantt">${icon('gantt')}Abrir hitos y Gantt</a>`);links.push(`<a class="btn secondary" href="#/${state.user.role}/milestones?project=${project?.id}">${icon('flag')}Hitos</a>`);if(project?.id)links.push(`<button type="button" class="btn secondary" id="dash-new-project-task" data-project-id="${project.id}">${icon('plus')}Nueva tarea</button>`);return `<div class="actions mt-3"><span class="muted">${method?`Flujo recomendado: ${esc(method)}`:'Define una metodología'}</span>${links.join('')}</div>`}
 function projectHealth(health){if(!health)return '';const statusLabel={saludable:'Saludable',atencion:'Requiere atención',riesgo:'En riesgo'}[health.status]||'Sin datos';const workload=health.workload||[];const activity=health.recentActivity||[];return `<section class="card project-health mt-4"><div class="project-health-head"><div><div class="eyebrow">Control operativo</div><h2>Salud del proyecto</h2><p class="muted">Lectura combinada de avance, planificación, riesgos y capacidad del equipo.</p></div><div class="health-score health-${esc(health.status)}"><strong>${health.score}</strong><span>/ 100</span><small>${statusLabel}</small></div></div><div class="health-overview"><div class="health-meter"><div class="health-meter-track"><i style="width:${health.score}%"></i></div><div class="health-meter-labels"><span>Riesgo</span><span>Atención</span><span>Saludable</span></div></div><div class="health-metrics"><div><strong>${health.overdue}</strong><span>Vencidas</span></div><div><strong>${health.dueSoon}</strong><span>Próximas 7 días</span></div><div><strong>${health.critical}</strong><span>Alta prioridad</span></div><div><strong>${health.unassigned}</strong><span>Sin responsable</span></div></div></div><div class="health-detail-grid"><div><h3>Calidad de planificación</h3><div class="health-progress-row"><span>Fechas definidas</span><strong>${health.dateCoverage}%</strong><i><b style="width:${health.dateCoverage}%"></b></i></div><div class="health-progress-row"><span>Responsables asignados</span><strong>${health.assignmentCoverage}%</strong><i><b style="width:${health.assignmentCoverage}%"></b></i></div><h3 class="health-subtitle">Recomendaciones</h3><ul class="health-list">${health.recommendations.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div><div><h3>Carga del equipo</h3>${workload.length?`<div class="health-workload">${workload.map(item=>{const percentage=item.total?Math.round(item.completed/item.total*100):0;return `<div class="health-workload-row"><span>${esc(item.name)}</span><strong>${item.total} <small>${percentage}% completado</small></strong><i><b style="width:${percentage}%"></b></i></div>`}).join('')}</div>`:'<div class="empty">No hay integrantes activos.</div>'}<h3 class="health-subtitle">Actividad reciente</h3>${activity.length?`<div class="health-activity">${activity.map(item=>`<div><strong>${esc(item.action)}</strong><small>${esc(item.description||'Actualización registrada')}</small></div>`).join('')}</div>`:'<div class="empty">No hay actividad reciente.</div>'}</div></div></section>`}
 async function dashboard(){
-  state.dashboard=await api('/dashboard');
+  const activeProjId = getActiveProjectId();
+  const dashUrl = activeProjId ? `/dashboard?project_id=${activeProjId}` : '/dashboard';
+  state.dashboard=await api(dashUrl);
   const s=state.dashboard.stats;
   const project=state.dashboard.project;
+  const allProjects=state.dashboard.projects||await api('/projects').catch(()=>[]);
   const isAdmin=state.user.role==='admin';
 
   let githubStatus='<div class="dash-gh-pill disconnected"><span>No conectado</span> · <a href="#/admin/settings/github">Configurar</a></div>';
   try {
-    const github=await api('/github/repository');
+    const ghUrl = activeProjId ? `/github/repository?project_id=${activeProjId}` : '/github/repository';
+    const github=await api(ghUrl);
     if(github.configured && !github.error && github.data){
       githubStatus=`<div class="dash-gh-pill connected">${icon('github')}<span>${esc(github.data.full_name||'Repositorio')}</span> · Rama: <code>${esc(github.data.default_branch||'main')}</code></div>`;
     } else if(github.error){
@@ -639,6 +671,24 @@ async function dashboard(){
         <a class="btn" href="${isAdmin?'#/admin/tasks':'#/member/tasks'}">${icon('plus')}Nueva tarea</a>
         <a class="btn secondary" href="${isAdmin?'#/admin/kanban':'#/member/kanban'}">${icon('kanban')}Tablero</a>
         ${isAdmin ? `<a class="btn secondary" href="#/admin/announcements">${icon('announcements')}Anuncios</a>` : `<a class="btn secondary" href="#/member/messages">${icon('messages')}Chat</a>`}
+      </div>
+    </div>
+
+    <div class="dash-project-focus-bar card mt-3 mb-4" style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border:1px solid var(--line);">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="icon-svg" style="width:20px;height:20px;opacity:0.85;">${icon('briefcase')}</span>
+        <div>
+          <div class="eyebrow" style="margin:0;font-size:11px;">Filtro de Proyecto Activo</div>
+          <strong style="font-size:15px;">${project ? esc(project.name) : 'Todos los Proyectos (Sin filtro exclusivo)'}</strong>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <label for="dashboard-active-project-select" class="muted" style="margin:0;font-size:13px;">Proyecto activo:</label>
+        <select class="select" id="dashboard-active-project-select" style="min-width:240px;max-width:320px;">
+          <option value="">-- Todos los Proyectos --</option>
+          ${allProjects.map(p => `<option value="${p.id}" ${String(p.id) === String(activeProjId) ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        </select>
+        ${activeProjId ? `<button type="button" class="btn secondary mini" id="clear-active-project-btn" title="Quitar filtro de proyecto y ver todos">${icon('close')}Ver todos</button>` : ''}
       </div>
     </div>
 
@@ -733,11 +783,21 @@ async function renderDashboard(){
   if(state.user.role==='admin'&&state.dashboard?.health){
     document.querySelector('.content')?.insertAdjacentHTML('beforeend',projectHealth(state.dashboard.health));
   }
-  const tasks=await api('/tasks');
+  const activeProjId = getActiveProjectId();
+  const tasksUrl = activeProjId ? `/tasks?project_id=${activeProjId}` : '/tasks';
+  const tasks=await api(tasksUrl);
   const taskContainer=document.querySelector('#dashboard-tasks');
   if(taskContainer){
     taskContainer.innerHTML=tasks.length ? tasks.slice(0,5).map(taskRow).join('') : '<div class="empty">No tienes tareas pendientes por ahora. Buen trabajo.</div>';
   }
+  document.querySelector('#dashboard-active-project-select')?.addEventListener('change', e => {
+    setActiveProjectId(e.target.value);
+    renderDashboard();
+  });
+  document.querySelector('#clear-active-project-btn')?.addEventListener('click', () => {
+    setActiveProjectId(null);
+    renderDashboard();
+  });
   document.querySelector('#project-form')?.addEventListener('submit',async event=>{
     event.preventDefault();
     const values=Object.fromEntries(new FormData(event.target));
@@ -946,13 +1006,119 @@ async function renderAnnouncements(){
   });
 }
 let githubProjectId=localStorage.getItem('haitani-github-project')||'';
+let githubMemberFilter=localStorage.getItem('haitani-github-member')||'';
 function githubConfigForm(){return `<form id="github-quick-config" class="form-grid mt-3"><label class="full">URL del repositorio<input class="input" name="url" placeholder="https://github.com/usuario/proyecto" required></label><label class="full">Token de GitHub (solo si el repositorio es privado)<input class="input" name="token" type="password" autocomplete="off" placeholder="Déjalo vacío si el repositorio es público"></label><div class="actions full"><button class="btn">${icon('check')} Vincular repositorio</button></div></form>`}
-async function githubView(section='repository'){const projects=await api('/projects').catch(()=>[]);if(!githubProjectId||!projects.some(p=>String(p.id)===String(githubProjectId)))githubProjectId=projects[0]?String(projects[0].id):'';const projectQuery=githubProjectId?`?project_id=${encodeURIComponent(githubProjectId)}`:'';const projectPicker=projects.length>1?`<select class="select" id="github-project" style="max-width:280px">${projects.map(p=>`<option value="${p.id}" ${String(p.id)===String(githubProjectId)?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`:'';const data=await api(`/github/${section==='pulls'?'pull-requests':section}${projectQuery}`);const canConfigure=state.user.role==='admin';let body='';if(!data.configured)body=`<section class="card"><div class="empty">Este proyecto aún no tiene un repositorio de GitHub vinculado.</div>${canConfigure?githubConfigForm():'<p class="muted">Pide al administrador que lo vincule.</p>'}</section>`;else if(data.error)body=`<section class="card"><div class="alert">${esc(data.error)}</div>${canConfigure?githubConfigForm():''}</section>`;else if(section==='repository'){const r=data.data;body=`<div class="grid stats"><div class="card stat"><div class="label">Nombre</div><div class="num">${esc(r.name)}</div></div><div class="card stat"><div class="label">Lenguaje</div><div class="num lilac">${esc(r.language||'No disponible')}</div></div><div class="card stat"><div class="label">Estrellas</div><div class="num yellow">${r.stargazers_count}</div></div><div class="card stat"><div class="label">Última actualización</div><div class="num num-sm">${new Date(r.updated_at).toLocaleDateString('es')}</div></div></div><section class="card mt-4"><h2>${esc(r.full_name)}</h2><p class="muted">${esc(r.description||'No disponible')}</p><a class="btn" href="${esc(r.html_url)}" target="_blank">Abrir en GitHub</a></section>`}else if(section==='commits'){body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Commit</th><th>Autor</th><th>Usuario GitHub</th><th>SHA</th><th>Fecha</th><th></th></tr></thead><tbody>${data.data.map(commit=>`<tr><td>${esc(commit.message)}</td><td>${esc(commit.author)}</td><td>${esc(commit.github_username||'No disponible')}</td><td><code>${esc(commit.sha)}</code></td><td>${esc(commit.date||'No disponible')}</td><td><a class="btn secondary" href="${esc(commit.url)}" target="_blank">Ver commit</a></td></tr>`).join('')||'<tr><td colspan="6" class="empty">No hay commits disponibles.</td></tr>'}</tbody></table></div></section>`}else if(section==='branches'){body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Rama</th><th>Último commit</th><th></th></tr></thead><tbody>${data.data.map(b=>`<tr><td><strong>${esc(b.name)}</strong></td><td><code>${esc(b.sha)}</code></td><td>${b.url?`<a class="btn secondary" href="${esc(b.url)}" target="_blank">Ver en GitHub</a>`:''}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">No hay ramas.</td></tr>'}</tbody></table></div></section>`}else{const rows=data.data;body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Actividad</th><th>Usuario</th><th>Fecha</th><th></th></tr></thead><tbody>${rows.map(item=>`<tr><td>${esc(item.message||item.title||item.action||item.name)}</td><td>${esc(item.github_username||item.author||item.user||'No disponible')}</td><td>${esc(item.date||item.updated||'No disponible')}</td><td>${item.url?`<a class="btn secondary" href="${esc(item.url)}" target="_blank">Ver en GitHub</a>`:''}</td></tr>`).join('')}</tbody></table></div></section>`}return `${heading(section==='commits'?'Commits':'GitHub','Repositorio vinculado al proyecto seleccionado.')}<div class="actions" style="margin-bottom:16px">${projectPicker}<button class="btn secondary" data-gh="repository">Overview</button><button class="btn secondary" data-gh="commits">Commits</button><button class="btn secondary" data-gh="pulls">Pull Requests</button><button class="btn secondary" data-gh="branches">Branches</button><button class="btn secondary" data-gh="activity">Activity</button></div>${body}`}
-async function renderGithub(section='repository'){try{layout(await githubView(section));document.querySelectorAll('[data-gh]').forEach(b=>b.onclick=()=>renderGithub(b.dataset.gh));document.querySelector('#github-project')?.addEventListener('change',e=>{githubProjectId=e.target.value;localStorage.setItem('haitani-github-project',githubProjectId);renderGithub(section)});document.querySelector('#github-quick-config')?.addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;try{const values=Object.fromEntries(new FormData(e.target));const result=await api('/github/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...values,project_id:githubProjectId})});notify(result.message||'Repositorio vinculado');renderGithub(section)}catch(error){notify(error.message);button.disabled=false}})}catch(error){layout(`${heading('GitHub','La integración de GitHub requiere un plan compatible.')}<section class="card"><div class="alert">${esc(error.message)}</div>${state.user.role==='admin'?'<a class="btn" href="#/admin/billing">Ver planes</a>':''}</section>`)}}
+async function githubView(section='repository'){
+  const projects=await api('/projects').catch(()=>[]);
+  const activeProjId = getActiveProjectId();
+  if (activeProjId && projects.some(p => p.id === activeProjId)) {
+    githubProjectId = String(activeProjId);
+  } else if(!githubProjectId||!projects.some(p=>String(p.id)===String(githubProjectId))) {
+    githubProjectId=projects[0]?String(projects[0].id):'';
+  }
+  const projectQuery=githubProjectId?`?project_id=${encodeURIComponent(githubProjectId)}`:'';
+  const projectPicker=projects.length>1?`<select class="select" id="github-project" style="max-width:240px">${projects.map(p=>`<option value="${p.id}" ${String(p.id)===String(githubProjectId)?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`:'';
+
+  const users = await api('/users').catch(() => []);
+  const memberPicker = (section === 'commits' || section === 'activity') ? `
+    <select class="select" id="github-member-filter" style="max-width:260px;" aria-label="Filtrar por integrante">
+      <option value="">Todos los integrantes</option>
+      ${users.map(u => `<option value="${esc(u.username)}" ${githubMemberFilter === u.username ? 'selected' : ''}>${esc(u.name)} (${esc(u.github_username ? '@' + u.github_username : u.username)})</option>`).join('')}
+    </select>
+  ` : '';
+
+  const data=await api(`/github/${section==='pulls'?'pull-requests':section}${projectQuery}`);
+  const canConfigure=state.user.role==='admin';
+  let body='';
+  if(!data.configured) body=`<section class="card"><div class="empty">Este proyecto aún no tiene un repositorio de GitHub vinculado.</div>${canConfigure?githubConfigForm():'<p class="muted">Pide al administrador que lo vincule.</p>'}</section>`;
+  else if(data.error) body=`<section class="card"><div class="alert">${esc(data.error)}</div>${canConfigure?githubConfigForm():''}</section>`;
+  else if(section==='repository'){
+    const r=data.data;
+    body=`<div class="grid stats"><div class="card stat"><div class="label">Nombre</div><div class="num">${esc(r.name)}</div></div><div class="card stat"><div class="label">Lenguaje</div><div class="num lilac">${esc(r.language||'No disponible')}</div></div><div class="card stat"><div class="label">Estrellas</div><div class="num yellow">${r.stargazers_count}</div></div><div class="card stat"><div class="label">Última actualización</div><div class="num num-sm">${new Date(r.updated_at).toLocaleDateString('es')}</div></div></div><section class="card mt-4"><h2>${esc(r.full_name)}</h2><p class="muted">${esc(r.description||'No disponible')}</p><a class="btn" href="${esc(r.html_url)}" target="_blank">Abrir en GitHub</a></section>`;
+  } else if(section==='commits'){
+    let commitsList = data.data || [];
+    if(githubMemberFilter){
+      const selUser = users.find(u => u.username === githubMemberFilter || String(u.id) === githubMemberFilter || u.github_username === githubMemberFilter);
+      commitsList = commitsList.filter(c => {
+        const ghUser = (c.github_username || '').toLowerCase();
+        const author = (c.author || '').toLowerCase();
+        const targetGh = (selUser?.github_username || '').toLowerCase();
+        const targetUsername = (selUser?.username || githubMemberFilter).toLowerCase();
+        const targetName = (selUser?.name || '').toLowerCase();
+        return (targetGh && ghUser === targetGh) ||
+               (ghUser && ghUser === targetUsername) ||
+               (targetName && author.includes(targetName)) ||
+               author.includes(targetUsername);
+      });
+    }
+    const filterNotice = githubMemberFilter ? `<div class="p-2 mb-3" style="font-size:13px;background:rgba(255,255,255,0.03);border-radius:6px;display:flex;align-items:center;justify-content:space-between;"><span>Mostrando <strong>${commitsList.length}</strong> commits de <strong>${esc(users.find(u=>u.username===githubMemberFilter)?.name || githubMemberFilter)}</strong></span><button type="button" class="btn secondary mini" id="clear-github-member">Ver todos</button></div>` : '';
+    body=`<section class="card">${filterNotice}<div class="table-wrap"><table class="table"><thead><tr><th>Commit</th><th>Autor</th><th>Usuario GitHub</th><th>SHA</th><th>Fecha</th><th></th></tr></thead><tbody>${commitsList.map(commit=>`<tr><td>${esc(commit.message)}</td><td>${esc(commit.author)}</td><td>${esc(commit.github_username||'No disponible')}</td><td><code>${esc(commit.sha)}</code></td><td>${esc(commit.date||'No disponible')}</td><td><a class="btn secondary" href="${esc(commit.url)}" target="_blank">Ver commit</a></td></tr>`).join('')||`<tr><td colspan="6" class="empty">${githubMemberFilter ? 'Este integrante no tiene commits en el historial reciente.' : 'No hay commits disponibles.'}</td></tr>`}</tbody></table></div></section>`;
+  } else if(section==='branches'){
+    body=`<section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Rama</th><th>Último commit</th><th></th></tr></thead><tbody>${data.data.map(b=>`<tr><td><strong>${esc(b.name)}</strong></td><td><code>${esc(b.sha)}</code></td><td>${b.url?`<a class="btn secondary" href="${esc(b.url)}" target="_blank">Ver en GitHub</a>`:''}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">No hay ramas.</td></tr>'}</tbody></table></div></section>`;
+  } else {
+    let rows = data.data || [];
+    if(githubMemberFilter){
+      const selUser = users.find(u => u.username === githubMemberFilter || String(u.id) === githubMemberFilter || u.github_username === githubMemberFilter);
+      rows = rows.filter(item => {
+        const uName = (item.user || item.github_username || item.author || '').toLowerCase();
+        const targetGh = (selUser?.github_username || '').toLowerCase();
+        const targetUsername = (selUser?.username || githubMemberFilter).toLowerCase();
+        const targetName = (selUser?.name || '').toLowerCase();
+        return (targetGh && uName === targetGh) ||
+               (uName === targetUsername) ||
+               (targetName && uName.includes(targetName)) ||
+               uName.includes(targetUsername);
+      });
+    }
+    const filterNotice = githubMemberFilter ? `<div class="p-2 mb-3" style="font-size:13px;background:rgba(255,255,255,0.03);border-radius:6px;display:flex;align-items:center;justify-content:space-between;"><span>Mostrando <strong>${rows.length}</strong> eventos de <strong>${esc(users.find(u=>u.username===githubMemberFilter)?.name || githubMemberFilter)}</strong></span><button type="button" class="btn secondary mini" id="clear-github-member">Ver todos</button></div>` : '';
+    body=`<section class="card">${filterNotice}<div class="table-wrap"><table class="table"><thead><tr><th>Actividad</th><th>Usuario</th><th>Fecha</th><th></th></tr></thead><tbody>${rows.map(item=>`<tr><td>${esc(item.message||item.title||item.action||item.name)}</td><td>${esc(item.github_username||item.author||item.user||'No disponible')}</td><td>${esc(item.date||item.updated||'No disponible')}</td><td>${item.url?`<a class="btn secondary" href="${esc(item.url)}" target="_blank">Ver en GitHub</a>`:''}</td></tr>`).join('')||`<tr><td colspan="4" class="empty">${githubMemberFilter ? 'Este integrante no registra actividad reciente en el repositorio.' : 'No hay actividad disponible.'}</td></tr>`}</tbody></table></div></section>`;
+  }
+  return `${heading(section==='commits'?'Commits':section==='activity'?'Actividad del Equipo':'GitHub','Repositorio vinculado al proyecto seleccionado.')}<div class="actions" style="margin-bottom:16px;flex-wrap:wrap;gap:8px">${projectPicker}${memberPicker}<button class="btn ${section==='repository'?'':'secondary'}" data-gh="repository">Overview</button><button class="btn ${section==='commits'?'':'secondary'}" data-gh="commits">Commits</button><button class="btn ${section==='pulls'?'':'secondary'}" data-gh="pulls">Pull Requests</button><button class="btn ${section==='branches'?'':'secondary'}" data-gh="branches">Branches</button><button class="btn ${section==='activity'?'':'secondary'}" data-gh="activity">Activity</button></div>${body}`;
+}
+async function renderGithub(section='repository'){
+  try{
+    layout(await githubView(section));
+    document.querySelectorAll('[data-gh]').forEach(b=>b.onclick=()=>renderGithub(b.dataset.gh));
+    document.querySelector('#github-project')?.addEventListener('change',e=>{
+      githubProjectId=e.target.value;
+      localStorage.setItem('haitani-github-project',githubProjectId);
+      renderGithub(section);
+    });
+    document.querySelector('#github-member-filter')?.addEventListener('change',e=>{
+      githubMemberFilter=e.target.value;
+      localStorage.setItem('haitani-github-member',githubMemberFilter);
+      renderGithub(section);
+    });
+    document.querySelector('#clear-github-member')?.addEventListener('click',()=>{
+      githubMemberFilter='';
+      localStorage.removeItem('haitani-github-member');
+      renderGithub(section);
+    });
+    document.querySelector('#github-quick-config')?.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const button=e.target.querySelector('button');
+      button.disabled=true;
+      try{
+        const values=Object.fromEntries(new FormData(e.target));
+        const result=await api('/github/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...values,project_id:githubProjectId})});
+        notify(result.message||'Repositorio vinculado');
+        renderGithub(section);
+      }catch(error){
+        notify(error.message);
+        button.disabled=false;
+      }
+    });
+  }catch(error){
+    layout(`${heading('GitHub','La integración de GitHub requiere un plan compatible.')}<section class="card"><div class="alert">${esc(error.message)}</div>${state.user.role==='admin'?'<a class="btn" href="#/admin/billing">Ver planes</a>':''}</section>`);
+  }
+}
 async function tasksView(){
-  const tasks=await api('/tasks');
+  const activeProjId = getActiveProjectId();
+  const tasksUrl = activeProjId ? `/tasks?project_id=${activeProjId}` : '/tasks';
+  const tasks=await api(tasksUrl);
   const users=['admin','project_manager'].includes(state.user.role)?await api('/users'):[];
   const projects=await api('/projects');
+  const activeProj = activeProjId ? projects.find(p => p.id === activeProjId) : null;
   const normalizedSearch = taskSearch.trim().toLowerCase();
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = !normalizedSearch || [task.title, task.description, task.assignee_name, task.status, task.priority].filter(Boolean).some(value => String(value).toLowerCase().includes(normalizedSearch));
@@ -969,9 +1135,12 @@ async function tasksView(){
       .map(task => [String(task.assigned_to ?? ''), { id: String(task.assigned_to ?? ''), name: task.assignee_name }])
   ).values()];
 
+  const activeProjectBadge = activeProj ? `<span class="badge green" style="display:inline-flex;align-items:center;gap:4px;">${icon('briefcase')} Proyecto: ${esc(activeProj.name)}</span>` : '';
+
   return `
-    ${heading(canDelete?'Gestión de Tareas':'Mis Tareas','Supervisa el progreso, fechas límite y asignaciones del equipo.',`
+    ${heading(canDelete?'Gestión de Tareas':'Mis Tareas', activeProj ? `Tareas exclusivas del proyecto: <strong>${esc(activeProj.name)}</strong>` : 'Supervisa el progreso, fechas límite y asignaciones del equipo.',`
       <div class="actions">
+        ${activeProjectBadge}
         <button class="btn secondary" id="download-tasks-pdf" type="button" title="Descargar reporte PDF con tus tareas">${icon('download')}Descargar PDF</button>
         ${canManage?`<button class="btn secondary" id="import-tasks" type="button">Importar CSV/XLSX</button><button class="btn" id="new-task" type="button">${icon('plus')}Nueva tarea</button>`:''}
       </div>
@@ -1306,7 +1475,7 @@ async function renderTasks(focusSearchCursor = null){
     modal.style.display='grid';
     document.querySelector('#task-form-title').textContent=task?.id?'Editar tarea':'Nueva tarea';
     form.elements.id.value=task?.id||'';
-    form.elements.project_id.value=task?.project_id||'';
+    form.elements.project_id.value=task?.project_id || (getActiveProjectId() ? String(getActiveProjectId()) : '');
     form.elements.title.value=task?.title||'';
     form.elements.description.value=task?.description||'';
     form.elements.assigned_to.value=task?.assigned_to||'';
@@ -1381,7 +1550,7 @@ async function renderTasks(focusSearchCursor = null){
     importModal.style.display='none';
     if(importedTasks){importedTasks=false;renderTasks()}
   };
-  document.querySelector('#new-task')?.addEventListener('click',()=>openForm());
+  document.querySelector('#new-task')?.addEventListener('click',()=>openForm(getActiveProjectId() ? { project_id: getActiveProjectId() } : {}));
   document.querySelector('#import-tasks')?.addEventListener('click',()=>{
     importForm.reset();
     importResults.hidden=true;
@@ -1508,9 +1677,13 @@ async function renderTasks(focusSearchCursor = null){
   });
 }
 async function kanban(){
-  const tasks=await api('/tasks');
+  const activeProjId = getActiveProjectId();
+  const tasksUrl = activeProjId ? `/tasks?project_id=${activeProjId}` : '/tasks';
+  const tasks=await api(tasksUrl);
+  const projects = activeProjId ? await api('/projects').catch(() => []) : [];
+  const activeProject = activeProjId ? projects.find(p => p.id === activeProjId) : null;
   return `
-    ${heading('Kanban','Organización visual del flujo de trabajo por columnas de estado.')}
+    ${heading('Kanban', activeProject ? `Tablero de estado exclusivo del proyecto: <strong>${esc(activeProject.name)}</strong>` : 'Organización visual del flujo de trabajo por columnas de estado.')}
     <div class="kanban">
       ${[['pendiente','Pendiente'],['en_proceso','En proceso'],['completada','Completada']].map(([status,label])=>`
         <section class="column" data-status="${status}">
@@ -4186,6 +4359,8 @@ function renderGanttCalendarHtml(scheduledTasks, monthDate, today) {
 }
 
 async function gantt() {
+  const activeProjId = getActiveProjectId();
+  if (activeProjId && !ganttProjectId) ganttProjectId = String(activeProjId);
   let ganttData;
   try {
     const url = `/gantt${ganttProjectId ? `?project_id=${ganttProjectId}` : ''}`;
@@ -7544,7 +7719,7 @@ const CRITERIA_TEMPLATE='Dado que \nCuando \nEntonces ';
 const STORY_PATTERN=/^Como\s+(.+?),\s*quiero\s+(.+?),\s*para\s+(.+?)\.?$/i;
 let backlogFilters={type:'',status:'',priority:'',sprint:''};
 let backlogData=null;
-function backlogProjectId(projects){const saved=localStorage.getItem('haitani-backlog-project');return projects.some(p=>String(p.id)===saved)?saved:String(projects[0]?.id||'')}
+function backlogProjectId(projects){const active=getActiveProjectId();if(active&&projects.some(p=>p.id===active))return String(active);const saved=localStorage.getItem('haitani-backlog-project');return projects.some(p=>String(p.id)===saved)?saved:String(projects[0]?.id||'')}
 function backlogOptions(map,selected,empty){return `<option value="">${empty}</option>`+Object.entries(map).map(([value,label])=>`<option value="${value}" ${selected===value?'selected':''}>${esc(Array.isArray(label)?label[0]:label)}</option>`).join('')}
 const SPRINT_STATUS_LABELS={planificado:'Planificado',activo:'Activo',cerrado:'Cerrado'};
 function sprintLabel(s){return SPRINT_STATUS_LABELS[s.status]?`${s.name} (${SPRINT_STATUS_LABELS[s.status]})`:s.name}
@@ -7833,7 +8008,8 @@ async function renderSprintsList() {
     return;
   }
 
-  const selectedProjectId = Number(state.activeSprintProjectId || projects[0].id);
+  const activeProjId = getActiveProjectId();
+  const selectedProjectId = Number(state.activeSprintProjectId || (activeProjId && projects.some(p => p.id === activeProjId) ? activeProjId : projects[0].id));
   state.activeSprintProjectId = selectedProjectId;
 
   let sprints = [];
@@ -8746,7 +8922,8 @@ async function renderOverview() {
   }
 
   const hashParams = new URLSearchParams((location.hash.split('?')[1]) || '');
-  let selectedProjectId = Number(hashParams.get('project')) || projects[0].id;
+  const activeProjId = getActiveProjectId();
+  let selectedProjectId = Number(hashParams.get('project')) || (activeProjId && projects.some(p => p.id === activeProjId) ? activeProjId : projects[0].id);
   if (!projects.some(p => p.id === selectedProjectId)) selectedProjectId = projects[0].id;
 
   let overviewData = null;
@@ -9501,7 +9678,8 @@ async function renderRisks() {
   const canManage = ['admin', 'project_manager'].includes(state.user.role);
 
   const hashParams = new URLSearchParams((location.hash.split('?')[1]) || '');
-  const filterProject = hashParams.get('project') || '';
+  const activeProjId = getActiveProjectId();
+  const filterProject = hashParams.get('project') || (activeProjId ? String(activeProjId) : '');
   const filterStatus = hashParams.get('status') || '';
 
   const filteredRisks = risks.filter(r => {
@@ -10016,7 +10194,8 @@ async function renderIssues() {
   }
 
   const hashParams = new URLSearchParams((location.hash.split('?')[1]) || '');
-  let selectedProjectId = Number(hashParams.get('project')) || projects[0].id;
+  const activeProjId = getActiveProjectId();
+  let selectedProjectId = Number(hashParams.get('project')) || (activeProjId && projects.some(p => p.id === activeProjId) ? activeProjId : projects[0].id);
   if (!projects.some(p => p.id === selectedProjectId)) selectedProjectId = projects[0].id;
   const statusFilter = hashParams.get('status') || '';
   const priorityFilter = hashParams.get('priority') || '';
@@ -10318,7 +10497,8 @@ async function renderMilestones() {
       </div>`);
   }
   const hashParams = new URLSearchParams((location.hash.split('?')[1]) || '');
-  let selectedProjectId = Number(hashParams.get('project')) || projects[0].id;
+  const activeProjId = getActiveProjectId();
+  let selectedProjectId = Number(hashParams.get('project')) || (activeProjId && projects.some(p => p.id === activeProjId) ? activeProjId : projects[0].id);
   if (!projects.some(p => p.id === selectedProjectId)) selectedProjectId = projects[0].id;
   const statusFilter = hashParams.get('status') || '';
 
@@ -10453,6 +10633,7 @@ async function renderMilestones() {
 async function renderMethodologies() {
   const hash = location.hash || '';
   const searchParams = new URLSearchParams(hash.split('?')[1] || '');
+  const activeProjId = getActiveProjectId();
   let selectedProjectId = searchParams.get('project') ? Number(searchParams.get('project')) : null;
 
   let projects = [];
@@ -10470,7 +10651,7 @@ async function renderMethodologies() {
   }
 
   if (projects.length && (!selectedProjectId || !projects.some(p => p.id === selectedProjectId))) {
-    selectedProjectId = projects[0].id;
+    selectedProjectId = (activeProjId && projects.some(p => p.id === activeProjId)) ? activeProjId : projects[0].id;
   }
   const currentProject = projects.find(p => p.id === selectedProjectId) || null;
   const isAdminOrPm = ['admin', 'project_manager'].includes(state.user.role);
