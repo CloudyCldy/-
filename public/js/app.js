@@ -697,7 +697,112 @@ function projectEditor(project){
   `;
 }
 function methodologyWidgets(project){const method=project?.methodology_id;const links=[];links.push(`<a class="btn secondary" href="#/${state.user.role}/sprints">${icon('gantt')}Ver Sprints</a>`);if(['SCRUM','KANBAN','XP','AGILE'].includes(method))links.push(`<a class="btn secondary" href="#/${state.user.role}/kanban">${icon('kanban')}Abrir tablero</a>`);if(method==='WATERFALL'||method==='LEAN'||method==='HYBRID')links.push(`<a class="btn secondary" href="#/${state.user.role}/gantt">${icon('gantt')}Abrir hitos y Gantt</a>`);links.push(`<a class="btn secondary" href="#/${state.user.role}/milestones?project=${project?.id}">${icon('flag')}Hitos</a>`);if(project?.id)links.push(`<button type="button" class="btn secondary" id="dash-new-project-task" data-project-id="${project.id}">${icon('plus')}Nueva tarea</button>`);return `<div class="actions mt-3"><span class="muted">${method?`Flujo recomendado: ${esc(method)}`:'Define una metodología'}</span>${links.join('')}</div>`}
-function projectHealth(health){if(!health)return '';const statusLabel={saludable:'Saludable',atencion:'Requiere atención',riesgo:'En riesgo'}[health.status]||'Sin datos';const workload=health.workload||[];const activity=health.recentActivity||[];return `<section class="card project-health mt-4"><div class="project-health-head"><div><div class="eyebrow">Control operativo</div><h2>Salud del proyecto</h2><p class="muted">Lectura combinada de avance, planificación, riesgos y capacidad del equipo.</p></div><div class="health-score health-${esc(health.status)}"><strong>${health.score}</strong><span>/ 100</span><small>${statusLabel}</small></div></div><div class="health-overview"><div class="health-meter"><div class="health-meter-track"><i style="width:${health.score}%"></i></div><div class="health-meter-labels"><span>Riesgo</span><span>Atención</span><span>Saludable</span></div></div><div class="health-metrics"><div><strong>${health.overdue}</strong><span>Vencidas</span></div><div><strong>${health.dueSoon}</strong><span>Próximas 7 días</span></div><div><strong>${health.critical}</strong><span>Alta prioridad</span></div><div><strong>${health.unassigned}</strong><span>Sin responsable</span></div></div></div><div class="health-detail-grid"><div><h3>Calidad de planificación</h3><div class="health-progress-row"><span>Fechas definidas</span><strong>${health.dateCoverage}%</strong><i><b style="width:${health.dateCoverage}%"></b></i></div><div class="health-progress-row"><span>Responsables asignados</span><strong>${health.assignmentCoverage}%</strong><i><b style="width:${health.assignmentCoverage}%"></b></i></div><h3 class="health-subtitle">Recomendaciones</h3><ul class="health-list">${health.recommendations.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div><div><h3>Carga del equipo</h3>${workload.length?`<div class="health-workload">${workload.map(item=>{const percentage=item.total?Math.round(item.completed/item.total*100):0;return `<div class="health-workload-row"><span>${esc(item.name)}</span><strong>${item.total} <small>${percentage}% completado</small></strong><i><b style="width:${percentage}%"></b></i></div>`}).join('')}</div>`:'<div class="empty">No hay integrantes activos.</div>'}<h3 class="health-subtitle">Actividad reciente</h3>${activity.length?`<div class="health-activity">${activity.map(item=>`<div><strong>${esc(item.action)}</strong><small>${esc(item.description||'Actualización registrada')}</small></div>`).join('')}</div>`:'<div class="empty">No hay actividad reciente.</div>'}</div></div></section>`}
+function projectHealth(health){
+  if(!health) return '';
+  const statusLabel = { saludable: 'Saludable', atencion: 'Requiere atención', riesgo: 'En riesgo' }[health.status] || 'Sin datos';
+  const workload = health.workload || [];
+  const activity = health.recentActivity || [];
+
+  return `
+    <section class="card project-health project-health-vertical">
+      <div class="project-health-head vertical">
+        <div class="health-head-info">
+          <div class="eyebrow">Control operativo</div>
+          <h2>Salud del proyecto</h2>
+          <p class="muted sub">Lectura combinada de avance, planificación, riesgos y capacidad.</p>
+        </div>
+        <div class="health-score health-${esc(health.status)}">
+          <strong>${health.score}</strong><span>/ 100</span>
+          <small>${statusLabel}</small>
+        </div>
+      </div>
+
+      <div class="health-overview vertical">
+        <div class="health-meter">
+          <div class="health-meter-track"><i style="width:${health.score}%"></i></div>
+          <div class="health-meter-labels">
+            <span>Riesgo</span><span>Atención</span><span>Saludable</span>
+          </div>
+        </div>
+        <div class="health-metrics vertical-metrics-grid">
+          <div class="health-metric-tile ${health.overdue > 0 ? 'is-warning' : ''}">
+            <strong>${health.overdue}</strong>
+            <span>Vencidas</span>
+          </div>
+          <div class="health-metric-tile">
+            <strong>${health.dueSoon}</strong>
+            <span>Próximas 7 días</span>
+          </div>
+          <div class="health-metric-tile ${health.critical > 0 ? 'is-critical' : ''}">
+            <strong>${health.critical}</strong>
+            <span>Alta prioridad</span>
+          </div>
+          <div class="health-metric-tile">
+            <strong>${health.unassigned}</strong>
+            <span>Sin responsable</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="health-vertical-stack">
+        <div class="health-vertical-section">
+          <h3 class="health-section-heading">${icon('check')} Calidad de planificación</h3>
+          <div class="health-progress-row">
+            <span>Fechas definidas</span>
+            <strong>${health.dateCoverage}%</strong>
+            <i><b style="width:${health.dateCoverage}%"></b></i>
+          </div>
+          <div class="health-progress-row">
+            <span>Responsables asignados</span>
+            <strong>${health.assignmentCoverage}%</strong>
+            <i><b style="width:${health.assignmentCoverage}%"></b></i>
+          </div>
+        </div>
+
+        <div class="health-vertical-section">
+          <h3 class="health-section-heading">${icon('users')} Carga del equipo</h3>
+          ${workload.length ? `
+            <div class="health-workload">
+              ${workload.map(item => {
+                const percentage = item.total ? Math.round(item.completed / item.total * 100) : 0;
+                return `
+                  <div class="health-workload-row">
+                    <span class="text-truncate" style="max-width:140px;">${esc(item.name)}</span>
+                    <strong>${item.total} <small>${percentage}%</small></strong>
+                    <i><b style="width:${percentage}%"></b></i>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : '<div class="empty sub">No hay integrantes activos.</div>'}
+        </div>
+
+        ${health.recommendations && health.recommendations.length ? `
+          <div class="health-vertical-section">
+            <h3 class="health-section-heading">${icon('alert')} Recomendaciones</h3>
+            <ul class="health-list">
+              ${health.recommendations.map(item => `<li>${esc(item)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+
+        ${activity.length ? `
+          <div class="health-vertical-section">
+            <h3 class="health-section-heading">${icon('clock')} Actividad reciente</h3>
+            <div class="health-activity">
+              ${activity.slice(0, 4).map(item => `
+                <div class="health-activity-item">
+                  <strong>${esc(item.action)}</strong>
+                  <small class="muted">${esc(item.description || 'Actualización registrada')}</small>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    </section>
+  `;
+}
 async function dashboard(){
   const activeProjId = getActiveProjectId();
   const dashUrl = activeProjId ? `/dashboard?project_id=${activeProjId}` : '/dashboard';
@@ -874,21 +979,60 @@ async function dashboard(){
     </section>
 
     <div class="dashboard-main-grid mt-4">
-      <section class="card dash-card dash-tasks-card">
+      <section class="card dash-card dash-tasks-card dash-flow-horizontal-section">
         <div class="dash-card-header">
           <div>
             <div class="eyebrow">Flujo Inmediato</div>
             <h2>Próximas Tareas</h2>
           </div>
-          <a class="dash-view-all" href="${isAdmin?'#/admin/tasks':'#/member/tasks'}">Ver todas ${icon('external')}</a>
+          <div class="dash-flow-header-actions">
+            <div class="dash-flow-filter-group">
+              <button type="button" class="dash-flow-filter-btn is-active" data-flow-status="all">Todas</button>
+              <button type="button" class="dash-flow-filter-btn" data-flow-status="en_proceso">En proceso</button>
+              <button type="button" class="dash-flow-filter-btn" data-flow-status="pendiente">Pendientes</button>
+            </div>
+            <div class="dash-flow-nav-arrows">
+              <button type="button" class="dash-flow-nav-btn" id="dash-flow-prev" title="Desplazar a la izquierda" aria-label="Desplazar a la izquierda">${icon('chevron-left')}</button>
+              <button type="button" class="dash-flow-nav-btn" id="dash-flow-next" title="Desplazar a la derecha" aria-label="Desplazar a la derecha">${icon('chevron-right')}</button>
+            </div>
+            <a class="dash-view-all" href="${isAdmin?'#/admin/tasks':'#/member/tasks'}">Ver todas ${icon('external')}</a>
+          </div>
         </div>
-        <div id="dashboard-tasks" class="dash-task-list">
-          <div class="empty">Cargando tareas prioritarias...</div>
+        <div class="dash-flow-track-wrapper">
+          <div id="dashboard-tasks" class="dash-task-flow-track">
+            <div class="empty">Cargando tareas prioritarias...</div>
+          </div>
         </div>
       </section>
       <div id="dashboard-health-container"></div>
     </div>
   `;
+}
+function renderDashboardFlowTasks(allTasks, filterStatus = 'all') {
+  const taskContainer = document.querySelector('#dashboard-tasks');
+  if (!taskContainer) return;
+  let filtered = allTasks || [];
+  if (filterStatus && filterStatus !== 'all') {
+    filtered = filtered.filter(t => t.status === filterStatus);
+  }
+  if (!filtered.length) {
+    taskContainer.innerHTML = '<div class="empty" style="width:100%;padding:28px 16px;text-align:center;">No tienes tareas en este estado por ahora. Buen trabajo.</div>';
+    return;
+  }
+  taskContainer.innerHTML = filtered.slice(0, 12).map(taskRow).join('');
+
+  taskContainer.querySelectorAll('.dash-flow-card').forEach(card => {
+    card.onclick = (e) => {
+      if (e.target.closest('button, a, select')) return;
+      openTaskDetailModal(card.dataset.taskId, () => renderDashboard());
+    };
+    card.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openTaskDetailModal(card.dataset.taskId, () => renderDashboard());
+      }
+    };
+  });
 }
 async function renderDashboard(){
   const content=await dashboard();
@@ -903,11 +1047,25 @@ async function renderDashboard(){
   }
   const activeProjId = getActiveProjectId();
   const tasksUrl = activeProjId ? `/tasks?project_id=${activeProjId}` : '/tasks';
-  const tasks=await api(tasksUrl);
-  const taskContainer=document.querySelector('#dashboard-tasks');
-  if(taskContainer){
-    taskContainer.innerHTML=tasks.length ? tasks.slice(0,5).map(taskRow).join('') : '<div class="empty">No tienes tareas pendientes por ahora. Buen trabajo.</div>';
-  }
+  const tasks = await api(tasksUrl);
+  state._dashboardTasksCache = tasks;
+  renderDashboardFlowTasks(tasks, 'all');
+
+  document.querySelector('#dash-flow-prev')?.addEventListener('click', () => {
+    const track = document.querySelector('#dashboard-tasks');
+    if (track) track.scrollBy({ left: -280, behavior: 'smooth' });
+  });
+  document.querySelector('#dash-flow-next')?.addEventListener('click', () => {
+    const track = document.querySelector('#dashboard-tasks');
+    if (track) track.scrollBy({ left: 280, behavior: 'smooth' });
+  });
+  document.querySelectorAll('.dash-flow-filter-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.dash-flow-filter-btn').forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      renderDashboardFlowTasks(state._dashboardTasksCache || [], btn.dataset.flowStatus);
+    };
+  });
   document.querySelector('#dashboard-active-project-select')?.addEventListener('change', e => {
     setActiveProjectId(e.target.value);
     renderDashboard();
@@ -954,21 +1112,28 @@ async function renderDashboard(){
   }
 }
 function taskRow(task){
-  const statusColor=task.status==='completada'?'green':task.status==='en_proceso'?'pink':'yellow';
-  const statusText=task.status==='en_proceso'?'En proceso':task.status==='completada'?'Completada':'Pendiente';
+  const statusColor = task.status === 'completada' ? 'green' : task.status === 'en_proceso' ? 'lilac' : 'yellow';
+  const statusText = task.status === 'en_proceso' ? 'En proceso' : task.status === 'completada' ? 'Completada' : 'Pendiente';
+  const prioClass = task.priority === 'critica' ? 'pink' : task.priority === 'alta' ? 'yellow' : 'gray';
+  const hasDueDate = Boolean(task.due_date);
+  const overdue = hasDueDate && typeof isTaskOverdue === 'function' && isTaskOverdue(task.due_date, task.status);
+
   return `
-    <div class="task-list-row">
-      <div class="task-list-meta">
-        ${task.image_asset_id?`<img class="task-thumb" src="/api/tasks/${task.id}/image" alt="Referencia de ${esc(task.title)}">`:''}
-        <div class="task-list-text">
-          <strong class="task-list-title">${esc(task.title)}</strong>
-          <span class="muted sub">${esc(task.assignee_name||'Sin asignar')} ${task.priority?`· Prioridad ${esc(task.priority)}`:''}</span>
+    <article class="dash-flow-card ${overdue ? 'is-overdue' : ''}" data-task-id="${task.id}" tabindex="0" role="button" title="Haz clic para ver todos los detalles">
+      <div class="dash-flow-card-top">
+        <span class="badge ${statusColor} mini">${statusText}</span>
+        ${task.priority ? `<span class="badge ${prioClass} mini">${esc(task.priority)}</span>` : ''}
+        ${hasDueDate ? `<span class="badge ${overdue ? 'pink' : 'gray'} mini dash-flow-date" title="Fecha límite">${icon('calendar')}${esc(String(task.due_date).slice(0, 10))}</span>` : ''}
+      </div>
+      <h4 class="dash-flow-card-title">${esc(task.title)}</h4>
+      <div class="dash-flow-card-footer">
+        <div class="dash-flow-card-assignee" title="Responsable: ${esc(task.assignee_name || 'Sin asignar')}">
+          <span class="mini-avatar">${esc((task.assignee_name || 'U')[0].toUpperCase())}</span>
+          <span class="muted text-truncate" style="max-width:140px;">${esc(task.assignee_name || 'Sin asignar')}</span>
         </div>
+        <span class="dash-flow-card-hint" title="Ver detalles">${icon('eye')}</span>
       </div>
-      <div class="task-list-badges">
-        <span class="badge ${statusColor}">${statusText}</span>
-      </div>
-    </div>
+    </article>
   `;
 }
 function announcementBadgeClass(accent){return accent==='green'?'green':accent==='yellow'?'yellow':'pink'}
