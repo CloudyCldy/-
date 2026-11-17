@@ -747,21 +747,21 @@ async function dashboard(){
       </div>
     </div>
 
-    <div class="dash-project-focus-bar card mt-3 mb-4" style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border:1px solid var(--line);">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span class="icon-svg" style="width:20px;height:20px;opacity:0.85;">${icon('briefcase')}</span>
-        <div>
+    <div class="dash-project-focus-bar card mt-3 mb-4">
+      <div class="dash-focus-bar-left">
+        <div class="dash-focus-bar-icon">${icon('briefcase')}</div>
+        <div class="dash-focus-bar-title-wrap">
           <div class="eyebrow" style="margin:0;font-size:11px;">Filtro de Proyecto Activo</div>
           <strong style="font-size:15px;">${project ? esc(project.name) : 'Todos los Proyectos (Sin filtro exclusivo)'}</strong>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div class="dash-focus-bar-controls">
         <label for="dashboard-active-project-select" class="muted" style="margin:0;font-size:13px;">Proyecto activo:</label>
-        <select class="select" id="dashboard-active-project-select" style="min-width:240px;max-width:320px;">
+        <select class="select" id="dashboard-active-project-select">
           <option value="">-- Todos los Proyectos --</option>
           ${allProjects.map(p => `<option value="${p.id}" ${String(p.id) === String(activeProjId) ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
         </select>
-        ${activeProjId ? `<button type="button" class="btn secondary mini" id="clear-active-project-btn" title="Quitar filtro de proyecto y ver todos">${icon('close')}Ver todos</button>` : ''}
+        ${activeProjId ? `<button type="button" class="btn secondary mini" id="clear-active-project-btn" title="Quitar filtro de proyecto y ver todos">${icon('close')}<span>Ver todos</span></button>` : ''}
       </div>
     </div>
 
@@ -1668,6 +1668,14 @@ async function renderTasks(focusSearchCursor = null){
     }, 50);
   }
 
+  const pendingEditId = sessionStorage.getItem('haitani_edit_task_id');
+  if (pendingEditId) {
+    sessionStorage.removeItem('haitani_edit_task_id');
+    setTimeout(() => {
+      api(`/tasks/${pendingEditId}`).then(t => openForm(t)).catch(() => {});
+    }, 50);
+  }
+
   const closeModal=()=>modal.style.display='none';
   const closeImportModal=()=>{
     importModal.style.display='none';
@@ -1799,14 +1807,187 @@ async function renderTasks(focusSearchCursor = null){
     }
   });
 }
+function isTaskOverdue(dueDate, status) {
+  if (!dueDate || status === 'completada') return false;
+  return new Date(dueDate) < new Date();
+}
+
+async function openTaskDetailModal(taskId, onUpdated = null) {
+  try {
+    const task = await api(`/tasks/${taskId}`);
+    document.querySelectorAll('.task-modal-overlay').forEach(n => n.remove());
+    const overlay = document.createElement('div');
+    overlay.className = 'file-viewer task-modal-overlay';
+    const canManage = state.user.role === 'admin' || task.user_id === state.user.id || task.assignee_id === state.user.id;
+    const canDelete = state.user.role === 'admin';
+    const statusClass = task.status === 'completada' ? 'green' : task.status === 'en_proceso' ? 'pink' : 'yellow';
+    const statusLabel = task.status === 'en_proceso' ? 'En proceso' : task.status === 'completada' ? 'Completada' : 'Pendiente';
+    const priorityClass = task.priority === 'critica' ? 'pink' : task.priority === 'alta' ? 'yellow' : 'gray';
+
+    overlay.innerHTML = `
+      <div class="file-viewer-panel task-modal-panel">
+        <div class="file-viewer-head task-modal-head">
+          <div class="task-modal-header-info">
+            <div class="eyebrow" style="margin:0;font-size:11px;">Tarea #${task.id} ${task.project_name ? `· ${esc(task.project_name)}` : ''}</div>
+            <h2 class="task-modal-title" style="margin:4px 0 0;font-size:18px;line-height:1.35;word-break:break-word;">${esc(task.title)}</h2>
+          </div>
+          <div class="task-modal-header-actions" style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <span class="badge ${statusClass}">${statusLabel}</span>
+            <button type="button" class="btn secondary mini close-task-modal" style="width:32px;height:32px;padding:0;" aria-label="Cerrar modal">${icon('close')}</button>
+          </div>
+        </div>
+        <div class="task-modal-body" style="padding:22px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;">
+          <div class="task-modal-grid">
+            <div class="task-modal-field">
+              <span class="task-field-label">Cambiar Estado</span>
+              <select class="select mini task-status-changer" data-id="${task.id}" style="font-size:13px;padding:5px 8px;margin-top:2px;">
+                <option value="pendiente" ${task.status==='pendiente'?'selected':''}>Pendiente</option>
+                <option value="en_progreso" ${task.status==='en_proceso'?'selected':''}>En proceso</option>
+                <option value="completada" ${task.status==='completada'?'selected':''}>Completada</option>
+              </select>
+            </div>
+            <div class="task-modal-field">
+              <span class="task-field-label">Prioridad</span>
+              <div><span class="badge ${priorityClass}">Prioridad ${esc(task.priority || 'media')}</span></div>
+            </div>
+            <div class="task-modal-field">
+              <span class="task-field-label">Responsable</span>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+                <span class="mini-avatar">${esc((task.assignee_name||'U')[0].toUpperCase())}</span>
+                <strong style="font-size:13.5px;">${esc(task.assignee_name || 'Sin asignar')}</strong>
+              </div>
+            </div>
+            <div class="task-modal-field">
+              <span class="task-field-label">Fecha Límite</span>
+              <div style="font-size:13.5px;margin-top:4px;display:flex;align-items:center;gap:6px;">
+                ${icon('calendar')}
+                <strong>${esc((task.due_date||'').slice(0,10) || 'Sin fecha')}</strong>
+              </div>
+            </div>
+            ${task.start_date ? `
+              <div class="task-modal-field">
+                <span class="task-field-label">Fecha Inicial</span>
+                <div style="font-size:13.5px;margin-top:4px;">${esc((task.start_date||'').slice(0,10))}</div>
+              </div>
+            ` : ''}
+            ${task.estimated_hours ? `
+              <div class="task-modal-field">
+                <span class="task-field-label">Horas Estimadas</span>
+                <div style="font-size:13.5px;margin-top:4px;display:flex;align-items:center;gap:6px;">
+                  ${icon('clock')}
+                  <strong>${esc(task.estimated_hours)} hrs</strong>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="task-modal-desc-box">
+            <span class="task-field-label" style="display:block;margin-bottom:8px;font-weight:600;">Descripción completa y Criterios</span>
+            <div class="task-modal-desc-content">
+              ${task.description ? esc(task.description).replace(/\n/g, '<br>') : '<span class="muted">No hay descripción registrada para esta tarea.</span>'}
+            </div>
+          </div>
+
+          ${task.image_asset_id ? `
+            <div class="task-modal-image-box">
+              <span class="task-field-label" style="display:block;margin-bottom:8px;font-weight:600;">Archivo o Referencia Visual</span>
+              <img src="/api/tasks/${task.id}/image" alt="Referencia de ${esc(task.title)}" style="max-width:100%;max-height:240px;border-radius:8px;border:1px solid var(--line);object-fit:contain;">
+            </div>
+          ` : ''}
+        </div>
+        <div class="file-viewer-footer task-modal-footer" style="padding:14px 24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:var(--color-fog-white);">
+          <div class="task-modal-footer-left" style="display:flex;gap:8px;">
+            ${canManage ? `
+              <button type="button" class="btn secondary mini task-modal-edit-btn" data-id="${task.id}">${icon('edit')} Editar tarea</button>
+              ${canDelete ? `<button type="button" class="btn danger mini task-modal-delete-btn" data-id="${task.id}">${icon('trash')} Eliminar</button>` : ''}
+            ` : ''}
+          </div>
+          <button type="button" class="btn secondary close-task-modal">Cerrar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeModal = () => {
+      overlay.remove();
+      document.removeEventListener('keydown', onKeyDown);
+    };
+    const onKeyDown = (e) => { if (e.key === 'Escape') closeModal(); };
+    document.addEventListener('keydown', onKeyDown);
+
+    overlay.querySelectorAll('.close-task-modal').forEach(btn => { btn.onclick = closeModal; });
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+    overlay.querySelector('.task-status-changer')?.addEventListener('change', async (e) => {
+      const nextStatus = e.target.value;
+      try {
+        await api(`/tasks/${task.id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus })
+        });
+        notify('Estado de la tarea actualizado');
+        closeModal();
+        if (typeof onUpdated === 'function') onUpdated();
+        else if (location.hash.includes('kanban')) renderKanban();
+        else if (location.hash.includes('tasks')) renderTasks();
+      } catch(err) {
+        notify('Error al cambiar estado: ' + err.message);
+      }
+    });
+
+    overlay.querySelector('.task-modal-edit-btn')?.addEventListener('click', () => {
+      closeModal();
+      sessionStorage.setItem('haitani_edit_task_id', String(task.id));
+      location.hash = `#/${state.user.role}/tasks`;
+    });
+
+    overlay.querySelector('.task-modal-delete-btn')?.addEventListener('click', async () => {
+      if (!confirm('¿Deseas eliminar esta tarea permanentemente?')) return;
+      try {
+        await api(`/tasks/${task.id}`, { method: 'DELETE' });
+        notify('Tarea eliminada');
+        closeModal();
+        if (typeof onUpdated === 'function') onUpdated();
+        else if (location.hash.includes('kanban')) renderKanban();
+        else if (location.hash.includes('tasks')) renderTasks();
+      } catch(err) {
+        notify('Error al eliminar: ' + err.message);
+      }
+    });
+  } catch(error) {
+    notify('No se pudo cargar el detalle de la tarea: ' + error.message);
+  }
+}
+
 async function kanban(){
   const activeProjId = getActiveProjectId();
   const tasksUrl = activeProjId ? `/tasks?project_id=${activeProjId}` : '/tasks';
   const tasks=await api(tasksUrl);
-  const projects = activeProjId ? await api('/projects').catch(() => []) : [];
-  const activeProject = activeProjId ? projects.find(p => p.id === activeProjId) : null;
+  const allProjects = await api('/projects').catch(() => []);
+  const activeProject = activeProjId ? allProjects.find(p => String(p.id) === String(activeProjId)) : null;
+  const isAdmin = state.user.role === 'admin';
   return `
-    ${heading('Kanban', activeProject ? `Tablero de estado exclusivo del proyecto: <strong>${esc(activeProject.name)}</strong>` : 'Organización visual del flujo de trabajo por columnas de estado.')}
+    ${heading('Kanban', activeProject ? `Tablero de estado exclusivo del proyecto: <strong>${esc(activeProject.name)}</strong>` : 'Organización visual del flujo de trabajo por columnas de estado.', isAdmin ? `<a class="btn" href="#/admin/tasks">${icon('plus')}Nueva tarea</a>` : '')}
+
+    <div class="dash-project-focus-bar card mb-4">
+      <div class="dash-focus-bar-left">
+        <div class="dash-focus-bar-icon">${icon('briefcase')}</div>
+        <div class="dash-focus-bar-title-wrap">
+          <div class="eyebrow" style="margin:0;font-size:11px;">Filtro de Proyecto en Tablero</div>
+          <strong style="font-size:15px;">${activeProject ? esc(activeProject.name) : 'Todos los Proyectos (Sin filtro exclusivo)'}</strong>
+        </div>
+      </div>
+      <div class="dash-focus-bar-controls">
+        <label for="kanban-active-project-select" class="muted" style="margin:0;font-size:13px;">Proyecto activo:</label>
+        <select class="select" id="kanban-active-project-select">
+          <option value="">-- Todos los Proyectos --</option>
+          ${allProjects.map(p => `<option value="${p.id}" ${String(p.id) === String(activeProjId) ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        </select>
+        ${activeProjId ? `<button type="button" class="btn secondary mini" id="kanban-clear-project-btn" title="Quitar filtro de proyecto y ver todos">${icon('close')}<span>Ver todos</span></button>` : ''}
+      </div>
+    </div>
+
     <div class="kanban">
       ${[['pendiente','Pendiente'],['en_proceso','En proceso'],['completada','Completada']].map(([status,label])=>`
         <section class="column" data-status="${status}">
@@ -1816,13 +1997,22 @@ async function kanban(){
           </div>
           <div class="column-cards">
             ${tasks.filter(t=>t.status===status).map(t=>`
-              <article class="task-card" draggable="true" data-id="${t.id}">
-                ${t.image_asset_id?`<img class="task-thumb" src="/api/tasks/${t.id}/image" alt="${esc(t.title)}">`:''}
-                <h3>${esc(t.title)}</h3>
-                ${t.description?`<p>${esc(t.description)}</p>`:''}
-                <div class="meta">
-                  <span class="muted">${esc(t.assignee_name||'Sin asignar')}</span>
-                  ${t.due_date?`<span class="badge yellow">${esc(String(t.due_date).slice(0,10))}</span>`:''}
+              <article class="task-card kanban-card" draggable="true" data-id="${t.id}" tabindex="0" role="button" title="Haz clic para ver todos los detalles">
+                <div class="task-card-top">
+                  <span class="task-card-priority priority-${esc(t.priority||'media')}" title="Prioridad ${esc(t.priority||'media')}"></span>
+                  <span class="task-card-id-tag">#${t.id}</span>
+                  ${t.priority==='critica'||t.priority==='alta'?`<span class="badge ${t.priority==='critica'?'pink':'yellow'} mini">${esc(t.priority)}</span>`:''}
+                </div>
+                <h3 class="task-card-title">${esc(t.title)}</h3>
+                <div class="meta task-card-meta">
+                  <div class="task-card-assignee" title="Responsable: ${esc(t.assignee_name||'Sin asignar')}">
+                    <span class="mini-avatar">${esc((t.assignee_name||'U')[0].toUpperCase())}</span>
+                    <span class="muted text-truncate" style="max-width:115px;">${esc(t.assignee_name||'Sin asignar')}</span>
+                  </div>
+                  <div class="task-card-footer-right">
+                    ${t.due_date?`<span class="badge ${isTaskOverdue(t.due_date, t.status)?'pink':'gray'} mini" title="Fecha límite">${icon('calendar')}${esc(String(t.due_date).slice(0,10))}</span>`:''}
+                    <span class="task-card-click-hint" title="Ver detalles">${icon('eye')}</span>
+                  </div>
                 </div>
               </article>
             `).join('')||'<div class="empty">Sin tareas</div>'}
@@ -1836,15 +2026,35 @@ async function renderKanban(){
   if(state.kanbanTimer)clearInterval(state.kanbanTimer);
   layout(await kanban());
   let draggedCard=null;
+  let isDragging=false;
+  let dragTimer=null;
+
   document.querySelectorAll('.task-card').forEach(card=>{
     card.ondragstart=e=>{
+      isDragging=true;
       draggedCard=card;
       card.classList.add('is-dragging');
       e.dataTransfer.effectAllowed='move';
       e.dataTransfer.setData('id',card.dataset.id);
     };
-    card.ondragend=()=>card.classList.remove('is-dragging');
+    card.ondragend=()=>{
+      card.classList.remove('is-dragging');
+      clearTimeout(dragTimer);
+      dragTimer=setTimeout(()=>{ isDragging=false; }, 150);
+    };
+    card.onclick=e=>{
+      if(isDragging) return;
+      if(e.target.closest('button, a, select')) return;
+      openTaskDetailModal(card.dataset.id, () => renderKanban());
+    };
+    card.onkeydown=e=>{
+      if(e.key==='Enter'||e.key===' '){
+        e.preventDefault();
+        openTaskDetailModal(card.dataset.id, () => renderKanban());
+      }
+    };
   });
+
   document.querySelectorAll('.column').forEach(column=>{
     column.ondragover=e=>{
       e.preventDefault();
@@ -1877,6 +2087,16 @@ async function renderKanban(){
       }
     };
   });
+
+  document.querySelector('#kanban-active-project-select')?.addEventListener('change', e => {
+    setActiveProjectId(e.target.value);
+    renderKanban();
+  });
+  document.querySelector('#kanban-clear-project-btn')?.addEventListener('click', () => {
+    setActiveProjectId(null);
+    renderKanban();
+  });
+
   state.kanbanTimer=setInterval(()=>{
     if(document.visibilityState==='visible'&&location.hash.includes('kanban')){
       renderKanban().catch(error=>notify(error.message));
