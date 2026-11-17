@@ -8263,7 +8263,152 @@ async function renderBacklog(){
     }catch(error){notify(error.message)}
   };
 }
+function isMaintenanceTime() {
+  if (typeof window === 'undefined') return false;
+  if (window.__HAITANI_DISABLE_MAINTENANCE__) return false;
+  if (location.hash === '#/maintenance' || location.hash.startsWith('#/maintenance')) return true;
+  if (localStorage.getItem('haitani_force_maintenance') === '1') return true;
+  if (sessionStorage.getItem('haitani_maintenance_bypassed') === '1') return false;
+  const now = new Date();
+  const hours = now.getHours();
+  // Mantenimiento programado: aparece a las 22:00 hrs de cada día (ventana nocturna 22:00 - 06:00)
+  return hours >= 22 || hours < 6;
+}
+
+function maintenanceView() {
+  const isPreview = location.hash.includes('maintenance') || localStorage.getItem('haitani_force_maintenance') === '1';
+  const now = new Date();
+  const formatTime = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  app.innerHTML = `
+    <main class="maintenance-screen">
+      <div class="auth-theme-bar">${themeToggle()}</div>
+      <div class="maintenance-stage">
+        <div class="maintenance-card">
+          <div class="maintenance-visual">
+            <div class="maintenance-image-frame">
+              <img class="maintenance-photo" src="/static/img/maintenance.jpg" alt="Haitani Mantenimiento">
+              <div class="maintenance-image-overlay"></div>
+              <div class="maintenance-status-chip">
+                <span class="chip-pulse"></span>
+                <span>Ventana 22:00 hrs</span>
+              </div>
+            </div>
+          </div>
+          <div class="maintenance-details">
+            <div class="maintenance-header">
+              <div class="brand-badge">
+                <img class="brand-logo" src="/static/img/ht.png" alt="Haitani Logo">
+                <span class="brand-name">HAITANI</span>
+              </div>
+              <div class="eyebrow maintenance-eyebrow">Modo Mantenimiento</div>
+              <h1 class="maintenance-title">Sistema en Mantenimiento</h1>
+              <p class="maintenance-desc">
+                Haitani entra automáticamente en mantenimiento preventivo a las <strong>22:00 hrs de cada día</strong> para optimización de base de datos, tareas de sincronización y respaldos de seguridad.
+              </p>
+            </div>
+
+            <div class="maintenance-panel">
+              <div class="maintenance-stat">
+                <span class="stat-label">Hora actual</span>
+                <strong class="stat-value" id="maintenance-live-clock">${formatTime(now)}</strong>
+              </div>
+              <div class="maintenance-stat">
+                <span class="stat-label">Horario programado</span>
+                <strong class="stat-value highlight">22:00 hrs diarias</strong>
+              </div>
+              <div class="maintenance-stat">
+                <span class="stat-label">Disponibilidad</span>
+                <strong class="stat-value status-notice"><span class="dot-amber"></span> En pausa técnica</strong>
+              </div>
+            </div>
+
+            <div class="maintenance-actions">
+              <button type="button" class="btn" id="maintenance-refresh-btn">${icon('progress')}<span>Comprobar disponibilidad</span></button>
+              <button type="button" class="btn secondary" id="maintenance-admin-btn">${icon('shield')}<span>Acceso Administrador</span></button>
+              ${isPreview ? `<button type="button" class="btn secondary" id="maintenance-exit-preview">${icon('close')}<span>Salir de vista previa</span></button>` : ''}
+            </div>
+
+            <div id="maintenance-admin-box" class="maintenance-admin-box" style="display:none;">
+              <form id="maintenance-admin-form" style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+                <input class="input" type="password" id="maintenance-admin-pass" placeholder="Contraseña de administrador o acceso especial" style="flex:1;min-width:200px;" required>
+                <button type="submit" class="btn mini">${icon('check')} Entrar</button>
+              </form>
+            </div>
+
+            <div class="maintenance-footer-note">
+              <small class="muted">Si eres administrador y requieres acceso operativo durante la ventana de mantenimiento, utiliza el botón de Acceso Administrador.</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  `;
+
+  bindTheme();
+
+  if (state.maintenanceClockTimer) clearInterval(state.maintenanceClockTimer);
+  state.maintenanceClockTimer = setInterval(() => {
+    const clockEl = document.querySelector('#maintenance-live-clock');
+    if (clockEl) {
+      clockEl.textContent = formatTime(new Date());
+    } else {
+      clearInterval(state.maintenanceClockTimer);
+    }
+  }, 1000);
+
+  document.querySelector('#maintenance-refresh-btn')?.addEventListener('click', () => {
+    notify('Comprobando estado del sistema...');
+    if (!isMaintenanceTime()) {
+      notify('El periodo de mantenimiento ha finalizado. Redirigiendo...');
+      location.hash = state.user ? `#/${state.user.role}/dashboard` : '#/login';
+      render();
+    } else {
+      notify('El sistema continúa en periodo de mantenimiento programado (22:00 hrs).');
+    }
+  });
+
+  document.querySelector('#maintenance-admin-btn')?.addEventListener('click', () => {
+    if (state.user && state.user.role === 'admin') {
+      sessionStorage.setItem('haitani_maintenance_bypassed', '1');
+      notify('Acceso concedido como administrador.');
+      location.hash = '#/admin/dashboard';
+      render();
+    } else {
+      const adminBox = document.querySelector('#maintenance-admin-box');
+      if (adminBox) {
+        adminBox.style.display = adminBox.style.display === 'none' ? 'block' : 'none';
+        document.querySelector('#maintenance-admin-pass')?.focus();
+      }
+    }
+  });
+
+  document.querySelector('#maintenance-admin-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (state.user && state.user.role === 'admin') {
+      sessionStorage.setItem('haitani_maintenance_bypassed', '1');
+      notify('Acceso administrativo concedido.');
+      location.hash = '#/admin/dashboard';
+      return render();
+    }
+    sessionStorage.setItem('haitani_maintenance_bypassed', '1');
+    notify('Sesión administrativa habilitada para mantenimiento.');
+    location.hash = '#/login';
+    render();
+  });
+
+  document.querySelector('#maintenance-exit-preview')?.addEventListener('click', () => {
+    localStorage.removeItem('haitani_force_maintenance');
+    sessionStorage.setItem('haitani_maintenance_bypassed', '1');
+    location.hash = state.user ? `#/${state.user.role}/dashboard` : '#/login';
+    render();
+  });
+}
+
 async function render(){
+  if (isMaintenanceTime()) {
+    return maintenanceView();
+  }
   if(!state.user){
     try{
       state.user=(await api('/auth/me')).user;
@@ -12810,6 +12955,7 @@ function confirmDeleteProject(project, onDeleted = null) {
 
 const appRender=render;
 render=async function(){
+  if (isMaintenanceTime()) return maintenanceView();
   if(slowLoaderTimer) clearTimeout(slowLoaderTimer);
   slowLoaderTimer=setTimeout(showSlowLoader,10000);
   try{
@@ -12824,4 +12970,12 @@ render=async function(){
     hideSlowLoader();
   }
 };
-window.addEventListener('hashchange',render);render();
+window.addEventListener('hashchange',render);
+if (typeof window !== 'undefined' && !window._haitaniMaintenanceTimer) {
+  window._haitaniMaintenanceTimer = setInterval(() => {
+    if (isMaintenanceTime() && !document.querySelector('.maintenance-screen') && sessionStorage.getItem('haitani_maintenance_bypassed') !== '1') {
+      render();
+    }
+  }, 20000);
+}
+render();
