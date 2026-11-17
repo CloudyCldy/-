@@ -1368,7 +1368,24 @@ button.nav-title.nav-section-toggle:not(.expanded) .nav-chevron {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 370px;
   gap: var(--sp-5);
-  align-items: start;
+  align-items: stretch;
+}
+.dash-main-flow-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  min-width: 0;
+}
+.dash-main-flow-column > section {
+  margin-top: 0 !important;
+}
+.dash-main-health-column {
+  height: 100%;
+}
+.dash-main-health-column .project-health {
+  margin-top: 0;
+  height: 100%;
+  box-sizing: border-box;
 }
 .dash-card {
   background: var(--color-paper-white);

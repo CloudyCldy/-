@@ -914,97 +914,101 @@ async function dashboard(){
       </div>
     </div>
 
-    <!-- Marco de Trabajo Organizado en Horizontal -->
-    <section class="card dash-card dash-project-card dash-project-horizontal mt-4">
-      <div class="dash-card-header">
-        <div>
-          <div class="eyebrow">Marco de Trabajo</div>
-          <h2>${project ? esc(project.name) : 'Proyecto Actual'}</h2>
-        </div>
-        <div class="dash-card-header-actions" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          ${project?`<span class="badge ${project.methodology_id==='AGILE'||project.methodology_id==='SCRUM'?'green':'pink'}">${esc(project.methodology_id||'Ágil')}</span>`:''}
-          ${project?.status ? `<span class="badge ${project.status==='completado'?'green':project.status==='en_progreso'?'lilac':'yellow'}">${esc(project.status.replace('_',' '))}</span>` : ''}
-          ${project?.priority ? `<span class="badge ${project.priority==='critica'?'pink':project.priority==='alta'?'yellow':'gray'}">Prioridad ${esc(project.priority)}</span>` : ''}
-          <a class="dash-view-all" href="#/${state.user.role}/projects">Ver todos ${icon('external')}</a>
-        </div>
-      </div>
-      <div class="dash-project-body dash-project-body-horizontal">
-        ${project ? `
-          <div class="dash-project-horizontal-layout">
-            <div class="dash-project-summary-box">
-              <div class="dash-project-info">
-                <strong class="dash-project-name">${esc(project.name)}</strong>
-                <p class="dash-project-desc">${esc(project.description||'Sin descripción definida aún.')}</p>
-                <div class="dash-project-meta-chips mt-3">
-                  ${project.client ? `<span class="dash-meta-chip">${icon('briefcase')}<span><strong>Cliente:</strong> ${esc(project.client)}</span></span>` : ''}
-                  ${project.budget ? `<span class="dash-meta-chip">${icon('creditCard')}<span><strong>Presupuesto:</strong> $${Number(project.budget).toLocaleString()}</span></span>` : ''}
-                  ${project.start_date || project.end_date ? `<span class="dash-meta-chip">${icon('calendar')}<span><strong>Fechas:</strong> ${(project.start_date||'').slice(0,10)} ${project.end_date ? '→ ' + project.end_date.slice(0,10) : ''}</span></span>` : ''}
-                  ${project.technologies ? `<span class="dash-meta-chip">${icon('layers')}<span><strong>Stack:</strong> ${esc(project.technologies)}</span></span>` : ''}
-                </div>
-              </div>
+    <div class="dashboard-main-grid mt-4">
+      <div class="dash-main-flow-column">
+        <!-- Marco de Trabajo Organizado en Horizontal -->
+        <section class="card dash-card dash-project-card dash-project-horizontal">
+          <div class="dash-card-header">
+            <div>
+              <div class="eyebrow">Marco de Trabajo</div>
+              <h2>${project ? esc(project.name) : 'Proyecto Actual'}</h2>
             </div>
-            <div class="dash-project-actions-box">
-              <div class="dash-methodology-summary">
-                <div class="dash-methodology-header">
-                  <span class="icon-svg" style="opacity:0.85;">${icon('layers')}</span>
-                  <div>
-                    <span class="muted" style="font-size:12px;display:block;">Flujo Metodológico Activo</span>
-                    <strong style="font-size:15px;">${esc(project.methodology_id || 'Ágil')}</strong>
+            <div class="dash-card-header-actions" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              ${project?`<span class="badge ${project.methodology_id==='AGILE'||project.methodology_id==='SCRUM'?'green':'pink'}">${esc(project.methodology_id||'Ágil')}</span>`:''}
+              ${project?.status ? `<span class="badge ${project.status==='completado'?'green':project.status==='en_progreso'?'lilac':'yellow'}">${esc(project.status.replace('_',' '))}</span>` : ''}
+              ${project?.priority ? `<span class="badge ${project.priority==='critica'?'pink':project.priority==='alta'?'yellow':'gray'}">Prioridad ${esc(project.priority)}</span>` : ''}
+              <a class="dash-view-all" href="#/${state.user.role}/projects">Ver todos ${icon('external')}</a>
+            </div>
+          </div>
+          <div class="dash-project-body dash-project-body-horizontal">
+            ${project ? `
+              <div class="dash-project-horizontal-layout">
+                <div class="dash-project-summary-box">
+                  <div class="dash-project-info">
+                    <strong class="dash-project-name">${esc(project.name)}</strong>
+                    <p class="dash-project-desc">${esc(project.description||'Sin descripción definida aún.')}</p>
+                    <div class="dash-project-meta-chips mt-3">
+                      ${project.client ? `<span class="dash-meta-chip">${icon('briefcase')}<span><strong>Cliente:</strong> ${esc(project.client)}</span></span>` : ''}
+                      ${project.budget ? `<span class="dash-meta-chip">${icon('creditCard')}<span><strong>Presupuesto:</strong> $${Number(project.budget).toLocaleString()}</span></span>` : ''}
+                      ${project.start_date || project.end_date ? `<span class="dash-meta-chip">${icon('calendar')}<span><strong>Fechas:</strong> ${(project.start_date||'').slice(0,10)} ${project.end_date ? '→ ' + project.end_date.slice(0,10) : ''}</span></span>` : ''}
+                      ${project.technologies ? `<span class="dash-meta-chip">${icon('layers')}<span><strong>Stack:</strong> ${esc(project.technologies)}</span></span>` : ''}
+                    </div>
                   </div>
                 </div>
-                <div class="dash-methodology-actions-wrap mt-3">
-                  ${methodologyWidgets(project)}
+                <div class="dash-project-actions-box">
+                  <div class="dash-methodology-summary">
+                    <div class="dash-methodology-header">
+                      <span class="icon-svg" style="opacity:0.85;">${icon('layers')}</span>
+                      <div>
+                        <span class="muted" style="font-size:12px;display:block;">Flujo Metodológico Activo</span>
+                        <strong style="font-size:15px;">${esc(project.methodology_id || 'Ágil')}</strong>
+                      </div>
+                    </div>
+                    <div class="dash-methodology-actions-wrap mt-3">
+                      ${methodologyWidgets(project)}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-          ${isAdmin ? `
-            <details class="dash-project-editor-accordion mt-4">
-              <summary class="btn secondary mini dash-project-editor-toggle">
-                ${icon('settings')}
-                <span>Configurar y editar detalles del proyecto</span>
-              </summary>
-              <div class="dash-project-editor-wrapper mt-3">
-                ${projectEditor(project)}
+              ${isAdmin ? `
+                <details class="dash-project-editor-accordion mt-4">
+                  <summary class="btn secondary mini dash-project-editor-toggle">
+                    ${icon('settings')}
+                    <span>Configurar y editar detalles del proyecto</span>
+                  </summary>
+                  <div class="dash-project-editor-wrapper mt-3">
+                    ${projectEditor(project)}
+                  </div>
+                </details>
+              ` : ''}
+            ` : `
+              <div class="dash-empty-project">
+                <p class="muted">No se ha establecido un proyecto principal para esta organización.</p>
+                ${projectEditor(null)}
               </div>
-            </details>
-          ` : ''}
-        ` : `
-          <div class="dash-empty-project">
-            <p class="muted">No se ha establecido un proyecto principal para esta organización.</p>
-            ${projectEditor(null)}
+            `}
           </div>
-        `}
-      </div>
-    </section>
+        </section>
 
-    <div class="dashboard-main-grid mt-4">
-      <section class="card dash-card dash-tasks-card dash-flow-horizontal-section">
-        <div class="dash-card-header">
-          <div>
-            <div class="eyebrow">Flujo Inmediato</div>
-            <h2>Próximas Tareas</h2>
-          </div>
-          <div class="dash-flow-header-actions">
-            <div class="dash-flow-filter-group">
-              <button type="button" class="dash-flow-filter-btn is-active" data-flow-status="all">Todas</button>
-              <button type="button" class="dash-flow-filter-btn" data-flow-status="en_proceso">En proceso</button>
-              <button type="button" class="dash-flow-filter-btn" data-flow-status="pendiente">Pendientes</button>
+        <!-- Flujo Inmediato en Horizontal -->
+        <section class="card dash-card dash-tasks-card dash-flow-horizontal-section">
+          <div class="dash-card-header">
+            <div>
+              <div class="eyebrow">Flujo Inmediato</div>
+              <h2>Próximas Tareas</h2>
             </div>
-            <div class="dash-flow-nav-arrows">
-              <button type="button" class="dash-flow-nav-btn" id="dash-flow-prev" title="Desplazar a la izquierda" aria-label="Desplazar a la izquierda">${icon('chevron-left')}</button>
-              <button type="button" class="dash-flow-nav-btn" id="dash-flow-next" title="Desplazar a la derecha" aria-label="Desplazar a la derecha">${icon('chevron-right')}</button>
+            <div class="dash-flow-header-actions">
+              <div class="dash-flow-filter-group">
+                <button type="button" class="dash-flow-filter-btn is-active" data-flow-status="all">Todas</button>
+                <button type="button" class="dash-flow-filter-btn" data-flow-status="en_proceso">En proceso</button>
+                <button type="button" class="dash-flow-filter-btn" data-flow-status="pendiente">Pendientes</button>
+              </div>
+              <div class="dash-flow-nav-arrows">
+                <button type="button" class="dash-flow-nav-btn" id="dash-flow-prev" title="Desplazar a la izquierda" aria-label="Desplazar a la izquierda">${icon('chevron-left')}</button>
+                <button type="button" class="dash-flow-nav-btn" id="dash-flow-next" title="Desplazar a la derecha" aria-label="Desplazar a la derecha">${icon('chevron-right')}</button>
+              </div>
+              <a class="dash-view-all" href="${isAdmin?'#/admin/tasks':'#/member/tasks'}">Ver todas ${icon('external')}</a>
             </div>
-            <a class="dash-view-all" href="${isAdmin?'#/admin/tasks':'#/member/tasks'}">Ver todas ${icon('external')}</a>
           </div>
-        </div>
-        <div class="dash-flow-track-wrapper">
-          <div id="dashboard-tasks" class="dash-task-flow-track">
-            <div class="empty">Cargando tareas prioritarias...</div>
+          <div class="dash-flow-track-wrapper">
+            <div id="dashboard-tasks" class="dash-task-flow-track">
+              <div class="empty">Cargando tareas prioritarias...</div>
+            </div>
           </div>
-        </div>
-      </section>
-      <div id="dashboard-health-container"></div>
+        </section>
+      </div>
+
+      <div id="dashboard-health-container" class="dash-main-health-column"></div>
     </div>
   `;
 }
