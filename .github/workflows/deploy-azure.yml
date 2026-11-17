@@ -1,0 +1,82 @@
+# Despliegue de Haitani a Azure App Service (infraestructura creada con Terraform en terraform/).
+# Va en el repositorio de la app: .github/workflows/deploy-azure.yml
+# Solo corre a mano (Actions > Deploy Haitani to Azure App Service > Run workflow) para no chocar con
+# ci-cd.yml, que prueba cada cambio y despliega producción en Render.
+# Requiere en GitHub (Settings > Secrets and variables > Actions):
+#   Secret   AZURE_WEBAPP_PUBLISH_PROFILE  (Portal > App Service > Descargar perfil de publicación)
+#   Variable AZURE_WEBAPP_NAME             (terraform output -raw app_name)
+name: Deploy Haitani to Azure App Service
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    name: Pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: haitani_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/haitani_ci
+      SESSION_SECRET: ci-only-${{ github.run_id }}
+      PGSSLMODE: disable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci --no-audit --no-fund
+
+      - name: Crear las tablas de la base de prueba
+        run: node database/init.js
+
+      - name: Ejecutar las pruebas
+        run: npm test
+
+  despliegue:
+    name: Despliegue a Azure
+    needs: pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: azure
+      url: ${{ steps.deploy.outputs.webapp-url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Solo los archivos versionados (sin node_modules, .env, terraform.tfvars ni respaldos).
+      # App Service ejecuta npm install y npm run build (prisma generate) por SCM_DO_BUILD_DURING_DEPLOYMENT.
+      - name: Empaquetar la app
+        run: git archive --format=zip -o app.zip HEAD -- . ':!terraform' ':!backups' ':!.github'
+
+      - name: Desplegar en App Service
+        id: deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: app.zip

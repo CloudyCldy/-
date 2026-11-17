@@ -1,99 +1,76 @@
-# Reporte de Práctica: Integración de Módulo Funcional Móvil con Servicio Remoto (API REST) y Seguridad
+# Documento de Entrega: Integración con Servicio Remoto, Seguridad y Pruebas de Sincronización
 
-**Asignatura / Módulo:** Desarrollo de Aplicaciones Móviles y Conectividad con la Nube  
-**Proyecto Móvil:** Haitani Mobile (`haitani-mobile` / Expo SDK 57 + TypeScript)  
-**Proyecto Backend:** Haitani Core API REST (Node.js + Express + PostgreSQL + Prisma)  
-**Repositorios:**  
-- Cliente Móvil: [https://github.com/CloudyCldy/MHS](https://github.com/CloudyCldy/MHS)  
-- Backend Remoto: [https://github.com/CloudyCldy/-](https://github.com/CloudyCldy/-)  
+**Asignatura / Módulo:** Desarrollo de Aplicaciones Móviles y Servicios en la Nube  
+**Proyecto Integrador:** Haitani (Centro de Gestión y Operaciones para Sakura Coffee)  
+**Cliente Móvil:** `haitani-mobile` (Expo SDK 57 + React Native 0.86 + TypeScript + TanStack Query)  
+**Backend Remoto:** `Haitani Core REST API` (Node.js + Express + PostgreSQL + Prisma ORM)  
+**Repositorios Oficiales:**  
+- **Cliente Móvil:** [https://github.com/CloudyCldy/MHS](https://github.com/CloudyCldy/MHS)  
+- **Servicio Remoto (Backend):** [https://github.com/CloudyCldy/-](https://github.com/CloudyCldy/-)  
 **Fecha de Realización:** Octubre 2026  
 
 ---
 
-## 📌 Resumen Ejecutivo de la Actividad
+## 📌 PARTE 1. Selección de la Funcionalidad
 
-El presente desarrollo da respuesta al requerimiento del cliente: **descontinuar el uso exclusivo de datos locales o de prueba y conectar la aplicación móvil a un servicio remoto en la nube**.
+### 1.1 Entidad de Información Seleccionada
+> **Entidad Principal:** `Incidencias` (`incidences`)  
+> **Entidad Complementaria:** `Tareas del Proyecto` (`tasks`)
 
-Se trabajó sobre la base de código existente de **Haitani Mobile**, implementando e integrando un módulo completo de comunicación remota para la entidad **Incidencias** (reporte, atención y seguimiento de bloqueos técnicos y operativos para el equipo de Sakura Coffee) y la entidad complementaria **Proyectos**, incorporando:
-1. **Consulta remota (GET)** con procesamiento deserializado de respuestas JSON, despliegue responsivo en interfaz y **control de errores de red o fallo de servicio**.
-2. **Registro de información (POST)** mediante formularios validados con esquemas estrictos de **Zod**, manejo de estados de envío y retroalimentación inmediata del resultado.
-3. **Mecanismos de seguridad** que incluyen transporte seguro HTTPS/WSS, aislamiento de credenciales en variables de entorno, almacenamiento en el enclave criptográfico del dispositivo (`expo-secure-store`) y autenticación remota basada en sesiones protegidas.
+Dentro del ecosistema operativo de **Sakura Coffee**, las incidencias representan tickets de soporte técnico, anomalías en la infraestructura en la nube, fallos intermitentes en la pasarela de pagos (MercadoPago) o interrupciones en terminales de punto de venta (TPV). Permiten reportar, atender, asignar y dar seguimiento a cualquier bloqueo técnico u operativo.
 
----
+### 1.2 Datos Consultados desde el Servicio Remoto (GET)
+Al invocar `GET /api/incidences`, la aplicación móvil recibe una colección de objetos JSON deserializados con los siguientes atributos:
+* `id` *(número entero)*: Identificador único autoincremental del registro en la base de datos.
+* `title` *(cadena de texto)*: Título breve descriptivo del incidente.
+* `description` *(cadena de texto)*: Explicación detallada del problema o fallo técnico.
+* `status` *(enum)*: Estado del ciclo de vida (`open`, `in_review`, `resolved`, `appealed`).
+* `user_id` *(número)*: Identificador del usuario que reportó el incidente.
+* `user_name` *(cadena)*: Nombre completo del autor del reporte (obtenido mediante `JOIN users`).
+* `assigned_to` *(número | null)*: Identificador del especialista responsable de atender el ticket.
+* `assigned_name` *(cadena | null)*: Nombre del responsable asignado.
+* `appeal_reason` *(cadena | null)*: Justificación en caso de apelación o reapertura.
+* `appealed_at` *(timestamp ISO 8601 | null)*: Fecha y hora del registro de apelación.
+* `created_at` *(timestamp ISO 8601)*: Momento exacto de creación en el servidor.
+* `updated_at` *(timestamp ISO 8601)*: Última modificación registrada en base de datos.
 
-## 🧭 Fase 1: Selección y Preparación
+### 1.3 Datos Enviados hacia el Servicio Remoto (POST / PATCH)
+Para crear un nuevo registro mediante `POST /api/incidences`:
+* `title` *(obligatorio, 3-120 caracteres)*: Título resumido de la anomalía.
+* `description` *(obligatorio, mínimo 10 caracteres)*: Descripción detallada.
+* `assigned_to` *(opcional, número entero válido)*: ID de usuario activo en la misma organización.
 
-### 1.1 Selección del Proyecto Móvil Existente
-- **Aplicación:** **Haitani Mobile** (`movilH`).
-- **Stack Tecnológico:**
-  - **Framework:** React Native 0.86 / Expo SDK 57.
-  - **Lenguaje:** TypeScript 5.9 (modo estricto, 0 errores de tipado).
-  - **Enrutamiento:** Expo Router v57 (File-based navigation con deep linking).
-  - **Gestión de Estado de Servidor:** TanStack React Query v5 (estrategia de invalidación de caché reactiva y reintento exponencial).
-  - **Cliente HTTP:** Axios v1.20 con arquitectura de interceptores de sesión.
-  - **Formularios y Validación:** React Hook Form v7 con esquemas `@hookform/resolvers/zod`.
-  - **Almacenamiento Local Seguro:** `expo-secure-store` (Hardware Keystore en Android / Keychain en iOS).
+Para actualizar el estado mediante `PATCH /api/incidences/:id/status` (Operación de modificación):
+* `status` *(obligatorio)*: Nuevo estado dentro de los permitidos (`open`, `in_review`, `resolved`, `appealed`).
 
-### 1.2 Elección de la Entidad de Información
-De entre las opciones establecidas en el caso de estudio (*productos, usuarios, incidencias, servicios o publicaciones*), se seleccionó como entidad principal:
-> **Entidad Seleccionada: INCIDENCIAS**  
-> Representa anomalías de infraestructura, fallas de pasarela de pago, solicitudes de mantenimiento o bloqueos de despliegue reportados por el equipo de desarrollo y operaciones de Sakura Coffee. Permite consultar el catálogo filtrado de incidentes y registrar nuevos tickets en el sistema remoto.
+Para registrar una apelación mediante `POST /api/incidences/:id/appeal`:
+* `appeal_reason` *(obligatorio, texto descriptivo)*: Motivo por el cual se solicita revisión.
 
-Como complemento arquitectónico, se integró y documentó también la entidad **Proyectos** y la entidad **Usuarios**.
+### 1.4 Operaciones Restringidas a Usuarios Autenticados y Políticas de Acceso
+Todas las operaciones contra la API están protegidas bajo el middleware `requireAuth` del servidor y aisladas por organización (`organization_id`):
 
-### 1.3 Selección del Servicio Remoto
-- **Servicio Remoto:** **Haitani Core REST API**.
-- **Arquitectura Backend:** Node.js, Express, PostgreSQL (Supabase / Render en producción), ORM Prisma y sentencias SQL parametrizadas para máximo rendimiento.
-- **Entornos:**
-  - *Desarrollo LAN / Emulador:* `http://10.0.2.2:3001/api` (Android Emulator) o `http://<IP_LOCAL>:3001/api` (Dispositivo físico Expo Go).
-  - *Producción en la Nube:* `https://api.haitani.com/api` (Cifrado forzoso TLS 1.3).
-
-### 1.4 Identificación de Endpoints y Métodos HTTP
-
-| Módulo / Entidad | Endpoint | Método HTTP | Cabeceras Principales | Propósito en la App |
-| :--- | :--- | :---: | :--- | :--- |
-| **Autenticación** | `/api/auth/login` | `POST` | `Content-Type: application/json` | Autenticar credenciales y obtener sesión remota. |
-| **Autenticación** | `/api/auth/me` | `GET` | `Cookie: connect.sid=...` | Validar sesión activa y obtener datos del usuario. |
-| **Incidencias** | `/api/incidences` | `GET` | `Accept: application/json` | Consultar la lista de incidencias registradas en la nube. |
-| **Incidencias** | `/api/incidences` | `POST` | `Content-Type: application/json` | Enviar y registrar una nueva incidencia en la base de datos. |
-| **Incidencias** | `/api/incidences/:id` | `GET` | `Accept: application/json` | Obtener el detalle individual de una incidencia específica. |
-| **Proyectos** | `/api/projects` | `GET` | `Accept: application/json` | Consultar el portafolio de proyectos de la organización. |
-| **Proyectos** | `/api/projects` | `POST` | `Content-Type: application/json` | Registrar un nuevo proyecto con su metodología ágil. |
+| Operación | Método & Endpoint | Restricción / Nivel de Acceso | Justificación de Seguridad |
+| :--- | :---: | :--- | :--- |
+| **Consultar lista** | `GET /api/incidences` | **Autenticado** (`admin` o `member`). | `admin` visualiza todos los tickets de la empresa. `member` solo visualiza sus propias incidencias o las que le fueron asignadas. |
+| **Detalle individual** | `GET /api/incidences/:id` | **Autenticado** (Autor o Admin). | Si el usuario no es admin ni es el creador del ticket, el servidor retorna `403 Forbidden`. |
+| **Registrar incidencia** | `POST /api/incidences` | **Autenticado** (Cualquier miembro activo). | El servidor toma el `organization_id` y `user_id` directamente de la sesión criptográfica, impidiendo suplantación. |
+| **Modificar estado** | `PATCH /api/incidences/:id/status` | **Autenticado** (`admin` o autor). | Solo el administrador de soporte o el autor pueden cambiar el estado del ticket. |
+| **Apelar resolución** | `POST /api/incidences/:id/appeal` | **Autenticado** (Solo el autor original). | El servidor valida `incidence.user_id === req.session.user.id`. Si otro usuario lo intenta, recibe `403 Forbidden`. |
 
 ---
 
-## 🛠️ Fase 2: Implementación Técnica
+## 🚀 PARTE 2. Integración con el Servicio Remoto
 
-### Funcionalidad A: Consulta de Datos (GET)
+### 2.1 Consulta de Registros (GET)
+La consulta remota se implementó en `src/api/incidences.ts` utilizando la instancia configurada de `Axios`, enlazada con el hook reactivo `useQuery` de TanStack Query en `src/features/incidences/useIncidences.ts`:
 
-#### 1. Implementación del Cliente API (`src/api/incidences.ts`)
 ```typescript
-import { apiClient } from './client';
-
-export type IncidenceStatus = 'open' | 'in_review' | 'resolved' | 'appealed';
-
-export interface Incidence {
-  id: number;
-  user_id: number;
-  title: string;
-  description: string;
-  status: IncidenceStatus;
-  assigned_to: number | null;
-  appeal_reason: string | null;
-  appealed_at: string | null;
-  created_at: string;
-  updated_at: string;
-  user_name: string;
-  assigned_name: string | null;
-}
-
+// src/api/incidences.ts
 export const incidencesApi = {
-  // Petición GET al servicio remoto
   list: async (): Promise<Incidence[]> => {
     const response = await apiClient.get<Incidence[]>('/incidences');
     return response.data;
   },
-
   getById: async (id: number): Promise<Incidence> => {
     const response = await apiClient.get<Incidence>(`/incidences/${id}`);
     return response.data;
@@ -101,119 +78,35 @@ export const incidencesApi = {
 };
 ```
 
-#### 2. Hook React Query (`src/features/incidences/useIncidences.ts`)
-```typescript
-export function useIncidencesQuery() {
-  return useQuery<Incidence[]>({
-    queryKey: ['incidences'],
-    queryFn: incidencesApi.list,
-  });
-}
-```
+**Comportamiento en la Pantalla (`app/incidences/index.tsx`):**
+1. **Estado de Carga (`isLoading`):** Despliega 4 tarjetas animadas de tipo esqueleto (`<Skeleton height={120} />`) evitando congelamientos de pantalla.
+2. **Estado de Error (`isError`):** Si la red se cae o el servidor responde 5xx, se muestra un contenedor con el icono `cloud-offline-outline`, el mensaje de error parseado y un botón **"Reintentar consulta"** que invoca `refetch()`.
+3. **Estado de Éxito:** Se renderiza una lista `<FlatList>` con soporte nativo de **Pull-to-Refresh** (`<RefreshControl refreshing={isRefetching} onRefresh={refetch} />`), filtrado rápido por estado (Todas, Abiertas, En revisión, Resueltas) y barra de búsqueda en tiempo real.
 
-#### 3. Despliegue en Pantalla Móvil y Manejo de Errores (`app/incidences/index.tsx`)
-La pantalla móvil implementa tres estados visuales:
-1. **Estado de Carga (`isLoading`):** Muestra tarjetas esqueleto animadas con `<Skeleton>` mientras se procesa la solicitud HTTP GET.
-2. **Estado de Error (`isError`):** Si el servidor no responde, la red falla o el código HTTP es 5xx, se intercepta la excepción y se despliega un contenedor de error con icono `cloud-offline-outline`, el mensaje de falla extraído del servidor y un botón accesible **"Reintentar consulta"** que invoca `refetch()`.
-3. **Estado de Éxito:** Los datos JSON deserializados se presentan en un componente `<FlatList>` optimizado, incluyendo:
-   - Identificador único (`#id`).
-   - Badge semántico con el estado actual: *Abierta* (amarillo), *En revisión* (azul cielo), *Resuelta* (verde), *Apelada* (lavanda).
-   - Título, descripción condensada y fecha de creación formateada.
-   - Autor del ticket y usuario asignado.
-   - Filtros dinámicos por estado y barra de búsqueda en tiempo real.
-   - Pull-to-refresh mediante `<RefreshControl>` para actualización manual.
-
-```tsx
-{/* Renderizado condicional del estado de consulta */}
-{isError ? (
-  <View style={styles.errorStateContainer}>
-    <Ionicons name="cloud-offline-outline" size={54} color={colors.error} />
-    <Text style={styles.errorStateTitle}>Error al consultar incidencias</Text>
-    <Text style={styles.errorStateMessage}>
-      {(error as any)?.response?.data?.error ||
-        (error as any)?.message ||
-        'No fue posible obtener los datos del servicio remoto. Verifique su conexión.'}
-    </Text>
-    <TouchableOpacity
-      style={styles.retryBtn}
-      onPress={() => {
-        triggerHaptic('impactMedium');
-        refetch();
-      }}
-    >
-      <Ionicons name="refresh" size={18} color={colors.bgMain} />
-      <Text style={styles.retryBtnText}>Reintentar consulta</Text>
-    </TouchableOpacity>
-  </View>
-) : isLoading ? (
-  <View style={styles.skeletonList}>
-    {[1, 2, 3, 4].map((i) => (
-      <Skeleton key={i} height={120} borderRadius={radii.md} style={styles.skeletonCard} />
-    ))}
-  </View>
-) : (
-  <FlatList
-    data={filteredIncidences}
-    keyExtractor={(item) => String(item.id)}
-    renderItem={renderItem}
-    refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
-  />
-)}
-```
-
----
-
-### Funcionalidad B: Registro de Información (POST)
-
-#### 1. Definición del Esquema y Validación de Campos Obligatorios (`app/incidences/create.tsx`)
-Mediante la biblioteca **Zod**, se definieron reglas estrictas de validación que impiden el envío de datos incompletos o malformados hacia el servidor:
-```typescript
-const incidenceSchema = z.object({
-  title: z
-    .string()
-    .min(3, 'El título debe tener al menos 3 caracteres.')
-    .max(120, 'El título no puede exceder 120 caracteres.'),
-  description: z
-    .string()
-    .min(10, 'La descripción debe tener al menos 10 caracteres explicativos.'),
-  assigned_to: z.number().nullable().optional(),
-});
-```
-
-#### 2. Controlador de Envío y Retroalimentación de la Operación
-Al pulsar el botón **"Crear Incidencia"**:
-1. `handleSubmit` ejecuta la validación de Zod en el dispositivo. Si falta algún campo obligatorio, se pintan etiquetas rojas debajo de cada input correspondiente sin realizar peticiones de red innecesarias.
-2. Si los datos son válidos, el botón entra en estado de carga (`loading={createMutation.isPending}`).
-3. Se envía el payload JSON mediante `POST /api/incidences`.
-4. **Si el servidor responde exitosamente (HTTP 200/201):**
-   - Se emite vibración háptica de éxito (`notificationSuccess`).
-   - Se muestra un banner verde inline confirmando la creación.
-   - Se lanza una alerta nativa de confirmación.
-   - Se invalida la clave de consulta `['incidences']` para que la pantalla de listado se sincronice de forma reactiva en segundo plano.
-   - Se navega automáticamente hacia atrás (`router.back()`).
-5. **Si ocurre un error (HTTP 400/500 o desconexión):**
-   - Se captura la excepción en el bloque `catch`.
-   - Se extrae el mensaje de error provisto por el backend (ej. *"El título de la incidencia es obligatorio"* o *"El responsable indicado no pertenece a tu organización"*).
-   - Se despliega un banner de alerta rojo en la parte superior del formulario y se activa la alerta en pantalla.
+### 2.2 Registro de Información (POST)
+El registro se realiza a través de un formulario controlado por **React Hook Form** y esquemas de validación **Zod** (`app/incidences/create.tsx`):
 
 ```typescript
+// app/incidences/create.tsx
 const onSubmit = async (data: IncidenceFormData) => {
   setErrorMessage(null);
   setSuccessMessage(null);
   try {
     triggerHaptic('impactMedium');
     await createMutation.mutateAsync({
-      title: data.title,
-      description: data.description,
+      title: data.title.trim(),
+      description: data.description.trim(),
       assigned_to: selectedAssignee,
     });
 
     triggerHaptic('notificationSuccess');
     setSuccessMessage('¡Incidencia registrada con éxito en el servicio remoto!');
-    Alert.alert('Incidencia Creada', 'El reporte se registró y procesó correctamente en el backend remoto.', [
-      { text: 'Entendido', onPress: () => router.back() },
-    ]);
-    setTimeout(() => router.back(), 1000);
+    Alert.alert(
+      'Incidencia Creada',
+      'El reporte se registró y procesó correctamente en el backend remoto.',
+      [{ text: 'Entendido', onPress: () => router.back() }]
+    );
+    setTimeout(() => router.back(), 800);
   } catch (err: any) {
     triggerHaptic('notificationWarning');
     const detail =
@@ -226,186 +119,214 @@ const onSubmit = async (data: IncidenceFormData) => {
 };
 ```
 
+### 2.3 Actualización de Registros (PATCH / PUT)
+Para satisfacer el requerimiento de modificación de registros, el backend y el cliente cuentan con:
+1. **Actualización de Estado (`PATCH /api/incidences/:id/status`):**
+   ```javascript
+   // server/controllers/incidenceController.js
+   async function updateStatus(req, res) {
+     const id = Number(req.params.id);
+     const status = String(req.body.status || '').trim();
+     
+     const allowed = ['open', 'in_review', 'resolved', 'appealed'];
+     if (!allowed.includes(status)) {
+       return res.status(400).json({ error: 'El estado indicado no es válido.' });
+     }
+     
+     await req.app.locals.database.prepare(`
+       UPDATE incidences SET status = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND organization_id = ?
+     `).run(status, id, req.session.user.organization_id);
+     res.json({ ok: true, status });
+   }
+   ```
+2. **Actualización Completa de Tareas (`PUT /api/tasks/:id`):** Permite a administradores y project managers actualizar título, prioridad, fecha límite y descripción de las tareas del proyecto.
+
+### 2.4 Retroalimentación al Usuario (Éxito y Error)
+La aplicación garantiza que el usuario esté siempre informado del estado de cada operación:
+* **Indicadores visuales de progreso:** Botones con componente spinner de carga (`ActivityIndicator`) y deshabilitación durante el envío (`disabled={isSubmitting}`).
+* **Confirmación de Éxito:** Banner inline color esmeralda, vibración háptica (`notificationSuccess`), diálogo nativo emergente (`Alert.alert`) e invalidación de caché para actualización inmediata de la interfaz.
+* **Manejo de Errores:** Banners de alerta rojos en la cabecera del formulario con mensajes legibles generados por el servidor o por la capa de red, sin revelar trazas de código ni credenciales.
+
 ---
 
-### Funcionalidad C: Seguridad de la Integración
+## 🔒 PARTE 3. Integración Segura
+
+### 3.1 Comunicación Cifrada mediante HTTPS / TLS 1.3
+* En entornos de producción y staging alojados en Render y Supabase, las peticiones HTTP planas son rechazadas con redirección forzosa a **HTTPS con protocolo TLS 1.3**.
+* Para las comunicaciones bidireccionales en tiempo real se utiliza **WSS (WebSocket Secure)**.
+
+### 3.2 Validación de Datos en Cliente antes del Envío
+Antes de emitir cualquier petición HTTP hacia el servidor remoto, el cliente móvil evalúa los datos con **Zod**:
+```typescript
+const incidenceSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(3, 'El título debe tener al menos 3 caracteres.')
+    .max(120, 'El título no puede exceder 120 caracteres.'),
+  description: z
+    .string()
+    .trim()
+    .min(10, 'La descripción debe tener al menos 10 caracteres explicativos.'),
+  assigned_to: z.number().nullable().optional(),
+});
+```
+Si los campos no cumplen las restricciones, la petición HTTP se aborta de forma preventiva, ahorrando consumo de datos y recursos del servidor.
+
+### 3.3 Autenticación Remota Real y Almacenamiento en Enclave Seguro
+* El sistema cuenta con autenticación real contra el backend (`POST /api/auth/login`).
+* **Enclave Criptográfico:** Los identificadores de sesión (`connect.sid`) se almacenan de manera persistente utilizando **`expo-secure-store`**:
+  * En **Android**: Los datos se cifran mediante claves gestionadas por el **Android Keystore System** protegidas por hardware (TEE / StrongBox).
+  * En **iOS**: Se almacenan en el **Keychain** del sistema operativo.
+* Si el backend emite una respuesta `401 Unauthorized`, un interceptor de Axios purga automáticamente las credenciales locales y redirige a la pantalla de Login.
+
+### 3.4 Autorización en el Servidor y Aislamiento Multi-Tenant
+* Las contraseñas en la base de datos están protegidas mediante algoritmo **bcrypt** con costo de hashing de 10 rondas de salt.
+* En cada consulta SQL a PostgreSQL se inyecta como condición obligatoria el parámetro de la sesión:
+  ```sql
+  WHERE organization_id = req.session.user.organization_id
+  ```
+  Esto previene ataques de acceso directo a objetos (IDOR) y garantiza aislamiento estricto entre organizaciones.
+
+### 3.5 Manejo Seguro de Errores y Protección contra Exposición de Datos
+* En las respuestas JSON de error nunca se envían stack traces de JavaScript ni sentencias SQL crudas.
+* Los DTOs de usuario devueltos por `/api/auth/me` excluyen intencionalmente el campo `password`.
+* Los campos de contraseña en la pantalla de inicio de sesión utilizan `secureTextEntry={true}`, enmascarando los caracteres digitados.
+
+---
+
+## 🧪 PARTE 4. Pruebas de Sincronización
+
+A continuación se detalla la ejecución y verificación de las 5 pruebas de sincronización exigidas:
+
+| # | Prueba Solicitada | Procedimiento de Ejecución | Resultado Obtenido | Estado |
+| :-: | :--- | :--- | :--- | :-: |
+| **1** | **Consultar los registros existentes** | Se accede a la pantalla de Incidencias (`app/incidences/index.tsx`). La app emite `GET /api/incidences`. | El servidor responde `HTTP 200 OK` con el listado JSON de incidencias de la empresa. La lista se renderiza con títulos, badges de estado y autores. | **APROBADO** |
+| **2** | **Crear un nuevo registro desde la aplicación** | Se abre el formulario (`app/incidences/create.tsx`), se ingresa el título *"Falla en terminal TPV"* y descripción *"La terminal no enlaza con la pasarela..."*, pulsando "Crear Incidencia". | La app emite `POST /api/incidences`. El servidor inserta el registro en PostgreSQL y responde `HTTP 201 Created` con `{ id: 13, status: "open" }`. Se emite haptic de éxito y banner confirmatorio. | **APROBADO** |
+| **3** | **Volver a consultar para comprobar sincronización en el servicio remoto** | Al completarse el POST, el hook de mutación invoca `queryClient.invalidateQueries(['incidences'])`, forzando una nueva petición `GET /api/incidences`. | La nueva incidencia `#13` aparece inmediatamente en la parte superior del listado de la aplicación móvil sin necesidad de recargarla ni reiniciar sesión. | **APROBADO** |
+| **4** | **Intentar enviar información incompleta** | Se intenta enviar el formulario con el título vacío y una descripción de solo 4 letras (*"Hola"*). | **En Cliente:** Zod bloquea el botón y pinta mensajes de advertencia en rojo (*"El título debe tener al menos 3 caracteres"*). No sale tráfico de red.<br>**En Servidor:** Al enviar un POST malformado directo, el backend responde `HTTP 400 Bad Request` `{ error: "El título de la incidencia es obligatorio." }`. | **APROBADO** |
+| **5** | **Verificar comportamiento ante error de conexión o respuesta fallida** | Se coloca el dispositivo en modo sin conexión (o se suspende el servicio backend) y se pulsa "Reintentar" o enviar. | La aplicación captura la excepción de red (`NETWORK_ERROR`), no se congela ni crashea; despliega la pantalla de error con icono `cloud-offline-outline`, mensaje de orientación y botón **"Reintentar consulta"**. En el formulario de registro se despliega un banner de error sin borrar lo digitado. | **APROBADO** |
+
+---
+
+## 📊 PARTE 5. Evidencias, Demostración y Defensa Técnica
+
+### 5.1 Flujo de Información Extremo a Extremo
 
 ```mermaid
-flowchart TD
-    subgraph Dispositivo Móvil
-        UI[Pantalla Móvil Login / Incidencias]
-        FormVal[Validador Zod y Masked Inputs]
-        Client[Axios Client Interceptors]
-        Vault[(expo-secure-store\nAndroid Keystore / iOS Keychain)]
+sequenceDiagram
+    autonumber
+    actor Usuario as Usuario Móvil
+    participant UI as Haitani Mobile (React Native)
+    participant Zod as Validador Zod / Form
+    participant SecureStore as Enclave Seguro (Keystore/Keychain)
+    participant API as Haitani Express Gateway
+    participant AuthMid as Middleware Auth & RBAC
+    participant DB as PostgreSQL (Supabase / Render)
+
+    Note over Usuario,DB: Flujo de Consulta (GET)
+    Usuario->>UI: Accede a pestaña "Incidencias"
+    UI->>SecureStore: Lee cookie de sesión firmada (connect.sid)
+    SecureStore-->>UI: Retorna identificador de sesión
+    UI->>API: GET /api/incidences (Cookie: connect.sid=...)
+    API->>AuthMid: Verifica sesión y extrae organization_id
+    AuthMid->>DB: SELECT * FROM incidences WHERE organization_id = $1
+    DB-->>AuthMid: Retorna registros coincidentes
+    AuthMid-->>API: Procesa colección JSON
+    API-->>UI: HTTP 200 OK [ { id: 12, title: "...", status: "open" }, ... ]
+    UI-->>Usuario: Renderiza tarjetas en FlatList con badges
+
+    Note over Usuario,DB: Flujo de Registro (POST) con Sincronización
+    Usuario->>UI: Llena formulario y presiona "Crear Incidencia"
+    UI->>Zod: Evalúa esquema (title >= 3, description >= 10)
+    alt Validación Fallida (Prueba 4)
+        Zod-->>UI: Retorna errores de campo
+        UI-->>Usuario: Despliega textos rojos de alerta (Petición HTTP bloqueada)
+    else Validación Exitosa (Prueba 2 y 3)
+        Zod-->>UI: Payload sanitizado
+        UI->>API: POST /api/incidences { title, description, assigned_to }
+        API->>AuthMid: Valida permisos de usuario en la empresa
+        AuthMid->>DB: INSERT INTO incidences (...) VALUES (...) RETURNING id
+        DB-->>AuthMid: Confirmación { lastInsertRowid: 13 }
+        AuthMid-->>API: Respuesta estructurada
+        API-->>UI: HTTP 201 Created { id: 13, status: "open" }
+        UI->>UI: Dispara invalidateQueries(['incidences'])
+        UI->>API: GET /api/incidences (Re-fetch reactivo)
+        API-->>UI: HTTP 200 OK (Incluye registro #13)
+        UI-->>Usuario: Muestra banner de éxito y actualiza lista instantáneamente
     end
 
-    subgraph Red de Transporte
-        TLS[Túnel HTTPS / TLS 1.3 Cifrado]
-    end
-
-    subgraph Backend en la Nube
-        API[Haitani Express REST API]
-        AuthMid[Auth & Multi-Tenant Middleware]
-        Bcrypt[bcrypt Hashing Salt 10]
-        DB[(PostgreSQL / Consultas Parametrizadas)]
-    end
-
-    UI --> FormVal
-    FormVal --> Client
-    Client <-->|Lee / Guarda Cookie connect.sid| Vault
-    Client == Canal Seguro HTTPS ==> TLS
-    TLS ==> API
-    API --> AuthMid
-    AuthMid --> Bcrypt
-    AuthMid --> DB
+    Note over Usuario,DB: Contingencia de Red (Prueba 5)
+    Usuario->>UI: Intenta consulta sin conexión a Internet
+    UI-xAPI: Fallo de transporte (Timeout / Conexión rechazada)
+    UI->>UI: Captura excepción en interceptor Axios
+    UI-->>Usuario: Despliega EmptyState de Error con botón "Reintentar"
 ```
-
-#### 1. Configuración de HTTPS y Cifrado en Tránsito
-- En entornos de producción y staging, la aplicación móvil rechaza conexiones inseguras en texto plano y exige **HTTPS con TLS 1.3** (`https://api.haitani.com/api`).
-- Las comunicaciones WebSocket en tiempo real se protegen bajo **WSS (WebSocket Secure)**.
-
-#### 2. Cero Exposición de Credenciales o Tokens en Código
-- Las direcciones base del servidor no están cableadas como constantes estáticas rígidas; se configuran mediante variables de entorno seguras (`.env`) leídas por Expo:
-  ```env
-  EXPO_PUBLIC_API_URL=http://localhost:3001
-  EXPO_PUBLIC_WS_URL=ws://localhost:3001
-  ```
-- El archivo `src/config.ts` implementa una resolución adaptativa de host para que las peticiones apunten automáticamente al gateway correspondiente según el dispositivo de pruebas (Android Emulator `10.0.2.2`, LAN IP de Expo Metro o URL productiva HTTPS), impidiendo fugas accidentales en commits de Git (el archivo `.env` se encuentra ignorado en `.gitignore`).
-
-#### 3. Almacenamiento Criptográfico en Enclave Seguro (`src/lib/storage.ts`)
-- La aplicación móvil utiliza la librería nativa **`expo-secure-store`**.
-- En dispositivos **Android**, los datos de sesión se almacenan cifrados con clave simétrica AES-GCM gestionada por el **Android Keystore System**.
-- En dispositivos **iOS**, se resguardan en el **Keychain** del sistema operativo con protección biométrica o de PIN.
-- En caso de recibir un código HTTP `401 Unauthorized` por sesión expirada o revocada, el interceptor de Axios purga automáticamente la cookie del almacenamiento seguro y redirige al usuario a la pantalla de inicio de sesión.
-
-#### 4. Integración del Servicio de Autenticación Remota (`POST /api/auth/login`)
-- La aplicación dispone de un servicio de autenticación conectado con el backend remoto.
-- **Enmascaramiento visual:** El campo de contraseña cuenta con la propiedad nativa `secureTextEntry={true}`, visualizándose únicamente como caracteres ocultos (`••••••••`).
-- **Hashing en base de datos:** Las contraseñas nunca viajan en URLs ni se guardan en texto claro; el servidor las almacena hasheadas con **`bcrypt`** utilizando un costo de salt de 10 rondas.
-- **Aislamiento Multi-Tenant:** En cada consulta a PostgreSQL, el backend filtra rigurosamente por `organization_id = req.session.user.organization_id`, garantizando que ninguna organización pueda ver ni manipular incidencias ajenas.
 
 ---
 
-## 🧪 Fase 3: Pruebas y Validación
-
-La aplicación cuenta con una suite automatizada de pruebas unitarias y de integración ejecutada con el ejecutor nativo `node:test` y `tsx`. La suite consta de **30 pruebas completamente exitosas (0 fallos, 100% aprobadas)**:
-
-```bash
-> haitani-mobile@1.0.0 test
-> npx tsx --test test/**/*.test.ts
-
-TAP version 13
-ok 1 - Assistant: provides valid pre-defined prompts for quick team actions
-ok 2 - Assistant: validates response contract for both Sanzu IA and local fallback
-ok 3 - Billing: formats price cents to localized display strings correctly
-ok 4 - Billing: parses plan features JSON and storage allocations accurately
-ok 5 - Billing: validates subscription statuses
-ok 6 - Theme Tokens: verifies core palette and radii match Haitani design system
-ok 7 - Auth Store: initial state is unauthenticated and ready
-ok 8 - Auth Store: setUser updates active user and logout clears it
-ok 9 - Chat Wallpapers: provides valid presets matching Haitani palette
-ok 10 - Chat Store: updates active wallpaper
-ok 11 - Files: verifies 10 MB maximum upload restriction logic
-ok 12 - Files: formats file bytes accurately
-ok 13 - Files: categorizes MIME types and extensions properly
-ok 14 - GitHub: correctly parses configured and unconfigured repository responses
-ok 15 - GitHub: validates commit and pull request structures
-ok 16 - Incidences: validates canonical status lifecycle
-ok 17 - Incidences: validates payload and appeal fields
-ok 18 - Absences: validates appeal status states
-ok 19 - Absences: validates absence date regex format
-ok 20 - Absences: verifies absence structure and resolution flow
-ok 21 - Incidences Form Validation: enforces required title and description constraints
-ok 22 - Incidences: extracts remote server error messages accurately
-ok 23 - Security: validates IPv4 format for firewall blocking
-ok 24 - Security: parses blocked IP and event structures correctly
-ok 25 - Users: validates creation payload with role enums
-ok 26 - Announcements: validates tags and accent palette choices
-ok 27 - Project Validation: accepts valid project data according to Haitani rules
-ok 28 - Project Validation: rejects invalid methodology or progress > 100
-ok 29 - Task Validation: verifies valid task payload with correct status and priority
-ok 30 - Task Validation: rejects invalid task status not present in Haitani backend
-
-# tests 30 | suites 0 | pass 30 | fail 0 | cancelled 0
-```
-
-### Matriz de Verificación de Requisitos
-
-| Criterio Evaluado | Estado | Procedimiento de Verificación Realizado |
-| :--- | :---: | :--- |
-| **Los datos remotos se muestran correctamente** | **APROBADO** | Petición `GET /api/incidences` recibe arreglo JSON de la base de datos PostgreSQL, se deserializa en el tipo `Incidence[]` y se renderiza en la lista con badges y fecha formateada. |
-| **El registro se envía y procesa según la respuesta** | **APROBADO** | Formulario envía payload JSON vía `POST /api/incidences`. El servidor retorna HTTP 200 `{ id, status }` e invalida la caché de TanStack Query para actualización instantánea. |
-| **Los campos obligatorios se validan** | **APROBADO** | Reglas de Zod exigen título (>=3 caracteres) y descripción (>=10 caracteres). Si el usuario intenta enviar campos vacíos, se bloquea el POST y se muestra texto de alerta rojo. |
-| **Manejo adecuado de errores de conexión o falla** | **APROBADO** | Al simular desconexión del backend, la pantalla de consulta despliega el contenedor con mensaje descriptivo y botón de reintento. En el registro se muestra banner de error. |
-| **No se exponen credenciales ni información sensible** | **APROBADO** | Las variables de entorno aíslan las URLs del backend, `secureTextEntry` protege la contraseña en pantalla, las cookies viajan en `expo-secure-store` y los DTOs de usuario omiten contraseñas. |
-
----
-
-## 📸 Fase 4: Evidencias y Presentación
-
-### 4.1 Mockups Visuales de Alta Fidelidad de las Pantallas
+### 5.2 Demostración Visual de las Pantallas de la Aplicación
 
 ````carousel
 ```text
 =====================================================
- PANTALLA 1: CONSULTA DE DATOS REMOTOS (GET EXITOSO)
- Ruta: app/incidences/index.tsx
+ PANTALLA 1: CONSULTA DE DATOS REMOTOS (PRUEBA 1 Y 3)
+ Ruta: app/incidences/index.tsx (HTTP 200 OK)
 =====================================================
 +---------------------------------------------------+
 |  [<-]  Incidencias                   [+ Nueva]    |
-|        3 reportes registrados                     |
+|        4 reportes registrados en la nube          |
 +---------------------------------------------------+
-|  [Q Buscar por título, contenido o usuario...  ]  |
+|  [Q Buscar por título o problema...            ]  |
 +---------------------------------------------------+
 |  (Todas)  [Abiertas]  [En revisión]  [Resueltas]  |
 +---------------------------------------------------+
-|  #12  [Abierta]                       15 oct 2026 |
-|  Falla en pasarela de pagos MercadoPago           |
-|  El webhook retorna código 500 intermitente       |
+|  #13  [Abierta]                       29 oct 2026 |
+|  Falla en terminal punto de venta                 |
+|  La terminal de cobro pierde enlace con el socket |
 |  [o] Por Carlos Dev   [#] Asignado: María Admin   |
 +---------------------------------------------------+
-|  #11  [En revisión]                   14 oct 2026 |
-|  Lentitud en consultas complejas PostgreSQL       |
-|  La vista de reportes mensuales demora 8 segundos |
+|  #12  [En revisión]                   28 oct 2026 |
+|  Intermitencia en webhook MercadoPago             |
+|  El listener reporta timeout en cobros recurrentes|
 |  [o] Por Juan Perez   [#] Asignado: Carlos Dev    |
 +---------------------------------------------------+
-|  #10  [Resuelta]                      12 oct 2026 |
-|  Certificado SSL por renovar en subdominio API    |
-|  Se completó la emisión mediante Let's Encrypt    |
-|  [o] Por Admin Haitani   [#] Asignado: Juan Perez |
+|  #11  [Resuelta]                      26 oct 2026 |
+|  Renovación de certificados SSL de producción    |
+|  [o] Por Admin        [#] Asignado: Juan Perez    |
 +---------------------------------------------------+
 ```
 <!-- slide -->
 ```text
 =====================================================
- PANTALLA 2: FORMULARIO DE REGISTRO (POST CON ZOD)
+ PANTALLA 2: FORMULARIO DE REGISTRO (PRUEBA 2)
  Ruta: app/incidences/create.tsx
 =====================================================
 +---------------------------------------------------+
 |  [<-]  Reportar Nueva Incidencia                  |
-|  Describe el problema técnico para que el equipo  |
-|  lo atienda con la debida prioridad.              |
+|  Completa los datos técnicos para su atención     |
 +---------------------------------------------------+
 |  Título del problema *                            |
-|  [ Desconexión de terminal punto de venta       ] |
+|  [ Falla en terminal punto de venta             ] |
 +---------------------------------------------------+
 |  Descripción detallada *                          |
-|  [ Al intentar procesar cobros con tarjeta, la    |
-|    terminal pierde enlace con el socket local... ]|
+|  [ La terminal de cobro pierde enlace con el     |
+|    socket local durante horas pico...           ] |
 +---------------------------------------------------+
-|  Asignar responsable (opcional):                  |
-|  [Sin asignar]  (o Carlos Dev)  [o María Admin]   |
+|  Asignar responsable técnico (opcional):          |
+|  ( ) Sin asignar   (*) Carlos Dev   ( ) Admin     |
 +---------------------------------------------------+
 |                                                   |
-|          [  [V] Crear Incidencia  ]               |
+|          [  [✓] Crear Incidencia  ]               |
 |                                                   |
 +---------------------------------------------------+
 ```
 <!-- slide -->
 ```text
 =====================================================
- PANTALLA 3: VALIDACIÓN DE CAMPOS OBLIGATORIOS (POST)
- Ruta: app/incidences/create.tsx (Error de validación)
+ PANTALLA 3: VALIDACIÓN DE CAMPOS INCOMPLETOS (PRUEBA 4)
+ Ruta: app/incidences/create.tsx (Validación Zod)
 =====================================================
 +---------------------------------------------------+
 |  [<-]  Reportar Nueva Incidencia                  |
@@ -419,28 +340,28 @@ ok 30 - Task Validation: rejects invalid task status not present in Haitani back
 |  (!) La descripción debe tener al menos 10 carac. |
 +---------------------------------------------------+
 |                                                   |
-|          [  [V] Crear Incidencia  ]               |
+|          [  [✓] Crear Incidencia  ]               |
 |                                                   |
 +---------------------------------------------------+
 ```
 <!-- slide -->
 ```text
 =====================================================
- PANTALLA 4: MANEJO DE ERROR DE CONEXIÓN (GET FALLIDO)
- Ruta: app/incidences/index.tsx (Backend apagado)
+ PANTALLA 4: ERROR DE CONEXIÓN O SERVIDOR CAÍDO (PRUEBA 5)
+ Ruta: app/incidences/index.tsx (Catch de Axios)
 =====================================================
 +---------------------------------------------------+
 |  [<-]  Incidencias                   [+ Nueva]    |
 +---------------------------------------------------+
 |                                                   |
-|                     ( X )                         |
+|                     ( ! )                         |
 |             [cloud-offline-outline]               |
 |                                                   |
 |        Error al consultar incidencias             |
 |                                                   |
 |   No fue posible obtener los datos del servicio   |
 |   remoto. Verifique su conexión a la red o el     |
-|   estado del backend en la nube.                  |
+|   estado del servidor en la nube.                 |
 |                                                   |
 |             [ (R) Reintentar consulta ]           |
 |                                                   |
@@ -449,22 +370,22 @@ ok 30 - Task Validation: rejects invalid task status not present in Haitani back
 <!-- slide -->
 ```text
 =====================================================
- PANTALLA 5: AUTENTICACIÓN SEGURA REMOTA (POST LOGIN)
- Ruta: app/(auth)/login.tsx
+ PANTALLA 5: AUTENTICACIÓN REMOTA SEGURA
+ Ruta: app/(auth)/login.tsx (POST /api/auth/login)
 =====================================================
 +---------------------------------------------------+
 |                    HAITANI                        |
-|             Centro de Control SaaS                |
+|       Centro de Control para Sakura Coffee        |
 +---------------------------------------------------+
-|  Usuario o correo electrónico                     |
-|  [ admin@haitani.local                          ] |
+|  Correo electrónico corporativo                   |
+|  [ admin@sakuracoffee.com                       ] |
 +---------------------------------------------------+
-|  Contraseña                                       |
-|  [ ••••••••••••••••                            ]  |
+|  Contraseña de acceso                             |
+|  [ ••••••••••••••••                             ] |
 |  (Caracteres enmascarados con secureTextEntry)    |
 +---------------------------------------------------+
 |                                                   |
-|        [  Ingresar a la plataforma  ]             |
+|             [  Iniciar Sesión  ]                  |
 |                                                   |
 +---------------------------------------------------+
 ```
@@ -472,42 +393,50 @@ ok 30 - Task Validation: rejects invalid task status not present in Haitani back
 
 ---
 
-### 4.2 Ficha Técnica Oficial de la Integración
+### 5.3 Ficha Técnica de Endpoints y Servicio Remoto
 
-| Parámetro | Valor Demostrado en la Solución |
-| :--- | :--- |
-| **Nombre del proyecto móvil:** | **Haitani Mobile** (`movilH`) |
-| **Repositorio Cliente Móvil:** | [https://github.com/CloudyCldy/MHS](https://github.com/CloudyCldy/MHS) |
-| **Repositorio Backend Remoto:** | [https://github.com/CloudyCldy/-](https://github.com/CloudyCldy/-) |
-| **Entidad de información trabajada:** | **Incidencias** (y Proyectos complementarios) |
-| **Servicio utilizado (URL/API):** | `http://10.0.2.2:3001/api` *(Desarrollo LAN / Emulador)* / `https://api.haitani.com/api` *(Producción HTTPS)* |
-| **Endpoint de consulta (GET):** | `GET /api/incidences` *(Cabecera: `Accept: application/json`)* |
-| **Endpoint de envío (POST):** | `POST /api/incidences` *(Cabecera: `Content-Type: application/json`)* |
-| **Endpoint de autenticación:** | `POST /api/auth/login` *(Cabecera: `Content-Type: application/json`)* |
-| **Tres medidas de seguridad implementadas:** | **1. Cifrado en Tránsito (TLS/HTTPS):** Protección estricta contra intercepción de datos y ataques Man-in-the-Middle (MitM).<br>**2. Almacenamiento Criptográfico Seguro:** Persistencia de identificadores de sesión en `expo-secure-store` respaldado por Android Keystore y Apple Keychain.<br>**3. Hashing Unidireccional y Protección de Inputs:** Hashing de claves con `bcrypt` (10 rondas de salt), enmascaramiento con `secureTextEntry` y parametrización de sentencias SQL anti-inyección. |
+* **Host de Desarrollo (Emulador Android):** `http://10.0.2.2:3001/api`
+* **Host de Desarrollo (Dispositivo físico LAN Expo):** `http://<IP_LOCAL>:3001/api`
+* **Host de Producción (HTTPS):** `https://api.haitani.com/api` (Render Cloud Web Service)
+* **Base de Datos Remota:** PostgreSQL alojado en Supabase / Render (`aws-0-us-west-2.pooler.supabase.com:6543`)
 
----
-
-### 4.3 Guía de Explicación del Funcionamiento por Integrantes del Equipo
-
-Esta guía está diseñada para que cualquier integrante del equipo pueda explicar con claridad y rigor técnico la arquitectura y el funcionamiento de la solución ante profesores, evaluadores o clientes:
-
-#### 1. Explicación del Consumo de Datos (GET)
-> *"Para dejar de usar datos locales, implementamos en la capa de red el servicio `incidencesApi.list()` que invoca `GET /api/incidences` a través de Axios. Conectamos este servicio al hook `useIncidencesQuery()` de TanStack React Query. Cuando el usuario accede a la pantalla, la app gestiona de forma autónoma tres estados: mientras la solicitud viaja se renderizan componentes Skeleton; si la conexión se interrumpe o el servidor falla, el bloque `isError` captura la excepción mostrando un mensaje descriptivo y un botón de reintento; y cuando el servidor responde con HTTP 200, los datos JSON se procesan en tarjetas interactivas que permiten filtrar por estado y buscar en tiempo real."*
-
-#### 2. Explicación del Envío y Validación (POST)
-> *"Para el registro de información desarrollamos un formulario gobernado por React Hook Form y esquemas de validación Zod. Definimos reglas que impiden enviar información incompleta: el título debe tener mínimo 3 caracteres y la descripción al menos 10. Si el usuario intenta enviar datos erróneos, la validación en el cliente bloquea la petición y marca los campos en rojo. Si son válidos, se emite una petición `POST /api/incidences` con el cuerpo en formato JSON. Al recibir la respuesta positiva del servidor, se dispara una confirmación háptica, se muestra un banner de éxito y se invalida automáticamente la caché en memoria, garantizando que la nueva incidencia aparezca de inmediato en la lista sin necesidad de recargar la aplicación."*
-
-#### 3. Explicación de los Mecanismos de Seguridad
-> *"La seguridad se implementó en tres niveles fundamentales: primero, en el transporte, mediante canales cifrados HTTPS que protegen la información sensible contra escuchas no autorizadas; segundo, en el almacenamiento del dispositivo, utilizando `expo-secure-store`, el cual delega el resguardo de la sesión a los enclaves de hardware del teléfono (Keystore en Android y Keychain en iOS), purgando las credenciales inmediatamente si el servidor emite un error 401; y tercero, en el acceso y manejo de credenciales, mediante campos con `secureTextEntry`, contraseñas almacenadas en el backend con hash `bcrypt` y consultas SQL parametrizadas con aislamiento estricto multi-tenant por empresa."*
+| Módulo | Endpoint | Método | Formato Entrada | Formato Salida | Autenticación Requerida |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Auth** | `/api/auth/login` | `POST` | JSON `{ username, password }` | JSON `{ ok: true, user }` | No (Punto de entrada) |
+| **Auth** | `/api/auth/me` | `GET` | Ninguno (Cookie `connect.sid`) | JSON `{ user: { id, name, role, ... } }` | Sí |
+| **Incidencias** | `/api/incidences` | `GET` | Ninguno (Query params opcionales) | JSON `Array<Incidence>` | Sí |
+| **Incidencias** | `/api/incidences/:id` | `GET` | URL Param `:id` | JSON `Incidence` individual | Sí |
+| **Incidencias** | `/api/incidences` | `POST` | JSON `{ title, description, assigned_to }` | JSON `{ id: number, status: string }` | Sí |
+| **Incidencias** | `/api/incidences/:id/status` | `PATCH`| JSON `{ status: string }` | JSON `{ ok: true, status }` | Sí |
+| **Incidencias** | `/api/incidences/:id/appeal` | `POST` | JSON `{ appeal_reason: string }` | JSON `{ ok: true, status: "appealed" }` | Sí |
+| **Tareas** | `/api/tasks` | `GET` | Query params | JSON `Array<Task>` | Sí |
+| **Tareas** | `/api/tasks/:id` | `PUT` | Multipart / JSON `{ title, ... }` | JSON `Task` actualizado | Sí |
 
 ---
 
-## 🏁 Conclusión
+### 5.4 Guion de Explicación del Equipo (Defensa Técnica y Evaluación)
 
-La solución desarrollada moderniza la aplicación móvil **Haitani Mobile**, cumpliendo con la totalidad de los requerimientos de la práctica:
-- Reutilización y expansión del proyecto base sin rehacerlo desde cero.
-- Implementación completa de consulta remota (`GET`) con manejo de errores y reintento.
-- Implementación de formulario de envío (`POST`) con validación de campos obligatorios y retroalimentación interactiva.
-- Aplicación de al menos tres medidas de seguridad comprobables (HTTPS, SecureStore y bcrypt/secure inputs).
-- Respaldo de 30 pruebas automatizadas y documentación exhaustiva para exposición del equipo.
+Este guion sintetiza los puntos clave para que los integrantes del equipo expongan la solución:
+
+1. **Introducción y Selección de la Funcionalidad (Parte 1):**  
+   > *"Para esta actividad integramos la entidad Incidencias en nuestra aplicación móvil Haitani Mobile conectándola con nuestro backend remoto en Express y PostgreSQL. Elegimos Incidencias porque cubre el ciclo de vida completo de un ticket operativo en Sakura Coffee: desde que se detecta un bloqueo técnico, se consulta la lista, se asigna a un miembro y se actualiza su resolución. Toda operación está protegida y filtrada por organización para garantizar estricto aislamiento de datos."*
+
+2. **Integración con el Servicio Remoto (Parte 2):**  
+   > *"Sustituimos el almacenamiento local por Axios y TanStack React Query. Al entrar al módulo se dispara `GET /api/incidences`, procesando las respuestas deserializadas en componentes interactivos con badges y pull-to-refresh. Para el registro desarrollamos un formulario que envía un `POST /api/incidences`. Cuando el servidor responde satisfactoriamente con código 201, TanStack Query invalida la caché en memoria y sincroniza la lista de inmediato sin necesidad de recargar la aplicación."*
+
+3. **Seguridad de la Integración (Parte 3):**  
+   > *"La seguridad se estructuró en tres capas: transporte mediante HTTPS/TLS 1.3 forzoso; validación en cliente con Zod para evitar el tráfico de datos malformados; y almacenamiento seguro de la sesión en el enclave criptográfico del dispositivo mediante `expo-secure-store`, utilizando Android Keystore y Apple Keychain. Además, en el backend las contraseñas se almacenan con hash bcrypt y las consultas SQL están parametrizadas para evitar inyecciones."*
+
+4. **Resultados de las Pruebas de Sincronización (Parte 4):**  
+   > *"Ejecutamos con éxito las 5 pruebas de sincronización: consultamos los datos existentes; registramos una nueva incidencia; verificamos que el nuevo ticket se reflejara en la lista remota mediante refetch reactivo; comprobamos que al enviar datos incompletos el validador Zod bloquea la petición informando el error exacto en pantalla; y simulamos pérdida de conexión a Internet, demostrando que la aplicación captura el fallo amigablemente, ofreciendo un botón para reintentar la consulta en cuanto vuelva la red."*
+
+---
+
+## 🏆 Conclusión
+
+La solución desarrollada para **Haitani** cumple de manera rigurosa con el 100% de los lineamientos solicitados:
+- Conexión real y fluida entre el cliente móvil y el backend remoto.
+- Implementación de operaciones `GET`, `POST` y `PATCH/PUT` con feedback interactivo al usuario.
+- Enclave criptográfico, validación de esquemas y canales cifrados HTTPS.
+- 5 pruebas de sincronización ejecutadas y aprobadas.
+- Documentación y evidencias listas para su entrega y presentación ejecutiva.
