@@ -444,6 +444,7 @@ function sidebar(){
   };
   const sections=admin?[
     {
+      id: 'general',
       title: 'General',
       links: [
         ['/admin/dashboard','Dashboard','dashboard'],
@@ -452,6 +453,7 @@ function sidebar(){
       ]
     },
     {
+      id: 'planning',
       title: 'Planificación y Tareas',
       links: [
         ['/admin/tasks','Tareas','tasks','tasks'],
@@ -463,6 +465,7 @@ function sidebar(){
       ]
     },
     {
+      id: 'tracking',
       title: 'Seguimiento y Calidad',
       links: [
         ['/admin/issues','Incidencias','alertTriangle'],
@@ -472,6 +475,7 @@ function sidebar(){
       ]
     },
     {
+      id: 'team',
       title: 'Equipo y Comunicación',
       links: [
         ['/admin/messages','Mensajes','messages','messages'],
@@ -482,6 +486,7 @@ function sidebar(){
       ]
     },
     {
+      id: 'dev',
       title: 'Desarrollo y Herramientas',
       links: [
         ['/admin/github','GitHub','github'],
@@ -492,6 +497,7 @@ function sidebar(){
       ]
     },
     {
+      id: 'settings',
       title: 'Configuración y Cuenta',
       links: [
         ['/admin/billing','Facturación','creditCard'],
@@ -503,6 +509,7 @@ function sidebar(){
     }
   ]:[
     {
+      id: 'general',
       title: 'General',
       links: [
         ['/member/dashboard','Dashboard','dashboard'],
@@ -511,6 +518,7 @@ function sidebar(){
       ]
     },
     {
+      id: 'planning',
       title: 'Planificación y Tareas',
       links: [
         ['/member/tasks','Mis tareas','tasks','tasks'],
@@ -522,6 +530,7 @@ function sidebar(){
       ]
     },
     {
+      id: 'tracking',
       title: 'Seguimiento y Calidad',
       links: [
         ['/member/issues','Incidencias','alertTriangle'],
@@ -531,6 +540,7 @@ function sidebar(){
       ]
     },
     {
+      id: 'team',
       title: 'Equipo y Comunicación',
       links: [
         ['/member/messages','Mensajes','messages','messages'],
@@ -541,6 +551,7 @@ function sidebar(){
       ]
     },
     {
+      id: 'tools',
       title: 'Herramientas y Cuenta',
       links: [
         ['/member/github','GitHub','github'],
@@ -550,14 +561,49 @@ function sidebar(){
     }
   ];
 
-  const markup = sections.map(sec => `
-    <div class="nav-title">${sec.title}</div>
-    ${sec.links.map(([href,label,iconName,type])=>`<button class="nav ${isNavActive(href)?'active':''}" data-route="${href}">${icon(iconName)}<span class="nav-label">${label}</span>${type?notificationDot(type):''}</button>`).join('')}
-  `).join('');
+  if (!state.openSidebarSections) {
+    try {
+      const saved = localStorage.getItem('haitani_sidebar_open');
+      state.openSidebarSections = saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      state.openSidebarSections = new Set();
+    }
+  }
+
+  // Ensure active route section is always expanded
+  sections.forEach((sec, idx) => {
+    const secId = sec.id || `sec-${idx}`;
+    const hasActive = sec.links.some(([href]) => isNavActive(href));
+    if (hasActive) {
+      state.openSidebarSections.add(secId);
+    }
+  });
+
+  // If no sections are opened yet, default open the first section
+  if (state.openSidebarSections.size === 0 && sections.length > 0) {
+    state.openSidebarSections.add(sections[0].id || 'sec-0');
+  }
+
+  const markup = sections.map((sec, idx) => {
+    const secId = sec.id || `sec-${idx}`;
+    const isExpanded = state.openSidebarSections.has(secId);
+    const hasActive = sec.links.some(([href]) => isNavActive(href));
+    return `
+      <div class="nav-section ${isExpanded ? 'is-expanded' : 'is-collapsed'}" data-section="${secId}">
+        <button type="button" class="nav-title nav-section-toggle ${isExpanded ? 'expanded' : ''} ${hasActive ? 'has-active' : ''}" data-section-toggle="${secId}" aria-expanded="${isExpanded ? 'true' : 'false'}" aria-controls="nav-section-items-${secId}">
+          <span class="nav-section-title">${sec.title}</span>
+          <span class="nav-section-chevron-icon">${icon('chevronDown', 'nav-chevron')}</span>
+        </button>
+        <div class="nav-section-items" id="nav-section-items-${secId}" style="${isExpanded ? '' : 'display:none;'}">
+          ${sec.links.map(([href,label,iconName,type])=>`<button class="nav ${isNavActive(href)?'active':''}" data-route="${href}">${icon(iconName)}<span class="nav-label">${label}</span>${type?notificationDot(type):''}</button>`).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
 
   const activeProjId = getActiveProjectId();
   const activeProjSubtitle = activeProjId ? `<div class="sidebar-active-proj" style="font-size:11px;opacity:0.8;margin-top:4px;display:flex;align-items:center;gap:4px;">${icon('briefcase')}<span>Proyecto activo</span></div>` : '';
-  return `<aside class="side" id="side"><div class="brand">${brandLogo()}</div><div class="project">${esc(state.user.organization_name||'Organización')}${activeProjSubtitle}</div>${markup}<div class="nav-title">Sesión</div><button class="nav" id="logout">${icon('logout')}<span class="nav-label">Cerrar sesión</span></button></aside>`;
+  return `<aside class="side" id="side"><div class="brand">${brandLogo()}</div><div class="project">${esc(state.user.organization_name||'Organización')}${activeProjSubtitle}</div>${markup}<div class="nav-title" style="margin-top:auto;">Sesión</div><button class="nav" id="logout">${icon('logout')}<span class="nav-label">Cerrar sesión</span></button></aside>`;
 }
 function avatarMarkup(user,size='avatar'){return user.profile_photo?`<img class="${size}" src="${esc(user.profile_photo)}" alt="Foto de ${esc(user.name)}">`:`<span class="${size}">${esc(user.name?.[0]||'?')}</span>`}
 function layout(content){
@@ -566,6 +612,33 @@ function layout(content){
   const backdrop = document.querySelector('#side-backdrop');
   const closeSide = () => { side?.classList.remove('open'); backdrop?.classList.remove('active'); };
   document.querySelectorAll('[data-route]').forEach(node=>node.onclick=()=>{ location.hash=node.dataset.route; closeSide(); });
+  document.querySelectorAll('.nav-section-toggle').forEach(btn => {
+    btn.onclick = (e) => {
+      e.preventDefault();
+      const secId = btn.dataset.sectionToggle;
+      const itemsContainer = document.getElementById(`nav-section-items-${secId}`);
+      const parentSection = btn.closest('.nav-section');
+      const isExpanded = btn.classList.contains('expanded');
+      if (isExpanded) {
+        btn.classList.remove('expanded');
+        btn.setAttribute('aria-expanded', 'false');
+        parentSection?.classList.remove('is-expanded');
+        parentSection?.classList.add('is-collapsed');
+        if (itemsContainer) itemsContainer.style.display = 'none';
+        state.openSidebarSections?.delete(secId);
+      } else {
+        btn.classList.add('expanded');
+        btn.setAttribute('aria-expanded', 'true');
+        parentSection?.classList.add('is-expanded');
+        parentSection?.classList.remove('is-collapsed');
+        if (itemsContainer) itemsContainer.style.display = 'flex';
+        state.openSidebarSections?.add(secId);
+      }
+      try {
+        localStorage.setItem('haitani_sidebar_open', JSON.stringify(Array.from(state.openSidebarSections || [])));
+      } catch {}
+    };
+  });
   document.querySelector('#logout').onclick=async()=>{ closeSide(); await api('/auth/logout',{method:'POST'}); state.user=null; location.hash=''; loginView(); };
   document.querySelector('#menu').onclick=()=>{ side?.classList.toggle('open'); backdrop?.classList.toggle('active'); };
   backdrop.onclick=closeSide;
@@ -736,6 +809,70 @@ async function dashboard(){
       </div>
     </div>
 
+    <!-- Marco de Trabajo Organizado en Horizontal -->
+    <section class="card dash-card dash-project-card dash-project-horizontal mt-4">
+      <div class="dash-card-header">
+        <div>
+          <div class="eyebrow">Marco de Trabajo</div>
+          <h2>${project ? esc(project.name) : 'Proyecto Actual'}</h2>
+        </div>
+        <div class="dash-card-header-actions" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          ${project?`<span class="badge ${project.methodology_id==='AGILE'||project.methodology_id==='SCRUM'?'green':'pink'}">${esc(project.methodology_id||'Ágil')}</span>`:''}
+          ${project?.status ? `<span class="badge ${project.status==='completado'?'green':project.status==='en_progreso'?'lilac':'yellow'}">${esc(project.status.replace('_',' '))}</span>` : ''}
+          ${project?.priority ? `<span class="badge ${project.priority==='critica'?'pink':project.priority==='alta'?'yellow':'gray'}">Prioridad ${esc(project.priority)}</span>` : ''}
+          <a class="dash-view-all" href="#/${state.user.role}/projects">Ver todos ${icon('external')}</a>
+        </div>
+      </div>
+      <div class="dash-project-body dash-project-body-horizontal">
+        ${project ? `
+          <div class="dash-project-horizontal-layout">
+            <div class="dash-project-summary-box">
+              <div class="dash-project-info">
+                <strong class="dash-project-name">${esc(project.name)}</strong>
+                <p class="dash-project-desc">${esc(project.description||'Sin descripción definida aún.')}</p>
+                <div class="dash-project-meta-chips mt-3">
+                  ${project.client ? `<span class="dash-meta-chip">${icon('briefcase')}<span><strong>Cliente:</strong> ${esc(project.client)}</span></span>` : ''}
+                  ${project.budget ? `<span class="dash-meta-chip">${icon('creditCard')}<span><strong>Presupuesto:</strong> $${Number(project.budget).toLocaleString()}</span></span>` : ''}
+                  ${project.start_date || project.end_date ? `<span class="dash-meta-chip">${icon('calendar')}<span><strong>Fechas:</strong> ${(project.start_date||'').slice(0,10)} ${project.end_date ? '→ ' + project.end_date.slice(0,10) : ''}</span></span>` : ''}
+                  ${project.technologies ? `<span class="dash-meta-chip">${icon('layers')}<span><strong>Stack:</strong> ${esc(project.technologies)}</span></span>` : ''}
+                </div>
+              </div>
+            </div>
+            <div class="dash-project-actions-box">
+              <div class="dash-methodology-summary">
+                <div class="dash-methodology-header">
+                  <span class="icon-svg" style="opacity:0.85;">${icon('layers')}</span>
+                  <div>
+                    <span class="muted" style="font-size:12px;display:block;">Flujo Metodológico Activo</span>
+                    <strong style="font-size:15px;">${esc(project.methodology_id || 'Ágil')}</strong>
+                  </div>
+                </div>
+                <div class="dash-methodology-actions-wrap mt-3">
+                  ${methodologyWidgets(project)}
+                </div>
+              </div>
+            </div>
+          </div>
+          ${isAdmin ? `
+            <details class="dash-project-editor-accordion mt-4">
+              <summary class="btn secondary mini dash-project-editor-toggle">
+                ${icon('settings')}
+                <span>Configurar y editar detalles del proyecto</span>
+              </summary>
+              <div class="dash-project-editor-wrapper mt-3">
+                ${projectEditor(project)}
+              </div>
+            </details>
+          ` : ''}
+        ` : `
+          <div class="dash-empty-project">
+            <p class="muted">No se ha establecido un proyecto principal para esta organización.</p>
+            ${projectEditor(null)}
+          </div>
+        `}
+      </div>
+    </section>
+
     <div class="dashboard-main-grid mt-4">
       <section class="card dash-card dash-tasks-card">
         <div class="dash-card-header">
@@ -749,31 +886,7 @@ async function dashboard(){
           <div class="empty">Cargando tareas prioritarias...</div>
         </div>
       </section>
-
-      <section class="card dash-card dash-project-card">
-        <div class="dash-card-header">
-          <div>
-            <div class="eyebrow">Marco de Trabajo</div>
-            <h2>Proyecto Actual</h2>
-          </div>
-          ${project?`<span class="badge ${project.methodology_id==='AGILE'||project.methodology_id==='SCRUM'?'green':'pink'}">${esc(project.methodology_id||'Ágil')}</span>`:''}
-        </div>
-        <div class="dash-project-body">
-          ${project ? `
-            <div class="dash-project-info">
-              <strong class="dash-project-name">${esc(project.name)}</strong>
-              <p class="dash-project-desc">${esc(project.description||'Sin descripción definida aún.')}</p>
-            </div>
-            ${methodologyWidgets(project)}
-            ${projectEditor(project)}
-          ` : `
-            <div class="dash-empty-project">
-              <p class="muted">No se ha establecido un proyecto principal para esta organización.</p>
-              ${projectEditor(null)}
-            </div>
-          `}
-        </div>
-      </section>
+      <div id="dashboard-health-container"></div>
     </div>
   `;
 }
@@ -781,7 +894,12 @@ async function renderDashboard(){
   const content=await dashboard();
   layout(content);
   if(state.user.role==='admin'&&state.dashboard?.health){
-    document.querySelector('.content')?.insertAdjacentHTML('beforeend',projectHealth(state.dashboard.health));
+    const healthContainer = document.querySelector('#dashboard-health-container');
+    if (healthContainer) {
+      healthContainer.innerHTML = projectHealth(state.dashboard.health);
+    } else {
+      document.querySelector('.content')?.insertAdjacentHTML('beforeend',projectHealth(state.dashboard.health));
+    }
   }
   const activeProjId = getActiveProjectId();
   const tasksUrl = activeProjId ? `/tasks?project_id=${activeProjId}` : '/tasks';
@@ -797,6 +915,11 @@ async function renderDashboard(){
   document.querySelector('#clear-active-project-btn')?.addEventListener('click', () => {
     setActiveProjectId(null);
     renderDashboard();
+  });
+  document.querySelector('#dash-new-project-task')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const pId = e.currentTarget.dataset.projectId;
+    location.hash = `#/${state.user.role}/tasks${pId ? `?project_id=${pId}` : ''}`;
   });
   document.querySelector('#project-form')?.addEventListener('submit',async event=>{
     event.preventDefault();
