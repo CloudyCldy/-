@@ -10390,3 +10390,10 @@ button.gv-stat:hover{transform:translateY(-1px);border-color:#627079}
 }
 
 
+
+/* HB-18 · Eliminar mi cuenta */
+.danger-zone{border:1px solid #e3b4b4}
+.danger-zone h2{color:#7a2424}
+.checkbox-line{display:flex;align-items:center;gap:8px;font-weight:400}
+.checkbox-line input[type=checkbox]{appearance:auto;-webkit-appearance:checkbox;display:inline-block;width:18px;height:18px;min-height:0;padding:0;margin:0;opacity:1;position:static}
+
