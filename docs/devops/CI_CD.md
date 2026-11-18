@@ -1,35 +1,31 @@
 # CI/CD de Haitani (DO-01 y DO-02)
 
-El flujo está en `.github/workflows/ci-cd.yml` y corre en GitHub Actions.
+El trabajo se reparte entre dos herramientas:
 
-## Qué hace
-
-| Cuándo | Trabajo | Qué pasa |
+| Herramienta | Qué hace | Cuándo |
 |---|---|---|
-| Push o pull request a `dev`, `QA` o `main` | **Pruebas** | Levanta PostgreSQL 16, instala con `npm ci`, crea las tablas con `database/init.js` y corre `npm test`. Si una prueba falla, el trabajo queda en rojo. |
-| Push a `main` con las pruebas aprobadas | **Despliegue a Render** | Llama al deploy hook de Render, espera a que el despliegue quede `live` (si están los secretos de la API) y revisa que `/api/health` responda `ok: true`. |
+| **GitHub Actions** (`.github/workflows/ci-cd.yml`) | Trabajo **Pruebas**: levanta PostgreSQL 16, instala con `npm ci`, crea las tablas con `database/init.js` y corre `npm test`. Si una prueba falla, el check queda en rojo. | En cada push y pull request a `dev`, `QA` o `main`. |
+| **Render** (Auto-Deploy) | Descarga `main`, instala, arranca la nueva versión y la publica en https://rwq70fnfjj.onrender.com. | Cada vez que llega un cambio a `main`. |
 
-Si el despliegue falla en Render, Render deja en línea la versión anterior y el trabajo de GitHub queda en rojo con el motivo.
+A `main` solo se llega por pull request desde `QA`, y ese pull request ya pasó las pruebas en GitHub Actions. Así a producción solo llega código probado.
 
-## Configuración (una sola vez, la hace quien administra Render y el repositorio)
+Si la construcción falla en Render, Render deja en línea la versión anterior.
+
+## Configuración
 
 1. **Render → servicio de Haitani → Settings → Build & Deploy**
-   - Copiar el **Deploy Hook** (es una URL secreta, no se comparte por chat).
-   - Cambiar **Auto-Deploy** a **Off**, para que solo GitHub Actions despliegue y siempre después de las pruebas.
-2. **GitHub → repositorio → Settings → Secrets and variables → Actions → New repository secret**
-   - `RENDER_DEPLOY_HOOK_URL`: la URL del deploy hook. **Obligatorio.**
-   - `RENDER_API_KEY`: Render → Account Settings → API Keys. Opcional, sirve para esperar a que el despliegue termine.
-   - `RENDER_SERVICE_ID`: el id que empieza con `srv-` en la URL del servicio en Render. Opcional, va junto con la API key.
-3. **GitHub → Settings → Branches → Add branch ruleset** para `main`, `QA` y `dev`
+   - **Branch:** `main`.
+   - **Auto-Deploy:** `On Commit` (o `After CI Checks Pass`, para que Render espere también el check de GitHub).
+2. **GitHub → Settings → Branches → Add branch ruleset** para `main`, `QA` y `dev`
    - Activar **Require status checks to pass** y elegir el check **Pruebas**.
    - Con esto un pull request con pruebas fallidas no se puede fusionar (criterio de DO-01).
 
 ## Cómo comprobarlo
 
-1. Abrir un pull request a `dev`: en la pestaña **Checks** aparece **CI/CD Haitani / Pruebas** y debe quedar en verde.
-2. Fusionar `QA` → `main`: en **Actions** corren **Pruebas** y luego **Despliegue a Render**; al final, el log muestra "El servicio responde correctamente."
-3. Para probar el criterio de DO-01, una rama con una prueba rota a propósito debe quedar en rojo y el botón de merge bloqueado.
+1. Abrir un pull request a `dev`: en **Checks** aparece **CI/CD Haitani / Pruebas** y debe quedar en verde.
+2. Fusionar `QA` → `main`: en **Actions** corre **Pruebas** y en Render → **Events** aparece un deploy nuevo que termina en **Live**.
+3. Abrir `/api/health` en producción: responde `ok: true`.
 
 ## Sanzu
 
-El repositorio de Sanzu tiene su propio flujo en `.github/workflows/ci.yml`: instala, genera el cliente de Prisma, revisa los tipos con `npm run typecheck` y corre `npm test` en cada push y pull request. Sanzu todavía no se despliega, así que no tiene trabajo de despliegue.
+El repositorio de Sanzu tiene su propio flujo en `.github/workflows/ci.yml`: instala, genera el cliente de Prisma, revisa los tipos con `npm run typecheck` y corre `npm test` en cada push y pull request. Sanzu todavía no se despliega.
