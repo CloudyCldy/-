@@ -734,6 +734,12 @@ label {
   color: var(--color-paper-white);
 }
 .btn.danger:hover { background: #5c1e1e; border-color: #5c1e1e; }
+/* HB-11 · Ausencias y capacidad */
+.capacity-table{width:100%;border-collapse:collapse;margin-top:8px}
+.capacity-table th,.capacity-table td{padding:8px;border-bottom:1px solid var(--line,#e5e7eb);text-align:left;font-size:.9rem}
+.capacity-bar{height:8px;border-radius:4px;background:#e5e7eb;overflow:hidden;min-width:80px}
+.capacity-bar span{display:block;height:100%;background:#4f7d5c}
+.capacity-bar.low span{background:#b45309}
 #show-register { margin-top: var(--sp-3); }
 
 /* =========================================================
