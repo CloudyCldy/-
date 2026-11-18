@@ -276,7 +276,7 @@ function startOfWeekMonday(date) { const d = parseGanttDate(date) || new Date();
 function addDays(dateStr, delta) { const base = parseGanttDate(dateStr) || new Date(); base.setDate(base.getDate() + delta); return toISODate(base); }
 function themeToggle(){return `<div class="theme-switch" role="group" aria-label="Tema visual"><button class="theme-option ${currentTheme==='steep'?'active':''}" data-theme="steep" type="button" title="Modo claro" aria-label="Modo claro">${icon('sun')}</button><button class="theme-option ${currentTheme==='ran'?'active':''}" data-theme="ran" type="button" title="Modo oscuro" aria-label="Modo oscuro">${icon('moon')}</button></div>`}
 function bindTheme(){document.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>{currentTheme=button.dataset.theme;localStorage.setItem('haitani-theme',currentTheme);document.documentElement.dataset.theme=currentTheme;document.querySelectorAll('.theme-option').forEach(option=>option.classList.toggle('active',option.dataset.theme===currentTheme))})}
-async function api(url, options = {}) { const projectId = localStorage.getItem('haitani-github-project'); const githubUrl = url.startsWith('/github/') && projectId && !url.includes('?') ? `${url}?project_id=${encodeURIComponent(projectId)}` : url; const response = await fetch(`/api${githubUrl}`, { ...options, credentials:'include' }); const data = await response.json().catch(() => ({})); if (response.status === 403 && data.blocked) { blockedView(data.reason || 'Tu dirección IP no puede acceder a esta aplicación.'); throw new Error(data.error); } if (response.status === 401) { state.user = null; clearInterval(notificationTimer); } if (!response.ok) throw new Error(data.error || 'No fue posible completar la operación.'); return data; }
+async function api(url, options = {}) { const projectId = localStorage.getItem('haitani-github-project'); const githubUrl = url.startsWith('/github/') && projectId && !url.includes('?') ? `${url}?project_id=${encodeURIComponent(projectId)}` : url; const response = await fetch(`/api${githubUrl}`, { ...options, credentials:'include' }); const data = await response.json().catch(() => ({})); if (response.status === 403 && data.blocked) { blockedView(data.reason || 'Tu dirección IP no puede acceder a esta aplicación.'); throw new Error(data.error); } if (response.status === 503 && data.maintenance) { if (sessionStorage.getItem('haitani_maintenance_bypassed') !== '1') { maintenanceView(); } throw new Error(data.error || 'Sistema inactivo por mantenimiento (22:00 a 00:00 hrs).'); } if (response.status === 401) { state.user = null; clearInterval(notificationTimer); } if (!response.ok) throw new Error(data.error || 'No fue posible completar la operación.'); return data; }
 function notificationDot(type){return `<i class="notification-dot" data-type="${type}" ${state.notifications[type]?'':'hidden'} title="${state.notifications[type]||0} notificaciones nuevas"></i>`}
 function requestDesktopNotifications(){
   if (!('Notification' in window)) return false;
@@ -8447,8 +8447,21 @@ function isMaintenanceTime() {
   if (sessionStorage.getItem('haitani_maintenance_bypassed') === '1') return false;
   const now = new Date();
   const hours = now.getHours();
-  // Mantenimiento programado: aparece a las 22:00 hrs de cada día (ventana nocturna 22:00 - 06:00)
-  return hours >= 22 || hours < 6;
+  // Ventana de mantenimiento programado: 22:00 a 00:00 hrs de cada día (duración exacta: 2 horas)
+  return hours >= 22 && hours < 24;
+}
+
+function getMaintenanceCountdown() {
+  const now = new Date();
+  const midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+  const diffMs = Math.max(0, midnight - now);
+  const diffSecs = Math.floor(diffMs / 1000);
+  const hours = Math.floor(diffSecs / 3600);
+  const mins = Math.floor((diffSecs % 3600) / 60);
+  const secs = diffSecs % 60;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(hours)}:${pad(mins)}:${pad(secs)}`;
 }
 
 function maintenanceView() {
@@ -8467,7 +8480,7 @@ function maintenanceView() {
               <div class="maintenance-image-overlay"></div>
               <div class="maintenance-status-chip">
                 <span class="chip-pulse"></span>
-                <span>Ventana 22:00 hrs</span>
+                <span>Ventana 22:00 - 00:00 hrs</span>
               </div>
             </div>
           </div>
@@ -8480,7 +8493,7 @@ function maintenanceView() {
               <div class="eyebrow maintenance-eyebrow">Modo Mantenimiento</div>
               <h1 class="maintenance-title">Sistema en Mantenimiento</h1>
               <p class="maintenance-desc">
-                Haitani entra automáticamente en mantenimiento preventivo a las <strong>22:00 hrs de cada día</strong> para optimización de base de datos, tareas de sincronización y respaldos de seguridad.
+                Haitani entra automáticamente en mantenimiento preventivo diario de <strong>22:00 a 00:00 hrs</strong> (duración de 2 horas). Durante esta ventana el sistema permanece inactivo para optimización de base de datos, tareas de sincronización y respaldos de seguridad.
               </p>
             </div>
 
@@ -8491,11 +8504,15 @@ function maintenanceView() {
               </div>
               <div class="maintenance-stat">
                 <span class="stat-label">Horario programado</span>
-                <strong class="stat-value highlight">22:00 hrs diarias</strong>
+                <strong class="stat-value highlight">22:00 a 00:00 hrs</strong>
               </div>
               <div class="maintenance-stat">
                 <span class="stat-label">Disponibilidad</span>
-                <strong class="stat-value status-notice"><span class="dot-amber"></span> En pausa técnica</strong>
+                <strong class="stat-value status-notice"><span class="dot-amber"></span> Inactivo por mantenimiento</strong>
+              </div>
+              <div class="maintenance-stat">
+                <span class="stat-label">Reanudación (00:00 hrs)</span>
+                <strong class="stat-value highlight" id="maintenance-countdown">${getMaintenanceCountdown()}</strong>
               </div>
             </div>
 
@@ -8528,6 +8545,15 @@ function maintenanceView() {
     const clockEl = document.querySelector('#maintenance-live-clock');
     if (clockEl) {
       clockEl.textContent = formatTime(new Date());
+      const cdEl = document.querySelector('#maintenance-countdown');
+      if (cdEl) cdEl.textContent = getMaintenanceCountdown();
+
+      if (!isMaintenanceTime() && !isPreview) {
+        clearInterval(state.maintenanceClockTimer);
+        notify('El periodo de mantenimiento ha finalizado. El sistema se ha reactivado.');
+        location.hash = state.user ? `#/${state.user.role}/dashboard` : '#/login';
+        render();
+      }
     } else {
       clearInterval(state.maintenanceClockTimer);
     }
@@ -8536,11 +8562,11 @@ function maintenanceView() {
   document.querySelector('#maintenance-refresh-btn')?.addEventListener('click', () => {
     notify('Comprobando estado del sistema...');
     if (!isMaintenanceTime()) {
-      notify('El periodo de mantenimiento ha finalizado. Redirigiendo...');
+      notify('El periodo de mantenimiento ha finalizado (00:00 hrs alcanzada). Redirigiendo...');
       location.hash = state.user ? `#/${state.user.role}/dashboard` : '#/login';
       render();
     } else {
-      notify('El sistema continúa en periodo de mantenimiento programado (22:00 hrs).');
+      notify('El sistema continúa inactivo en su ventana de mantenimiento (22:00 a 00:00 hrs). Reanudación automática a las 00:00 hrs.');
     }
   });
 
@@ -13149,9 +13175,15 @@ render=async function(){
 window.addEventListener('hashchange',render);
 if (typeof window !== 'undefined' && !window._haitaniMaintenanceTimer) {
   window._haitaniMaintenanceTimer = setInterval(() => {
-    if (isMaintenanceTime() && !document.querySelector('.maintenance-screen') && sessionStorage.getItem('haitani_maintenance_bypassed') !== '1') {
+    const inMaint = isMaintenanceTime();
+    const isShowing = Boolean(document.querySelector('.maintenance-screen'));
+    if (inMaint && !isShowing && sessionStorage.getItem('haitani_maintenance_bypassed') !== '1') {
+      render();
+    } else if (!inMaint && isShowing && !location.hash.includes('maintenance') && localStorage.getItem('haitani_force_maintenance') !== '1') {
+      notify('El periodo de mantenimiento (22:00 a 00:00 hrs) ha finalizado. El sistema se ha reactivado.');
+      location.hash = state.user ? `#/${state.user.role}/dashboard` : '#/login';
       render();
     }
-  }, 20000);
+  }, 10000);
 }
 render();

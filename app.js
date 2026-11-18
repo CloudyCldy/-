@@ -460,6 +460,67 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, app: 'Haitani', project: 'Sakura Coffee' }));
+
+// Estado de mantenimiento programado (22:00 a 00:00 hrs)
+app.get('/api/maintenance/status', (req, res) => {
+  const now = new Date();
+  const hours = now.getHours();
+  const inMaintenance = (hours >= 22 && hours < 24) || process.env.FORCE_MAINTENANCE === 'true';
+  res.json({
+    inMaintenance,
+    window: '22:00 - 00:00 hrs',
+    duration: '2 horas',
+    startHour: 22,
+    endHour: 0,
+    serverTime: now.toISOString(),
+    hours: hours
+  });
+});
+
+// Middleware de inactividad por mantenimiento programado (22:00 a 00:00 hrs)
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'test' || process.env.DISABLE_MAINTENANCE === 'true') {
+    return next();
+  }
+
+  const exemptPaths = [
+    '/api/health',
+    '/api/maintenance/status',
+    '/api/auth/me',
+    '/api/auth/login',
+    '/privacidad',
+    '/privacy',
+    '/eliminar-cuenta',
+    '/delete-account'
+  ];
+  if (exemptPaths.includes(req.path)) {
+    return next();
+  }
+
+  const now = new Date();
+  const hours = now.getHours();
+  const inMaintenance = (hours >= 22 && hours < 24) || process.env.FORCE_MAINTENANCE === 'true';
+
+  if (!inMaintenance) {
+    return next();
+  }
+
+  // Bypass para administradores o cabecera autorizada
+  if (req.session?.user?.role === 'admin' || req.headers['x-maintenance-bypass'] === '1') {
+    return next();
+  }
+
+  if (req.path.startsWith('/api')) {
+    return res.status(503).json({
+      error: 'El sistema se encuentra inactivo por mantenimiento programado de 22:00 a 00:00 hrs.',
+      maintenance: true,
+      window: '22:00 - 00:00 hrs',
+      remainingMessage: 'Reanudación automática del sistema a las 00:00 hrs.'
+    });
+  }
+
+  next();
+});
 app.use('/api/billing', billingRoutes.router);
 app.use('/api/plans', require('./server/routes/planRoutes'));
 app.use('/api/admin', require('./server/routes/adminRoutes'));
