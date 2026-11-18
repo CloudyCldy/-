@@ -2647,7 +2647,32 @@ function profile(){
         </div>
       </form>
     </section>
+    <section class="card mt-4 danger-zone" id="delete-account-section">
+      <h2>Eliminar mi cuenta</h2>
+      <p class="muted">Se borran tu cuenta y tus datos personales. Esta acción no se puede deshacer. Consulta la <a href="/privacidad" target="_blank" rel="noopener">política de privacidad</a> para saber qué datos se eliminan.</p>
+      <form id="delete-account-form" class="form-grid">
+        <label>Escribe tu contraseña para confirmar
+          <input class="input" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <label class="full checkbox-line"><input type="checkbox" name="confirm" required> Entiendo que mi cuenta se eliminará de forma permanente.</label>
+        <div class="actions full">
+          <button class="btn danger" type="submit">${icon('trash')}Eliminar mi cuenta</button>
+        </div>
+      </form>
+    </section>
   `;
+}
+// HB-18: elimina la cuenta propia. Si es el único administrador, pide una segunda confirmación para borrar la organización.
+async function deleteMyAccount(password,deleteOrganization){
+  const response=await fetch('/api/users/me',{method:'DELETE',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({password,delete_organization:deleteOrganization})});
+  const data=await response.json().catch(()=>({}));
+  if(response.status===409&&data.requires_organization_delete){
+    if(confirm(`${data.error}\n\n¿Eliminar tu cuenta y la organización completa?`))return deleteMyAccount(password,true);
+    return;
+  }
+  if(!response.ok)return notify(data.error||'No se pudo eliminar la cuenta.');
+  alert('Tu cuenta fue eliminada.');
+  location.href='/';
 }
 async function renderProfile(){
   layout(profile());
@@ -2661,6 +2686,13 @@ async function renderProfile(){
     }catch(error){
       notify(error.message);
     }
+  };
+  document.querySelector('#delete-account-form').onsubmit=async event=>{
+    event.preventDefault();
+    const form=event.target;
+    if(!form.elements.confirm.checked)return notify('Marca la casilla para confirmar.');
+    if(!confirm('¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer.'))return;
+    await deleteMyAccount(form.elements.password.value,false);
   };
    // OAuth button listeners
    document.querySelector('#connect-github')?.addEventListener('click', () => {
