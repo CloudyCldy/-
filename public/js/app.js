@@ -480,7 +480,7 @@ function sidebar(){
       links: [
         ['/admin/messages','Mensajes','messages','messages'],
         ['/admin/announcements','Anuncios','announcements'],
-        ['/admin/absences','Inasistencias','calendar'],
+        ['/admin/absences','Ausencias','calendar'],
         ['/admin/members','Integrantes','users'],
         ['/admin/files','Archivos','folder'],
       ]
@@ -545,7 +545,7 @@ function sidebar(){
       links: [
         ['/member/messages','Mensajes','messages','messages'],
         ['/member/announcements','Anuncios','announcements'],
-        ['/member/absences','Inasistencias','calendar'],
+        ['/member/absences','Ausencias','calendar'],
         ['/member/members','Equipo','users'],
         ['/member/files','Archivos','folder'],
       ]
@@ -2647,7 +2647,32 @@ function profile(){
         </div>
       </form>
     </section>
+    <section class="card mt-4 danger-zone" id="delete-account-section">
+      <h2>Eliminar mi cuenta</h2>
+      <p class="muted">Se borran tu cuenta y tus datos personales. Esta acción no se puede deshacer. Consulta la <a href="/privacidad" target="_blank" rel="noopener">política de privacidad</a> para saber qué datos se eliminan.</p>
+      <form id="delete-account-form" class="form-grid">
+        <label>Escribe tu contraseña para confirmar
+          <input class="input" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <label class="full checkbox-line"><input type="checkbox" name="confirm" required> Entiendo que mi cuenta se eliminará de forma permanente.</label>
+        <div class="actions full">
+          <button class="btn danger" type="submit">${icon('trash')}Eliminar mi cuenta</button>
+        </div>
+      </form>
+    </section>
   `;
+}
+// HB-18: elimina la cuenta propia. Si es el único administrador, pide una segunda confirmación para borrar la organización.
+async function deleteMyAccount(password,deleteOrganization){
+  const response=await fetch('/api/users/me',{method:'DELETE',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({password,delete_organization:deleteOrganization})});
+  const data=await response.json().catch(()=>({}));
+  if(response.status===409&&data.requires_organization_delete){
+    if(confirm(`${data.error}\n\n¿Eliminar tu cuenta y la organización completa?`))return deleteMyAccount(password,true);
+    return;
+  }
+  if(!response.ok)return notify(data.error||'No se pudo eliminar la cuenta.');
+  alert('Tu cuenta fue eliminada.');
+  location.href='/';
 }
 async function renderProfile(){
   layout(profile());
@@ -2661,6 +2686,13 @@ async function renderProfile(){
     }catch(error){
       notify(error.message);
     }
+  };
+  document.querySelector('#delete-account-form').onsubmit=async event=>{
+    event.preventDefault();
+    const form=event.target;
+    if(!form.elements.confirm.checked)return notify('Marca la casilla para confirmar.');
+    if(!confirm('¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer.'))return;
+    await deleteMyAccount(form.elements.password.value,false);
   };
    // OAuth button listeners
    document.querySelector('#connect-github')?.addEventListener('click', () => {
@@ -9321,17 +9353,23 @@ async function renderSprintDetail(sprintId) {
     };
   });
 }
+const ABSENCE_REASONS={falta:'Falta',vacaciones:'Vacaciones',permiso:'Permiso',incapacidad:'Incapacidad',curso:'Curso o evento',otro:'Otro'};
+function absenceRange(a){return a.end_date&&a.end_date!==a.absence_date?`${esc(a.absence_date)} al ${esc(a.end_date)}`:esc(a.absence_date)}
+function absenceReason(a){return `${esc(ABSENCE_REASONS[a.reason]||a.reason||'Falta')}${a.subject?` · ${esc(a.subject)}`:''}`}
 function absenceStatusBadge(status){const map={ninguna:['','Sin apelación'],pendiente:['yellow','En revisión'],aprobada:['green','Aprobada'],rechazada:['pink','Rechazada']};const [cls,label]=map[status]||['',status];return `<span class="badge ${cls}">${esc(label)}</span>`}
 function absenceWarning(absences){return `<div class="alert absence-warning" id="absence-warning"><strong>Cuidado:</strong> ya llevas ${absences.length} inasistencias. Se aplicará una sanción.<div class="absence-warning-actions"><button type="button" class="btn secondary" id="go-to-absences">Ver y apelar mis inasistencias</button><button type="button" class="btn secondary" id="dismiss-absence-warning">Entendido</button></div></div>`}
 const renderDashboardBase=renderDashboard;
 renderDashboard=async function(){const absences=state.user.role==='member'?await api('/absences'):[];await renderDashboardBase();if(absences.length>=4){document.querySelector('.content')?.insertAdjacentHTML('afterbegin',absenceWarning(absences));document.querySelector('#go-to-absences')?.addEventListener('click',()=>{location.hash='/member/absences'});document.querySelector('#dismiss-absence-warning')?.addEventListener('click',()=>document.querySelector('#absence-warning')?.remove())}}
-function absenceAdminPanel(absences, users){const memberOptions=users.filter(user=>user.role==='member').map(user=>`<option value="${user.id}">${esc(user.name)}</option>`).join('');return `<section class="card absence-admin" id="absence-admin"><div class="section-heading"><div><h2>Registro de inasistencias</h2><p class="muted">Registra la fecha y la materia de cada falta.</p></div><strong class="absence-total">${absences.length} registradas</strong></div><form id="absence-form" class="form-grid"><label>Integrante<select class="select" name="user_id" required><option value="">Selecciona un integrante</option>${memberOptions}</select></label><label>Fecha<input class="input" name="absence_date" type="date" required></label><label>Materia<input class="input" name="subject" required></label><div class="actions full"><button class="btn">${icon('plus')}Añadir inasistencia</button></div></form><div class="absence-list">${absences.map(absence=>`<div class="absence-row"><span><strong>${esc(absence.user_name)}</strong><small class="muted">${esc(absence.absence_date)} · ${esc(absence.subject)}</small></span><span class="actions">${absenceStatusBadge(absence.appeal_status)}<button type="button" class="btn danger mini delete-absence" data-id="${absence.id}">${icon('trash')}Eliminar</button></span></div>`).join('')||'<div class="empty">No hay inasistencias registradas.</div>'}</div></section>`}
-function absenceAppealRow(item,isAdmin){const evidenceLink=item.appeal_evidence_id?`<a class="btn secondary mini" href="/api/files/${item.appeal_evidence_id}/view" target="_blank" rel="noopener">${icon('eye')}Ver evidencia</a>`:'';const resolveActions=isAdmin&&item.appeal_status==='pendiente'?`<button type="button" class="btn secondary mini approve-appeal" data-id="${item.id}">${icon('check')}Aprobar</button><button type="button" class="btn danger mini reject-appeal" data-id="${item.id}">${icon('close')}Rechazar</button>`:'';return `<div class="absence-row"><span>${isAdmin?`<strong>${esc(item.user_name)}</strong>`:''}<small class="muted">${esc(item.absence_date)} · ${esc(item.subject)}</small><small class="muted">Motivo: ${esc(item.appeal_reason||'Sin motivo')}</small>${item.resolution_note?`<small class="muted">Respuesta: ${esc(item.resolution_note)}</small>`:''}</span><span class="actions">${absenceStatusBadge(item.appeal_status)}${evidenceLink}${resolveActions}</span></div>`}
+function absenceAdminPanel(absences, users){const memberOptions=users.filter(user=>user.role==='member').map(user=>`<option value="${user.id}">${esc(user.name)}</option>`).join('');return `<section class="card absence-admin" id="absence-admin"><div class="section-heading"><div><h2>Registro de ausencias</h2><p class="muted">Registra el periodo y el motivo de cada ausencia del equipo.</p></div><strong class="absence-total">${absences.length} registradas</strong></div><form id="absence-form" class="form-grid"><label>Integrante<select class="select" name="user_id" required><option value="">Selecciona un integrante</option>${memberOptions}</select></label><label>Motivo<select class="select" name="reason" required>${Object.entries(ABSENCE_REASONS).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label><label>Desde<input class="input" name="absence_date" type="date" required></label><label>Hasta<input class="input" name="end_date" type="date"></label><label class="full">Detalle (obligatorio si el motivo es Otro)<input class="input" name="subject" maxlength="200" placeholder="Ej. Cita médica, materia, evento"></label><div class="actions full"><button class="btn">${icon('plus')}Registrar ausencia</button></div></form><div class="absence-list">${absences.map(absence=>`<div class="absence-row"><span><strong>${esc(absence.user_name)}</strong><small class="muted">${absenceRange(absence)} · ${absenceReason(absence)}</small></span><span class="actions">${absenceStatusBadge(absence.appeal_status)}<button type="button" class="btn danger mini delete-absence" data-id="${absence.id}">${icon('trash')}Eliminar</button></span></div>`).join('')||'<div class="empty">No hay inasistencias registradas.</div>'}</div></section>`}
+function absenceAppealRow(item,isAdmin){const evidenceLink=item.appeal_evidence_id?`<a class="btn secondary mini" href="/api/files/${item.appeal_evidence_id}/view" target="_blank" rel="noopener">${icon('eye')}Ver evidencia</a>`:'';const resolveActions=isAdmin&&item.appeal_status==='pendiente'?`<button type="button" class="btn secondary mini approve-appeal" data-id="${item.id}">${icon('check')}Aprobar</button><button type="button" class="btn danger mini reject-appeal" data-id="${item.id}">${icon('close')}Rechazar</button>`:'';return `<div class="absence-row"><span>${isAdmin?`<strong>${esc(item.user_name)}</strong>`:''}<small class="muted">${absenceRange(item)} · ${absenceReason(item)}</small><small class="muted">Motivo: ${esc(item.appeal_reason||'Sin motivo')}</small>${item.resolution_note?`<small class="muted">Respuesta: ${esc(item.resolution_note)}</small>`:''}</span><span class="actions">${absenceStatusBadge(item.appeal_status)}${evidenceLink}${resolveActions}</span></div>`}
 function absenceAppealsPanel(appeals){const pending=appeals.filter(item=>item.appeal_status==='pendiente').length;return `<section class="card mt-4" id="absence-appeals"><div class="section-heading"><div><h2>Apelaciones</h2><p class="muted">Revisa la evidencia y resuelve las apelaciones enviadas por el equipo.</p></div><strong class="absence-total">${pending} pendiente${pending===1?'':'s'}</strong></div><div class="absence-list">${appeals.map(item=>absenceAppealRow(item,true)).join('')||'<div class="empty">No hay apelaciones registradas.</div>'}</div></section>`}
-async function renderAdminAbsences(){
-  const [absences,appeals,users]=await Promise.all([api('/absences'),api('/absences/appeals'),api('/users')]);
-  layout(`${heading('Inasistencias','Registra faltas y resuelve las apelaciones del equipo.')}${absenceAdminPanel(absences,users)}${absenceAppealsPanel(appeals)}`);
-  document.querySelector('#absence-form').onsubmit=async event=>{event.preventDefault();try{await api('/absences',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});notify('Inasistencia añadida');renderAdminAbsences()}catch(error){notify(error.message)}};
+function absenceCapacityPanel(data){const rows=data.team.map(item=>`<tr><td>${esc(item.name)}</td><td>${item.workdays}</td><td>${item.absent_days}</td><td>${item.available_days}</td><td><div class="capacity-bar ${item.availability<70?'low':''}" title="${item.availability}%"><span style="width:${item.availability}%"></span></div><small>${item.availability}%</small></td></tr>`).join('');return `<section class="card mt-4" id="absence-capacity"><div class="section-heading"><div><h2>Capacidad del equipo</h2><p class="muted">Días hábiles disponibles por integrante, descontando sus ausencias.</p></div><strong class="absence-total">${data.team_availability}% disponible</strong></div><form id="capacity-form" class="form-grid"><label>Desde<input class="input" name="from" type="date" value="${esc(data.from)}" required></label><label>Hasta<input class="input" name="to" type="date" value="${esc(data.to)}" required></label><div class="actions full"><button class="btn secondary">${icon('calendar')}Calcular capacidad</button></div></form>${data.team.length?`<table class="capacity-table"><thead><tr><th>Integrante</th><th>Días hábiles</th><th>Ausente</th><th>Disponible</th><th>Capacidad</th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty">No hay integrantes en la organización.</div>'}</section>`}
+async function renderAdminAbsences(period){
+  const query=period?`?from=${encodeURIComponent(period.from)}&to=${encodeURIComponent(period.to)}`:'';
+  const [absences,appeals,users,capacity]=await Promise.all([api('/absences'),api('/absences/appeals'),api('/users'),api(`/absences/capacity${query}`)]);
+  layout(`${heading('Ausencias','Registra las ausencias del equipo, revisa su capacidad real y resuelve las apelaciones.')}${absenceAdminPanel(absences,users)}${absenceCapacityPanel(capacity)}${absenceAppealsPanel(appeals)}`);
+  document.querySelector('#capacity-form').onsubmit=event=>{event.preventDefault();renderAdminAbsences(Object.fromEntries(new FormData(event.target)))};
+  document.querySelector('#absence-form').onsubmit=async event=>{event.preventDefault();try{await api('/absences',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});notify('Ausencia registrada');renderAdminAbsences()}catch(error){notify(error.message)}};
   document.querySelectorAll('.delete-absence').forEach(button=>button.onclick=async()=>{if(confirm('¿Eliminar esta inasistencia?')){try{await api(`/absences/${button.dataset.id}`,{method:'DELETE'});renderAdminAbsences()}catch(error){notify(error.message)}}});
   document.querySelectorAll('.approve-appeal').forEach(button=>button.onclick=()=>resolveAbsenceAppeal(button.dataset.id,'aprobada'));
   document.querySelectorAll('.reject-appeal').forEach(button=>button.onclick=()=>resolveAbsenceAppeal(button.dataset.id,'rechazada'));
@@ -9341,7 +9379,7 @@ async function resolveAbsenceAppeal(id,status){
   if(resolution_note===null)return;
   try{await api(`/absences/${id}/resolve`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,resolution_note})});notify(status==='aprobada'?'Apelación aprobada':'Apelación rechazada');renderAdminAbsences()}catch(error){notify(error.message)}
 }
-function memberAbsenceRow(item){const canAppeal=['ninguna','rechazada'].includes(item.appeal_status);const evidenceLink=item.appeal_evidence_id?`<a class="btn secondary mini" href="/api/files/${item.appeal_evidence_id}/view" target="_blank" rel="noopener">${icon('eye')}Ver evidencia</a>`:'';return `<div class="absence-row"><span><strong>${esc(item.absence_date)}</strong><small class="muted">${esc(item.subject)}</small>${item.appeal_reason?`<small class="muted">Tu motivo: ${esc(item.appeal_reason)}</small>`:''}${item.resolution_note?`<small class="muted">Respuesta del administrador: ${esc(item.resolution_note)}</small>`:''}</span><span class="actions">${absenceStatusBadge(item.appeal_status)}${evidenceLink}${canAppeal?`<button type="button" class="btn secondary mini appeal-absence" data-id="${item.id}">${icon('edit')}Apelar</button>`:''}</span></div>`}
+function memberAbsenceRow(item){const canAppeal=['ninguna','rechazada'].includes(item.appeal_status);const evidenceLink=item.appeal_evidence_id?`<a class="btn secondary mini" href="/api/files/${item.appeal_evidence_id}/view" target="_blank" rel="noopener">${icon('eye')}Ver evidencia</a>`:'';return `<div class="absence-row"><span><strong>${absenceRange(item)}</strong><small class="muted">${absenceReason(item)}</small>${item.appeal_reason?`<small class="muted">Tu motivo: ${esc(item.appeal_reason)}</small>`:''}${item.resolution_note?`<small class="muted">Respuesta del administrador: ${esc(item.resolution_note)}</small>`:''}</span><span class="actions">${absenceStatusBadge(item.appeal_status)}${evidenceLink}${canAppeal?`<button type="button" class="btn secondary mini appeal-absence" data-id="${item.id}">${icon('edit')}Apelar</button>`:''}</span></div>`}
 async function renderMemberAbsences(){
   const absences=await api('/absences');
   layout(`${heading('Inasistencias','Consulta tus faltas registradas y apela si consideras que hay un error.')}<section class="card"><div class="absence-list">${absences.map(memberAbsenceRow).join('')||'<div class="empty">No tienes inasistencias registradas.</div>'}</div></section><section class="card mt-4" id="appeal-form-section" style="display:none"><h2>Apelar inasistencia</h2><p class="muted">Explica el motivo y adjunta una evidencia (documento o imagen) que respalde tu apelación.</p><form id="appeal-form" class="form-grid"><input type="hidden" name="absence_id"><label class="full">Motivo de la apelación<textarea class="textarea" name="reason" rows="3" required></textarea></label><label class="full">Evidencia<input class="input" type="file" name="evidence" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" required></label><div class="actions full"><button class="btn">${icon('send')}Enviar apelación</button><button class="btn secondary" type="button" id="cancel-appeal">Cancelar</button></div></form></section>`);
