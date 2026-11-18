@@ -127,6 +127,15 @@ async function ensureRuntimeSchema() {
       ALTER TABLE absences ADD COLUMN IF NOT EXISTS resolution_note TEXT;
       ALTER TABLE absences ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
       CREATE INDEX IF NOT EXISTS absences_appeal_status_idx ON absences (organization_id, appeal_status);
+      -- HB-11: ausencias con rango de fechas y motivo
+      ALTER TABLE absences ADD COLUMN IF NOT EXISTS end_date DATE;
+      ALTER TABLE absences ADD COLUMN IF NOT EXISTS reason TEXT NOT NULL DEFAULT 'falta';
+      ALTER TABLE absences DROP CONSTRAINT IF EXISTS absences_reason_check;
+      ALTER TABLE absences ADD CONSTRAINT absences_reason_check CHECK (reason IN ('falta', 'vacaciones', 'permiso', 'incapacidad', 'curso', 'otro'));
+      ALTER TABLE absences ALTER COLUMN subject SET DEFAULT '';
+      ALTER TABLE absences DROP CONSTRAINT IF EXISTS absences_date_range_check;
+      ALTER TABLE absences ADD CONSTRAINT absences_date_range_check CHECK (end_date IS NULL OR end_date >= absence_date);
+      CREATE INDEX IF NOT EXISTS absences_org_range_idx ON absences (organization_id, absence_date, end_date);
       CREATE INDEX IF NOT EXISTS tasks_org_assigned_status_idx ON tasks (organization_id, assigned_to, status);
       CREATE INDEX IF NOT EXISTS tasks_org_status_due_idx ON tasks (organization_id, status, due_date);
       CREATE INDEX IF NOT EXISTS messages_org_receiver_status_idx ON messages (organization_id, receiver_id, delivery_status);
