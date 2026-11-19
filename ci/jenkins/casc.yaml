@@ -1,0 +1,59 @@
+# DO-06 · Configuración de Jenkins como código (plugin Configuration as Code).
+# Los valores ${...} en minúsculas son secretos: Jenkins los lee de /run/secrets/<nombre> (docker compose secrets),
+# así no quedan en el código ni en las variables de entorno de los builds.
+jenkins:
+  systemMessage: "Jenkins de Haitani · QA automático (pre-producción)"
+  numExecutors: 2
+  mode: NORMAL
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          name: "Administrador"
+          password: "${jenkins_admin_password}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+unclassified:
+  location:
+    url: "${JENKINS_PUBLIC_URL}"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-token"
+              description: "GitHub: leer dev y hacer push a QA y main"
+              username: "${github_user}"
+              password: "${github_token}"
+          - string:
+              scope: GLOBAL
+              id: "ci-db-password"
+              description: "PostgreSQL de pruebas de Jenkins"
+              secret: "${ci_db_password}"
+
+jobs:
+  - script: >
+      pipelineJob('haitani-pre-produccion') {
+        displayName('Haitani · pre-producción (QA automático)')
+        description('Analiza cada cambio de dev y, al promover, lo pasa a QA (pre-producción), lo analiza y, si todo pasa, lo sube a main.')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/CloudyCldy/-.git')
+                  credentials('github-token')
+                }
+                branch('*/dev')
+              }
+            }
+            scriptPath('Jenkinsfile')
+            lightweight(true)
+          }
+        }
+      }

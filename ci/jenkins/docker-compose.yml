@@ -1,0 +1,45 @@
+# DO-06 · Jenkins + PostgreSQL de pruebas.
+# Se levanta con levantar-local.ps1 (Docker Desktop).
+# Los secretos van en archivos dentro de ./secrets (nunca se suben a Git).
+name: jenkins-haitani
+
+services:
+  jenkins:
+    build: .
+    container_name: jenkins-haitani
+    restart: unless-stopped
+    ports:
+      - "${JENKINS_PORT:-8090}:8080"   # 8090 para no chocar con otro Jenkins en el 8080
+    environment:
+      TZ: America/Mexico_City
+      JENKINS_PUBLIC_URL: ${JENKINS_PUBLIC_URL}
+    secrets:
+      - jenkins_admin_password
+      - github_user
+      - github_token
+      - ci_db_password
+    volumes:
+      - jenkins_home:/var/jenkins_home
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    container_name: postgres-haitani-ci
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/ci_db_password
+    secrets:
+      - ci_db_password
+    volumes:
+      - pg_ci:/var/lib/postgresql/data
+
+secrets:
+  jenkins_admin_password:     { file: ./secrets/jenkins_admin_password }
+  github_user:                { file: ./secrets/github_user }
+  github_token:               { file: ./secrets/github_token }
+  ci_db_password:             { file: ./secrets/ci_db_password }
+
+volumes:
+  jenkins_home:
+  pg_ci:
