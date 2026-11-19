@@ -37,6 +37,8 @@ if [ "$resultado" -ne 0 ]; then
   exit "$resultado"
 fi
 
+node ci/scripts/cobertura_unica.js reports/coverage/cobertura-coverage.xml
+
 # Quality gate de cobertura: si baja del mínimo, el pipeline se detiene.
 lineas=$(grep -o 'line-rate="[0-9.]*"' reports/coverage/cobertura-coverage.xml | head -1 | grep -o '[0-9.]*')
 porcentaje=$(awk -v r="$lineas" 'BEGIN { printf "%.1f", r * 100 }')
