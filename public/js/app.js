@@ -8676,7 +8676,7 @@ async function render(){
     if(route.includes('risks'))return renderRisks();
     if(route.includes('announcements'))return renderAnnouncements();
     if(route.includes('absences'))return renderAbsences();
-    if(route.includes('assistant'))return state.user.role==='admin'?renderAssistant():renderDashboard();
+    if(route.includes('assistant'))return ['admin','company_admin','platform_admin'].includes(state.user.role)?renderAssistant():renderDashboard();
     if(route.includes('backlog'))return renderBacklog();
     if(route.includes('issues'))return renderIssues();
     if(route.includes('methodologies'))return renderMethodologies();

@@ -24,6 +24,13 @@ async function projectContext(database, organizationId, projectId = null) {
     ? await database.prepare('SELECT * FROM methodologies WHERE id = ?').get(project.methodology_id).catch(() => null)
     : null;
 
+  if (project?.sanzu_api_key) {
+    delete project.sanzu_api_key;
+  }
+  if (project?.sanzu_token) {
+    delete project.sanzu_token;
+  }
+
   return {
     project,
     methodology: methodologyRecord,
@@ -47,11 +54,46 @@ function normalizeText(str) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function toEndOfDay(val) {
+  if (!val) return null;
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return null;
+    const d = new Date(val);
+    d.setHours(23, 59, 59, 999);
+    return d;
+  }
+  const s = String(val).trim();
+  if (s.includes('T')) {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      d.setHours(23, 59, 59, 999);
+      return d;
+    }
+    return null;
+  }
+  const d = new Date(`${s}T23:59:59`);
+  if (!isNaN(d.getTime())) return d;
+  const fallback = new Date(s);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function formatDueDate(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? '' : val.toISOString().slice(0, 10);
+  }
+  const s = String(val).trim();
+  return s.includes('T') ? s.slice(0, 10) : s;
+}
+
 function localAnswer(message, context) {
   const methodology = context.project?.methodology_id || 'sin metodología definida';
   const openTasks = (context.tasks || []).filter(task => task.status !== 'completada');
   const now = new Date();
-  const overdue = openTasks.filter(task => task.due_date && new Date(`${task.due_date}T23:59:59`) < now);
+  const overdue = openTasks.filter(task => {
+    const due = toEndOfDay(task.due_date);
+    return due && due < now;
+  });
   const normalized = normalizeText(message);
 
   // 1. RETRASOS / VENCIDAS
@@ -60,8 +102,8 @@ function localAnswer(message, context) {
       return `Con metodología ${methodology}, no hay tareas vencidas ni con retraso registradas actualmente. Todas las tareas abiertas están dentro de sus plazos programados.`;
     }
     const delayDetails = overdue.map(t => {
-      const due = new Date(`${t.due_date}T23:59:59`);
-      const diffDays = Math.max(1, Math.floor((now - due) / (1000 * 60 * 60 * 24)));
+      const due = toEndOfDay(t.due_date) || now;
+      const diffDays = Math.max(1, Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)));
       const resp = t.assignee_name ? ` (responsable: ${t.assignee_name})` : ' (sin asignar)';
       return `• "${t.title}" - vencida hace ${diffDays} día(s)${resp}`;
     }).join('\n');
@@ -77,7 +119,7 @@ function localAnswer(message, context) {
     const list = criticals.map(t => {
       const resp = t.assignee_name ? ` (asignada a: ${t.assignee_name})` : ' (sin asignar)';
       const statusText = t.status === 'bloqueada' ? ' [BLOQUEADA]' : ` [prioridad ${t.priority}]`;
-      const dueText = t.due_date ? ` - Límite: ${t.due_date}` : '';
+      const dueText = t.due_date ? ` - Límite: ${formatDueDate(t.due_date)}` : '';
       return `• "${t.title}"${statusText}${resp}${dueText}`;
     }).join('\n');
     return `Se identificaron ${criticals.length} tarea(s) crítica(s) o prioritarias abiertas:\n${list}\nEstas tareas deben tener foco prioritario en el ciclo de trabajo actual.`;
@@ -123,7 +165,7 @@ function localAnswer(message, context) {
         }
         userWorkload[t.assignee_name].total++;
         if (t.priority === 'alta' || t.priority === 'critica') userWorkload[t.assignee_name].critical++;
-        if (t.due_date && new Date(`${t.due_date}T23:59:59`) < now) userWorkload[t.assignee_name].overdue++;
+        if (t.due_date && toEndOfDay(t.due_date) < now) userWorkload[t.assignee_name].overdue++;
       }
     });
 
@@ -174,7 +216,7 @@ function localAnswer(message, context) {
 
     const nextActions = [...high, ...medium].slice(0, 4).map(t => {
       const resp = t.assignee_name ? ` [${t.assignee_name}]` : ' [Sin asignar]';
-      const due = t.due_date ? ` (Vence: ${t.due_date})` : '';
+      const due = t.due_date ? ` (Vence: ${formatDueDate(t.due_date)})` : '';
       return `• [Prioridad ${t.priority.toUpperCase()}] ${t.title}${resp}${due}`;
     }).join('\n');
 
@@ -317,7 +359,7 @@ function localAnswer(message, context) {
 
     const sample = openTasks.slice(0, 5).map(t => {
       const resp = t.assignee_name ? ` (Asignada a: ${t.assignee_name})` : ' (Sin asignar)';
-      const due = t.due_date ? ` [Límite: ${t.due_date}]` : '';
+      const due = t.due_date ? ` [Límite: ${formatDueDate(t.due_date)}]` : '';
       return `• [${t.status.toUpperCase()}] "${t.title}"${resp}${due}`;
     }).join('\n');
 
@@ -365,7 +407,9 @@ function localAnswer(message, context) {
       overdueText;
   }
 
-  return `Puedo ayudarte a revisar ${context.repositoryName}. La metodología actual es ${methodology}. Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${(context.users || []).filter(user => user.active).length} integrante(s) activo(s). Puedes preguntarme sobre retrasos, tareas críticas, documentación faltante, workload, riesgos, prioridades, sprints, hitos e incidencias.`;
+  const completed = (context.tasks || []).filter(task => task.status === 'completada').length;
+  const progress = (context.tasks || []).length ? Math.round((completed / (context.tasks || []).length) * 100) : 0;
+  return `Puedo ayudarte a revisar ${context.repositoryName}. La metodología actual es ${methodology}. El avance del proyecto es del ${progress}% (${completed} de ${(context.tasks || []).length} tareas completadas). Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${(context.users || []).filter(user => user.active).length} integrante(s) activo(s). Puedes preguntarme sobre retrasos, tareas críticas, avance, documentación faltante, workload, riesgos, prioridades, sprints, hitos e incidencias.`;
 }
 
 async function chat(req, res) {
