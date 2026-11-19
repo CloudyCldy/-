@@ -1,0 +1,15 @@
+# DO-06 · Reglas de gitleaks para buscar llaves y contraseñas escritas en el código (código hardcodeado).
+# Usa las reglas normales de gitleaks y solo excluye lo que no es un secreto real.
+title = "Haitani"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Datos ficticios de las pruebas automáticas (usuarios y tokens de prueba)"
+paths = ['''^test/''']
+
+[[allowlists]]
+description = "Nombres de llaves de localStorage del navegador, no son secretos"
+regexTarget = "line"
+regexes = ['''PRIVACY_NOTICE_KEY''']
