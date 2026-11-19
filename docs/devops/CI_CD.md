@@ -1,13 +1,14 @@
 # CI/CD de Haitani (DO-01 y DO-02)
 
-El trabajo se reparte entre dos herramientas:
+El trabajo se reparte entre tres herramientas:
 
 | Herramienta | Qué hace | Cuándo |
 |---|---|---|
 | **GitHub Actions** (`.github/workflows/ci-cd.yml`) | Trabajo **Pruebas**: levanta PostgreSQL 16, instala con `npm ci`, crea las tablas con `database/init.js` y corre `npm test`. Si una prueba falla, el check queda en rojo. | En cada push y pull request a `dev`, `QA` o `main`. |
+| **Jenkins** (`Jenkinsfile`, DO-06) | QA automático: pasa `dev` a `QA` (pre-producción), corre pruebas con JUnit, cobertura, revisión de llaves y la API levantada, y si todo pasa sube `QA` a `main`. Ver [JENKINS.md](JENKINS.md). | Cada cambio nuevo en `dev`. |
 | **Render** (Auto-Deploy) | Descarga `main`, instala, arranca la nueva versión y la publica en https://rwq70fnfjj.onrender.com. | Cada vez que llega un cambio a `main`. |
 
-A `main` solo se llega por pull request desde `QA`, y ese pull request ya pasó las pruebas en GitHub Actions. Así a producción solo llega código probado.
+A `main` solo llega lo que Jenkins aprobó en `QA`. Así a producción solo llega código probado.
 
 Si la construcción falla en Render, Render deja en línea la versión anterior.
 
