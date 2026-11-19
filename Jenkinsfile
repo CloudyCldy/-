@@ -100,7 +100,11 @@ pipeline {
           post {
             always {
               junit allowEmptyResults: true, testResults: 'reports/junit.xml'
-              recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'reports/coverage/cobertura-coverage.xml']])
+              // La regla de cobertura mínima ya la aplica pruebas.sh; aquí solo se publica el reporte.
+              // Si el plugin no puede leerlo, el build queda en amarillo (inestable) y no se detiene.
+              catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE', message: 'No se pudo publicar el reporte de cobertura') {
+                recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'reports/coverage/cobertura-coverage.xml']], ignoreParsingErrors: true)
+              }
             }
           }
         }
