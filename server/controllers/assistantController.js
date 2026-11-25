@@ -407,6 +407,47 @@ function localAnswer(message, context) {
       overdueText;
   }
 
+  // 15. AYUDA / COMANDOS / CAPACIDADES
+  if (normalized.includes('ayuda') || normalized.includes('que puedes') || normalized.includes('opciones') || normalized.includes('comandos') || normalized.includes('como funciona')) {
+    return `Puedo asistirte con el análisis y gestión de ${context.project?.name || context.repositoryName || 'tu proyecto'}. Puedes preguntarme sobre:\n` +
+      `• Retrasos: "¿Qué tareas están vencidas?" o "¿Hay retrasos?"\n` +
+      `• Avance y Métricas: "¿Cuál es el progreso?" o "Métricas y KPIs"\n` +
+      `• Tareas críticas: "¿Cuáles son las tareas críticas o urgentes?"\n` +
+      `• Documentación: "Diagnóstico de documentación faltante"\n` +
+      `• Carga de trabajo: "¿Cómo está la carga de trabajo (workload)?"\n` +
+      `• Riesgos: "¿Qué riesgos tiene el proyecto?"\n` +
+      `• Sprints e Hitos: "¿Cuál es el sprint actual?" o "Hitos del proyecto"\n` +
+      `• Incidencias: "¿Hay incidencias o bugs abiertos?"\n` +
+      `• Metodología: "¿Qué metodología usamos y cómo se aplica?"\n` +
+      `• Equipo y Cronograma: "¿Quiénes forman el equipo?" o "¿Cuáles son las próximas entregas?"`;
+  }
+
+  // 16. EQUIPO / INTEGRANTES
+  if (normalized.includes('equipo') || normalized.includes('integrante') || normalized.includes('miembro') || normalized.includes('quienes')) {
+    const active = (context.users || []).filter(u => u.active);
+    const memberList = active.map(u => `• ${u.name} (${u.role || 'miembro'})`).join('\n');
+    return `Equipo del proyecto (${context.project?.name || context.repositoryName || 'General'}):\n` +
+      `• Total integrantes activos: ${active.length}\n` +
+      (memberList ? `${memberList}\n` : '') +
+      `Puedes consultar la carga de trabajo detallada preguntando por "workload" o "distribución de tareas".`;
+  }
+
+  // 17. CRONOGRAMA / FECHAS / PRÓXIMAS ENTREGAS
+  if (normalized.includes('calendario') || normalized.includes('cronograma') || (normalized.includes('fecha') && normalized.includes('entrega')) || normalized.includes('proximas entregas')) {
+    const upcoming = openTasks
+      .filter(t => t.due_date)
+      .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
+      .slice(0, 5);
+    const upcomingList = upcoming.map(t => {
+      const resp = t.assignee_name ? ` (${t.assignee_name})` : '';
+      return `• ${formatDueDate(t.due_date)}: "${t.title}"${resp}`;
+    }).join('\n');
+    const milestonesList = (context.milestones || []).slice(0, 3).map(m => `• Hito: ${m.title} (${m.due_date || 'sin fecha'})`).join('\n');
+    return `Cronograma y próximas entregas (${context.project?.name || context.repositoryName || 'General'}):\n` +
+      (upcomingList ? `Próximas tareas a vencer:\n${upcomingList}\n` : 'No hay fechas de entrega programadas para las tareas abiertas.\n') +
+      (milestonesList ? `Hitos clave:\n${milestonesList}` : '');
+  }
+
   const completed = (context.tasks || []).filter(task => task.status === 'completada').length;
   const progress = (context.tasks || []).length ? Math.round((completed / (context.tasks || []).length) * 100) : 0;
   return `Puedo ayudarte a revisar ${context.repositoryName}. La metodología actual es ${methodology}. El avance del proyecto es del ${progress}% (${completed} de ${(context.tasks || []).length} tareas completadas). Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${(context.users || []).filter(user => user.active).length} integrante(s) activo(s). Puedes preguntarme sobre retrasos, tareas críticas, avance, documentación faltante, workload, riesgos, prioridades, sprints, hitos e incidencias.`;
@@ -416,7 +457,8 @@ async function chat(req, res) {
   const message = String(req.body.message || '').trim();
   if (!message) return res.status(400).json({ error: 'Escribe una pregunta.' });
   const database = req.app.locals.database;
-  const context = await projectContext(database, req.session.user.organization_id);
+  const requestedProjectId = req.body.projectId || req.query.projectId || null;
+  const context = await projectContext(database, req.session.user.organization_id, requestedProjectId);
   const conversationId = req.body.conversationId || `conv-${req.session.user.organization_id}-${req.session.user.id}`;
   if (req.plan?.features?.ai !== true) {
     return res.json({ answer: localAnswer(message, context), source: 'local', conversationId, context });
