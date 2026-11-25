@@ -423,10 +423,10 @@ function localAnswer(message, context) {
   }
 
   // 16. EQUIPO / INTEGRANTES
-  if (normalized.includes('equipo') || normalized.includes('integrante') || normalized.includes('miembro') || normalized.includes('quienes')) {
+  if ((normalized.includes('integrante') || normalized.includes('miembro') || normalized.includes('quienes') || normalized.includes('lista del equipo')) && !normalized.includes('como esta el equipo')) {
     const active = (context.users || []).filter(u => u.active);
     const memberList = active.map(u => `• ${u.name} (${u.role || 'miembro'})`).join('\n');
-    return `Equipo del proyecto (${context.project?.name || context.repositoryName || 'General'}):\n` +
+    return `Equipo del proyecto (${context.project?.name || context.repositoryName || 'General'} - Metodología: ${methodology}):\n` +
       `• Total integrantes activos: ${active.length}\n` +
       (memberList ? `${memberList}\n` : '') +
       `Puedes consultar la carga de trabajo detallada preguntando por "workload" o "distribución de tareas".`;
