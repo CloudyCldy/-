@@ -96,6 +96,24 @@ async function ensureRuntimeSchema() {
       );
       CREATE INDEX IF NOT EXISTS audit_logs_org_idx ON audit_logs (organization_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs (action, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS security_events (
+        id SERIAL PRIMARY KEY,
+        ip INET NOT NULL,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+        user_agent TEXT,
+        method TEXT,
+        path TEXT,
+        status INTEGER,
+        event_type TEXT DEFAULT 'request',
+        unusual BOOLEAN DEFAULT false,
+        reason TEXT,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS security_events_ip_created_idx ON security_events (ip, created_at DESC);
+      CREATE INDEX IF NOT EXISTS security_events_org_created_idx ON security_events (organization_id, created_at DESC);
+
       CREATE TABLE IF NOT EXISTS stored_assets (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
         uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL, kind TEXT NOT NULL, mime_type TEXT NOT NULL,
