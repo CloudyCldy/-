@@ -34,9 +34,64 @@ pool.on('error', (err) => {
   console.error('Error imprevisto en cliente inactivo de PostgreSQL:', err.message);
 });
 
-function prepare(text) {
+function replaceSqlPlaceholders(text) {
   let index = 0;
-  const query = text.replace(/\?/g, () => `$${++index}`);
+  let inString = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+  let result = '';
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (inString) {
+      if (char === "'") {
+        if (nextChar === "'") {
+          result += "''";
+          i++;
+          continue;
+        }
+        inString = false;
+      }
+      result += char;
+    } else if (inLineComment) {
+      if (char === '\n') {
+        inLineComment = false;
+      }
+      result += char;
+    } else if (inBlockComment) {
+      if (char === '*' && nextChar === '/') {
+        inBlockComment = false;
+        result += '*/';
+        i++;
+        continue;
+      }
+      result += char;
+    } else {
+      if (char === "'") {
+        inString = true;
+        result += char;
+      } else if (char === '-' && nextChar === '-') {
+        inLineComment = true;
+        result += '--';
+        i++;
+      } else if (char === '/' && nextChar === '*') {
+        inBlockComment = true;
+        result += '/*';
+        i++;
+      } else if (char === '?') {
+        result += `$${++index}`;
+      } else {
+        result += char;
+      }
+    }
+  }
+  return result;
+}
+
+function prepare(text) {
+  const query = replaceSqlPlaceholders(text);
   return {
     async get(...params) {
       const result = await pool.query(query, params);
@@ -68,4 +123,4 @@ async function transaction(work) {
   }
 }
 
-module.exports = { prepare, pool, transaction };
+module.exports = { prepare, pool, transaction, replaceSqlPlaceholders };
