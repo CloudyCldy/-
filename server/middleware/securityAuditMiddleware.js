@@ -3,6 +3,15 @@ const { clientIp } = require('./ipBlockMiddleware');
 function securityAudit(req, res, next) {
   if (!req.path.startsWith('/api/')) return next();
   const startedAt = Date.now();
+
+  const originalWriteHead = res.writeHead;
+  res.writeHead = function (...args) {
+    if (!res.headersSent) {
+      res.setHeader('X-Request-Duration-Ms', String(Date.now() - startedAt));
+    }
+    return originalWriteHead.apply(this, args);
+  };
+
   res.on('finish', () => {
     const ip = clientIp(req).replace(/^::ffff:/, '');
     const userAgent = String(req.get('user-agent') || '').slice(0, 500);
@@ -33,7 +42,6 @@ function securityAudit(req, res, next) {
       }
     });
   });
-  res.setHeader('X-Request-Duration-Ms', String(Date.now() - startedAt));
   next();
 }
 

@@ -17,9 +17,12 @@ const billingRoutes = require('./server/routes/billingRoutes');
 const oauthRoutes = require('./server/routes/oauthRoutes');
 const { requireAllowedIp } = require('./server/middleware/ipBlockMiddleware');
 const securityAudit = require('./server/middleware/securityAuditMiddleware');
+const securityHeaders = require('./server/middleware/securityHeadersMiddleware');
 
 const app = express();
+app.disable('x-powered-by');
 app.set('trust proxy', 1);
+app.use(securityHeaders);
 const port = Number(process.env.PORT || 3000);
 const PgSession = connectPgSimple(session);
 const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
@@ -468,7 +471,31 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-app.get('/api/health', (req, res) => res.json({ ok: true, app: 'Haitani', project: 'Sakura Coffee' }));
+app.get('/api/health', async (req, res) => {
+  const checkDb = req.query.check === 'db' || req.query.deep === '1';
+  if (!checkDb) {
+    return res.json({ ok: true, app: 'Haitani', project: 'Sakura Coffee', timestamp: new Date().toISOString() });
+  }
+  try {
+    await database.pool.query('SELECT 1');
+    return res.json({
+      ok: true,
+      app: 'Haitani',
+      project: 'Sakura Coffee',
+      database: 'connected',
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    return res.status(503).json({
+      ok: false,
+      app: 'Haitani',
+      project: 'Sakura Coffee',
+      database: 'disconnected',
+      error: err.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // Estado de mantenimiento programado (22:00 a 00:00 hrs)
 app.get('/api/maintenance/status', (req, res) => {
@@ -598,11 +625,43 @@ const wsHub = require('./server/services/websocketService');
 wsHub.init(server, app, database);
 app.locals.wsHub = wsHub;
 
+function setupGracefulShutdown(srv, db) {
+  let shuttingDown = false;
+  const shutdown = (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`Recibida señal ${signal}. Cerrando servidor Haitani limpiamente...`);
+    srv.close(() => {
+      console.log('Servidor HTTP cerrado.');
+      if (db?.pool?.end) {
+        db.pool.end().then(() => {
+          console.log('Conexiones a base de datos finalizadas.');
+          process.exit(0);
+        }).catch(err => {
+          console.error('Error al finalizar pool de base de datos:', err);
+          process.exit(1);
+        });
+      } else {
+        process.exit(0);
+      }
+    });
+
+    setTimeout(() => {
+      console.error('Cierre forzado por tiempo de espera excedido (10s).');
+      process.exit(1);
+    }, 10000).unref();
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+}
+
 async function start() {
   await ensureRuntimeSchema();
   return new Promise((resolve) => {
     server.listen(port, () => {
       console.log(`Haitani disponible en http://localhost:${port}`);
+      setupGracefulShutdown(server, database);
       resolve(server);
     });
   });
