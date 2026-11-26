@@ -95,11 +95,21 @@ function localAnswer(message, context) {
     return due && due < now;
   });
   const normalized = normalizeText(message);
+  // "Con la metodología SCRUM, hay..." o, si no hay metodología, la frase sola con mayúscula.
+  const conMetodologia = text => context.project?.methodology_id
+    ? `Con la metodología ${context.project.methodology_id}, ${text}`
+    : text.charAt(0).toUpperCase() + text.slice(1);
+
+  // 0. SALUDO
+  // Solo si el mensaje es un saludo corto; "hola, ¿qué está vencido?" sigue a la pregunta.
+  if (normalized.trim().split(/\s+/).length <= 3 && /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal|saludos)\b/.test(normalized.trim())) {
+    return `¡Hola! Soy el asistente de ${context.repositoryName || 'tu proyecto'}. Puedo decirte qué tareas están vencidas, cómo va el avance, quién tiene más trabajo, qué riesgos hay o prepararte un resumen para la reunión. ¿Qué quieres revisar?`;
+  }
 
   // 1. RETRASOS / VENCIDAS
   if (normalized.includes('venc') || normalized.includes('retras') || normalized.includes('atras') || normalized.includes('demor')) {
     if (!overdue.length) {
-      return `Con metodología ${methodology}, no hay tareas vencidas ni con retraso registradas actualmente. Todas las tareas abiertas están dentro de sus plazos programados.`;
+      return conMetodologia(`no hay tareas vencidas ni con retraso registradas actualmente. Todas las tareas abiertas están dentro de sus plazos programados.`);
     }
     const delayDetails = overdue.map(t => {
       const due = toEndOfDay(t.due_date) || now;
@@ -107,14 +117,14 @@ function localAnswer(message, context) {
       const resp = t.assignee_name ? ` (responsable: ${t.assignee_name})` : ' (sin asignar)';
       return `• "${t.title}" - vencida hace ${diffDays} día(s)${resp}`;
     }).join('\n');
-    return `Con metodología ${methodology}, hay ${overdue.length} tarea(s) vencida(s):\n${delayDetails}\nSe recomienda reasignar recursos o ajustar la planificación de inmediato.`;
+    return conMetodologia(`hay ${overdue.length} tarea(s) vencida(s):\n${delayDetails}\nSe recomienda reasignar recursos o ajustar la planificación de inmediato.`);
   }
 
   // 2. TAREAS CRÍTICAS
   if (normalized.includes('critic') || normalized.includes('urgente') || normalized.includes('bloquea') || normalized.includes('tarea crítica') || normalized.includes('tareas criticas')) {
     const criticals = openTasks.filter(t => t.priority === 'critica' || t.priority === 'alta' || t.status === 'bloqueada');
     if (!criticals.length) {
-      return `Con metodología ${methodology}, no hay tareas críticas ni bloqueadas pendientes en este momento.`;
+      return conMetodologia(`no hay tareas críticas ni bloqueadas pendientes en este momento.`);
     }
     const list = criticals.map(t => {
       const resp = t.assignee_name ? ` (asignada a: ${t.assignee_name})` : ' (sin asignar)';
@@ -149,7 +159,7 @@ function localAnswer(message, context) {
   }
 
   // 4. WORKLOAD / CARGA DE TRABAJO
-  if (normalized.includes('workload') || normalized.includes('carga') || normalized.includes('distribuci') || normalized.includes('asignaci')) {
+  if (normalized.includes('workload') || normalized.includes('carga') || normalized.includes('distribuci') || normalized.includes('asignaci') || normalized.includes('quien tiene') || normalized.includes('mas tareas') || normalized.includes('por persona') || normalized.includes('por integrante')) {
     const userWorkload = {};
     const activeUsers = (context.users || []).filter(u => u.active);
     activeUsers.forEach(u => {
@@ -375,7 +385,7 @@ function localAnswer(message, context) {
   if (normalized.includes('progreso') || normalized.includes('avance')) {
     const completed = (context.tasks || []).filter(task => task.status === 'completada').length;
     const progress = context.tasks?.length ? Math.round(completed / context.tasks.length * 100) : 0;
-    return `Con metodología ${methodology}, el proyecto tiene un avance estimado del ${progress}% (${completed} de ${context.tasks?.length || 0} tareas completadas) y ${openTasks.length} pendientes.`;
+    return conMetodologia(`el proyecto tiene un avance estimado del ${progress}% (${completed} de ${context.tasks?.length || 0} tareas completadas) y ${openTasks.length} pendientes.`);
   }
 
   // 14. INFORMACIÓN GENERAL DEL PROYECTO
@@ -540,4 +550,4 @@ async function getDictionaryTerm(req, res) {
   }
 }
 
-module.exports = { chat, searchDictionary, getDictionaryTerm, localAnswer, projectContext };
+module.exports = { chat, searchDictionary, getDictionaryTerm, localAnswer, projectContext };
