@@ -148,7 +148,14 @@ async function sendMessage(req, res) {
 
   // El motor determinístico propio NO requiere claves externas.
   // Si Sanzu IA remota está configurada y habilitada en el plan, se puede consultar de forma opcional.
-  const hasAiPlan = req.plan?.features?.ai === true;
+  let hasAiPlan = req.plan?.features?.ai === true;
+  if (!req.plan && database) {
+    try {
+      const { getPlan } = require('../middleware/planMiddleware');
+      const resolvedPlan = await getPlan(req).catch(() => null);
+      if (resolvedPlan) hasAiPlan = resolvedPlan.features?.ai === true;
+    } catch {}
+  }
   let triedRemote = false;
 
   if (hasAiPlan && context.project) {
@@ -210,6 +217,13 @@ async function sendMessage(req, res) {
       source,
       created_at: new Date().toISOString()
     });
+  }
+
+  if (context?.project?.sanzu_api_key) {
+    delete context.project.sanzu_api_key;
+  }
+  if (context?.project?.sanzu_token) {
+    delete context.project.sanzu_token;
   }
 
   return res.json({

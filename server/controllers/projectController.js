@@ -43,7 +43,12 @@ const PROJECT_PROGRESS_SQL = `
   ), '[]'::json) AS members`;
 
 async function list(req, res) {
-  res.json(await req.app.locals.database.prepare(`SELECT projects.*, users.name AS manager_name, ${PROJECT_PROGRESS_SQL} FROM projects LEFT JOIN users ON users.id = projects.manager_id WHERE projects.organization_id = ? ORDER BY projects.created_at DESC`).all(req.session.user.organization_id));
+  const projects = await req.app.locals.database.prepare(`SELECT projects.*, users.name AS manager_name, ${PROJECT_PROGRESS_SQL} FROM projects LEFT JOIN users ON users.id = projects.manager_id WHERE projects.organization_id = ? ORDER BY projects.created_at DESC`).all(req.session.user.organization_id);
+  projects.forEach(p => {
+    delete p.sanzu_api_key;
+    delete p.sanzu_token;
+  });
+  res.json(projects);
 }
 
 async function get(req, res) {
@@ -51,6 +56,8 @@ async function get(req, res) {
   if (!id) return;
   const project = await req.app.locals.database.prepare(`SELECT projects.*, users.name AS manager_name, ${PROJECT_PROGRESS_SQL} FROM projects LEFT JOIN users ON users.id = projects.manager_id WHERE projects.id = ? AND projects.organization_id = ?`).get(id, req.session.user.organization_id);
   if (!project) return res.status(404).json({ error: 'El proyecto no existe.' });
+  delete project.sanzu_api_key;
+  delete project.sanzu_token;
   res.json(project);
 }
 

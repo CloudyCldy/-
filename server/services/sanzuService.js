@@ -199,7 +199,9 @@ async function askSanzu(project, message, conversationId, context = {}, options 
       locale: 'es-MX'
     }
   };
-  if (conversationId) body.conversationId = conversationId;
+  if (conversationId && /^[a-f\d]{24}$/i.test(conversationId)) {
+    body.conversationId = conversationId;
+  }
   const res = await request(CHAT_PATH, {
     method: 'POST',
     body: JSON.stringify(body),
@@ -293,6 +295,13 @@ async function syncProjectFull(database, projectId, organizationId, options = {}
 
   try {
     const partnerResult = await syncProject(project, syncOpts);
+    if (partnerResult?.id) {
+      await database.prepare(`
+        UPDATE organizations
+        SET sanzu_project_id = ?
+        WHERE id = ? AND (sanzu_project_id IS NULL OR sanzu_project_id = '')
+      `).run(String(partnerResult.id), organizationId).catch(() => {});
+    }
 
     if (sprints.length > 0) {
       await syncSprints(project, sprints, syncOpts).catch(e => console.warn('Sync sprints note:', e.message));

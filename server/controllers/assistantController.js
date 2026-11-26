@@ -24,6 +24,13 @@ async function projectContext(database, organizationId, projectId = null) {
     ? await database.prepare('SELECT * FROM methodologies WHERE id = ?').get(project.methodology_id).catch(() => null)
     : null;
 
+  if (project?.sanzu_api_key) {
+    delete project.sanzu_api_key;
+  }
+  if (project?.sanzu_token) {
+    delete project.sanzu_token;
+  }
+
   return {
     project,
     methodology: methodologyRecord,
@@ -47,37 +54,82 @@ function normalizeText(str) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function toEndOfDay(val) {
+  if (!val) return null;
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return null;
+    const d = new Date(val);
+    d.setHours(23, 59, 59, 999);
+    return d;
+  }
+  const s = String(val).trim();
+  if (s.includes('T')) {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      d.setHours(23, 59, 59, 999);
+      return d;
+    }
+    return null;
+  }
+  const d = new Date(`${s}T23:59:59`);
+  if (!isNaN(d.getTime())) return d;
+  const fallback = new Date(s);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function formatDueDate(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? '' : val.toISOString().slice(0, 10);
+  }
+  const s = String(val).trim();
+  return s.includes('T') ? s.slice(0, 10) : s;
+}
+
 function localAnswer(message, context) {
   const methodology = context.project?.methodology_id || 'sin metodología definida';
   const openTasks = (context.tasks || []).filter(task => task.status !== 'completada');
   const now = new Date();
-  const overdue = openTasks.filter(task => task.due_date && new Date(`${task.due_date}T23:59:59`) < now);
+  const overdue = openTasks.filter(task => {
+    const due = toEndOfDay(task.due_date);
+    return due && due < now;
+  });
   const normalized = normalizeText(message);
+  // "Con la metodología SCRUM, hay..." o, si no hay metodología, la frase sola con mayúscula.
+  const conMetodologia = text => context.project?.methodology_id
+    ? `Con la metodología ${context.project.methodology_id}, ${text}`
+    : text.charAt(0).toUpperCase() + text.slice(1);
+
+  // 0. SALUDO
+  // Solo si el mensaje es un saludo corto; "hola, ¿qué está vencido?" sigue a la pregunta.
+  if (normalized.trim().split(/\s+/).length <= 3 && /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal|saludos)\b/.test(normalized.trim())) {
+    return `¡Hola! Soy el asistente de ${context.repositoryName || 'tu proyecto'}. Puedo decirte qué tareas están vencidas, cómo va el avance, quién tiene más trabajo, qué riesgos hay o prepararte un resumen para la reunión. ¿Qué quieres revisar?`;
+  }
 
   // 1. RETRASOS / VENCIDAS
   if (normalized.includes('venc') || normalized.includes('retras') || normalized.includes('atras') || normalized.includes('demor')) {
     if (!overdue.length) {
-      return `Con metodología ${methodology}, no hay tareas vencidas ni con retraso registradas actualmente. Todas las tareas abiertas están dentro de sus plazos programados.`;
+      return conMetodologia(`no hay tareas vencidas ni con retraso registradas actualmente. Todas las tareas abiertas están dentro de sus plazos programados.`);
     }
     const delayDetails = overdue.map(t => {
-      const due = new Date(`${t.due_date}T23:59:59`);
-      const diffDays = Math.max(1, Math.floor((now - due) / (1000 * 60 * 60 * 24)));
+      const due = toEndOfDay(t.due_date) || now;
+      const diffDays = Math.max(1, Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)));
       const resp = t.assignee_name ? ` (responsable: ${t.assignee_name})` : ' (sin asignar)';
       return `• "${t.title}" - vencida hace ${diffDays} día(s)${resp}`;
     }).join('\n');
-    return `Con metodología ${methodology}, hay ${overdue.length} tarea(s) vencida(s):\n${delayDetails}\nSe recomienda reasignar recursos o ajustar la planificación de inmediato.`;
+    return conMetodologia(`hay ${overdue.length} tarea(s) vencida(s):\n${delayDetails}\nSe recomienda reasignar recursos o ajustar la planificación de inmediato.`);
   }
 
   // 2. TAREAS CRÍTICAS
   if (normalized.includes('critic') || normalized.includes('urgente') || normalized.includes('bloquea') || normalized.includes('tarea crítica') || normalized.includes('tareas criticas')) {
     const criticals = openTasks.filter(t => t.priority === 'critica' || t.priority === 'alta' || t.status === 'bloqueada');
     if (!criticals.length) {
-      return `Con metodología ${methodology}, no hay tareas críticas ni bloqueadas pendientes en este momento.`;
+      return conMetodologia(`no hay tareas críticas ni bloqueadas pendientes en este momento.`);
     }
     const list = criticals.map(t => {
       const resp = t.assignee_name ? ` (asignada a: ${t.assignee_name})` : ' (sin asignar)';
       const statusText = t.status === 'bloqueada' ? ' [BLOQUEADA]' : ` [prioridad ${t.priority}]`;
-      const dueText = t.due_date ? ` - Límite: ${t.due_date}` : '';
+      const dueText = t.due_date ? ` - Límite: ${formatDueDate(t.due_date)}` : '';
       return `• "${t.title}"${statusText}${resp}${dueText}`;
     }).join('\n');
     return `Se identificaron ${criticals.length} tarea(s) crítica(s) o prioritarias abiertas:\n${list}\nEstas tareas deben tener foco prioritario en el ciclo de trabajo actual.`;
@@ -107,7 +159,7 @@ function localAnswer(message, context) {
   }
 
   // 4. WORKLOAD / CARGA DE TRABAJO
-  if (normalized.includes('workload') || normalized.includes('carga') || normalized.includes('distribuci') || normalized.includes('asignaci')) {
+  if (normalized.includes('workload') || normalized.includes('carga') || normalized.includes('distribuci') || normalized.includes('asignaci') || normalized.includes('quien tiene') || normalized.includes('mas tareas') || normalized.includes('por persona') || normalized.includes('por integrante')) {
     const userWorkload = {};
     const activeUsers = (context.users || []).filter(u => u.active);
     activeUsers.forEach(u => {
@@ -123,7 +175,7 @@ function localAnswer(message, context) {
         }
         userWorkload[t.assignee_name].total++;
         if (t.priority === 'alta' || t.priority === 'critica') userWorkload[t.assignee_name].critical++;
-        if (t.due_date && new Date(`${t.due_date}T23:59:59`) < now) userWorkload[t.assignee_name].overdue++;
+        if (t.due_date && toEndOfDay(t.due_date) < now) userWorkload[t.assignee_name].overdue++;
       }
     });
 
@@ -174,7 +226,7 @@ function localAnswer(message, context) {
 
     const nextActions = [...high, ...medium].slice(0, 4).map(t => {
       const resp = t.assignee_name ? ` [${t.assignee_name}]` : ' [Sin asignar]';
-      const due = t.due_date ? ` (Vence: ${t.due_date})` : '';
+      const due = t.due_date ? ` (Vence: ${formatDueDate(t.due_date)})` : '';
       return `• [Prioridad ${t.priority.toUpperCase()}] ${t.title}${resp}${due}`;
     }).join('\n');
 
@@ -317,7 +369,7 @@ function localAnswer(message, context) {
 
     const sample = openTasks.slice(0, 5).map(t => {
       const resp = t.assignee_name ? ` (Asignada a: ${t.assignee_name})` : ' (Sin asignar)';
-      const due = t.due_date ? ` [Límite: ${t.due_date}]` : '';
+      const due = t.due_date ? ` [Límite: ${formatDueDate(t.due_date)}]` : '';
       return `• [${t.status.toUpperCase()}] "${t.title}"${resp}${due}`;
     }).join('\n');
 
@@ -333,7 +385,7 @@ function localAnswer(message, context) {
   if (normalized.includes('progreso') || normalized.includes('avance')) {
     const completed = (context.tasks || []).filter(task => task.status === 'completada').length;
     const progress = context.tasks?.length ? Math.round(completed / context.tasks.length * 100) : 0;
-    return `Con metodología ${methodology}, el proyecto tiene un avance estimado del ${progress}% (${completed} de ${context.tasks?.length || 0} tareas completadas) y ${openTasks.length} pendientes.`;
+    return conMetodologia(`el proyecto tiene un avance estimado del ${progress}% (${completed} de ${context.tasks?.length || 0} tareas completadas) y ${openTasks.length} pendientes.`);
   }
 
   // 14. INFORMACIÓN GENERAL DEL PROYECTO
@@ -365,14 +417,58 @@ function localAnswer(message, context) {
       overdueText;
   }
 
-  return `Puedo ayudarte a revisar ${context.repositoryName}. La metodología actual es ${methodology}. Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${(context.users || []).filter(user => user.active).length} integrante(s) activo(s). Puedes preguntarme sobre retrasos, tareas críticas, documentación faltante, workload, riesgos, prioridades, sprints, hitos e incidencias.`;
+  // 15. AYUDA / COMANDOS / CAPACIDADES
+  if (normalized.includes('ayuda') || normalized.includes('que puedes') || normalized.includes('opciones') || normalized.includes('comandos') || normalized.includes('como funciona')) {
+    return `Puedo asistirte con el análisis y gestión de ${context.project?.name || context.repositoryName || 'tu proyecto'}. Puedes preguntarme sobre:\n` +
+      `• Retrasos: "¿Qué tareas están vencidas?" o "¿Hay retrasos?"\n` +
+      `• Avance y Métricas: "¿Cuál es el progreso?" o "Métricas y KPIs"\n` +
+      `• Tareas críticas: "¿Cuáles son las tareas críticas o urgentes?"\n` +
+      `• Documentación: "Diagnóstico de documentación faltante"\n` +
+      `• Carga de trabajo: "¿Cómo está la carga de trabajo (workload)?"\n` +
+      `• Riesgos: "¿Qué riesgos tiene el proyecto?"\n` +
+      `• Sprints e Hitos: "¿Cuál es el sprint actual?" o "Hitos del proyecto"\n` +
+      `• Incidencias: "¿Hay incidencias o bugs abiertos?"\n` +
+      `• Metodología: "¿Qué metodología usamos y cómo se aplica?"\n` +
+      `• Equipo y Cronograma: "¿Quiénes forman el equipo?" o "¿Cuáles son las próximas entregas?"`;
+  }
+
+  // 16. EQUIPO / INTEGRANTES
+  if ((normalized.includes('integrante') || normalized.includes('miembro') || normalized.includes('quienes') || normalized.includes('lista del equipo')) && !normalized.includes('como esta el equipo')) {
+    const active = (context.users || []).filter(u => u.active);
+    const memberList = active.map(u => `• ${u.name} (${u.role || 'miembro'})`).join('\n');
+    return `Equipo del proyecto (${context.project?.name || context.repositoryName || 'General'} - Metodología: ${methodology}):\n` +
+      `• Total integrantes activos: ${active.length}\n` +
+      (memberList ? `${memberList}\n` : '') +
+      `Puedes consultar la carga de trabajo detallada preguntando por "workload" o "distribución de tareas".`;
+  }
+
+  // 17. CRONOGRAMA / FECHAS / PRÓXIMAS ENTREGAS
+  if (normalized.includes('calendario') || normalized.includes('cronograma') || (normalized.includes('fecha') && normalized.includes('entrega')) || normalized.includes('proximas entregas')) {
+    const upcoming = openTasks
+      .filter(t => t.due_date)
+      .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
+      .slice(0, 5);
+    const upcomingList = upcoming.map(t => {
+      const resp = t.assignee_name ? ` (${t.assignee_name})` : '';
+      return `• ${formatDueDate(t.due_date)}: "${t.title}"${resp}`;
+    }).join('\n');
+    const milestonesList = (context.milestones || []).slice(0, 3).map(m => `• Hito: ${m.title} (${m.due_date || 'sin fecha'})`).join('\n');
+    return `Cronograma y próximas entregas (${context.project?.name || context.repositoryName || 'General'}):\n` +
+      (upcomingList ? `Próximas tareas a vencer:\n${upcomingList}\n` : 'No hay fechas de entrega programadas para las tareas abiertas.\n') +
+      (milestonesList ? `Hitos clave:\n${milestonesList}` : '');
+  }
+
+  const completed = (context.tasks || []).filter(task => task.status === 'completada').length;
+  const progress = (context.tasks || []).length ? Math.round((completed / (context.tasks || []).length) * 100) : 0;
+  return `Puedo ayudarte a revisar ${context.repositoryName}. La metodología actual es ${methodology}. El avance del proyecto es del ${progress}% (${completed} de ${(context.tasks || []).length} tareas completadas). Ahora hay ${openTasks.length} tarea(s) abiertas, ${overdue.length} vencida(s) y ${(context.users || []).filter(user => user.active).length} integrante(s) activo(s). Puedes preguntarme sobre retrasos, tareas críticas, avance, documentación faltante, workload, riesgos, prioridades, sprints, hitos e incidencias.`;
 }
 
 async function chat(req, res) {
   const message = String(req.body.message || '').trim();
   if (!message) return res.status(400).json({ error: 'Escribe una pregunta.' });
   const database = req.app.locals.database;
-  const context = await projectContext(database, req.session.user.organization_id);
+  const requestedProjectId = req.body.projectId || req.query.projectId || null;
+  const context = await projectContext(database, req.session.user.organization_id, requestedProjectId);
   const conversationId = req.body.conversationId || `conv-${req.session.user.organization_id}-${req.session.user.id}`;
   if (req.plan?.features?.ai !== true) {
     return res.json({ answer: localAnswer(message, context), source: 'local', conversationId, context });
@@ -454,4 +550,4 @@ async function getDictionaryTerm(req, res) {
   }
 }
 
-module.exports = { chat, searchDictionary, getDictionaryTerm, localAnswer, projectContext };
+module.exports = { chat, searchDictionary, getDictionaryTerm, localAnswer, projectContext };
