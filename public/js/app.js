@@ -490,7 +490,6 @@ function sidebar(){
       title: 'Desarrollo y Herramientas',
       links: [
         ['/admin/github','GitHub','github'],
-        ['/admin/github/commits','Commits','gitCommit'],
         ['/admin/team-activity','Actividad del equipo','activity'],
         ['/admin/assistant','Asistente IA','sparkles'],
         ['/admin/relax','Relax 梵天','music'],
@@ -1372,7 +1371,7 @@ async function githubView(section='repository'){
     const filterNotice = githubMemberFilter ? `<div class="p-2 mb-3" style="font-size:13px;background:rgba(255,255,255,0.03);border-radius:6px;display:flex;align-items:center;justify-content:space-between;"><span>Mostrando <strong>${rows.length}</strong> eventos de <strong>${esc(users.find(u=>u.username===githubMemberFilter)?.name || githubMemberFilter)}</strong></span><button type="button" class="btn secondary mini" id="clear-github-member">Ver todos</button></div>` : '';
     body=`<section class="card">${filterNotice}<div class="table-wrap"><table class="table"><thead><tr><th>Actividad</th><th>Usuario</th><th>Fecha</th><th></th></tr></thead><tbody>${rows.map(item=>`<tr><td>${esc(item.message||item.title||item.action||item.name)}</td><td>${esc(item.github_username||item.author||item.user||'No disponible')}</td><td><span title="${esc(item.date||item.updated||'')}">${formatGithubDate(item.date||item.updated)}</span></td><td>${item.url?`<a class="btn secondary" href="${esc(item.url)}" target="_blank">Ver en GitHub</a>`:''}</td></tr>`).join('')||`<tr><td colspan="4" class="empty">${githubMemberFilter ? 'Este integrante no registra actividad reciente en el repositorio.' : 'No hay actividad disponible.'}</td></tr>`}</tbody></table></div></section>`;
   }
-  return `${heading(section==='commits'?'Commits':section==='activity'?'Actividad del Equipo':'GitHub','Repositorio vinculado al proyecto seleccionado.')}<div class="actions" style="margin-bottom:16px;flex-wrap:wrap;gap:8px">${projectPicker}${memberPicker}<button class="btn ${section==='repository'?'':'secondary'}" data-gh="repository">Overview</button><button class="btn ${section==='commits'?'':'secondary'}" data-gh="commits">Commits</button><button class="btn ${section==='pulls'?'':'secondary'}" data-gh="pulls">Pull Requests</button><button class="btn ${section==='branches'?'':'secondary'}" data-gh="branches">Branches</button><button class="btn ${section==='activity'?'':'secondary'}" data-gh="activity">Activity</button></div>${body}`;
+  return `${heading(section==='commits'?'Commits':section==='activity'?'Actividad del Equipo':'GitHub','Repositorio vinculado al proyecto seleccionado.')}<div class="actions" style="margin-bottom:16px;flex-wrap:wrap;gap:8px">${projectPicker}${memberPicker}<button class="btn ${section==='repository'?'':'secondary'}" data-gh="repository">Overview</button><button class="btn ${section==='pulls'?'':'secondary'}" data-gh="pulls">Pull Requests</button><button class="btn ${section==='branches'?'':'secondary'}" data-gh="branches">Branches</button><button class="btn ${section==='activity'?'':'secondary'}" data-gh="activity">Activity</button></div>${body}`;
 }
 async function renderGithub(section='repository'){
   try{
@@ -8690,10 +8689,11 @@ async function render(){
     if(route.includes('members'))return state.user.role==='admin'?renderMembers():renderTeam();
     if(route.includes('files'))return renderFiles();
     if(route.includes('billing'))return state.user.role==='admin'?renderBilling():renderDashboard();
+    if(route.includes('settings/security'))return renderSecurity();
     if(route.includes('settings'))return renderSettings();
     if(route.includes('profile'))return renderProfile();
     if(route.includes('team-activity'))return renderGithub('activity');
-    if(route.includes('github'))return renderGithub(route.includes('commits')?'commits':route.includes('branches')?'branches':route.includes('pull-requests')?'pulls':route.includes('activity')?'activity':'repository');
+    if(route.includes('github'))return renderGithub(route.includes('commits')?'activity':route.includes('branches')?'branches':route.includes('pull-requests')?'pulls':route.includes('activity')?'activity':'repository');
     if(route.includes('tasks'))return renderTasks();
     return renderDashboard();
   }catch(error){
@@ -9592,11 +9592,11 @@ async function registerView(error=''){
   };
 }
 const renderAssistantBase=renderAssistant;
-renderAssistant=async function(){await renderAssistantBase();let repositoryName='Repositorio';try{const github=await api('/github/repository');repositoryName=github.data?.name||repositoryName}catch{}document.querySelector('.assistant-kicker')?.replaceChildren(document.createTextNode(`Sanzu / ${repositoryName}`));document.querySelector('.assistant-message small')?.replaceChildren(document.createTextNode(`Listo para consultar ${repositoryName}`))};
+renderAssistant=async function(){await renderAssistantBase();let repositoryName='';try{const github=await api('/github/repository');repositoryName=github.data?.name||''}catch{}document.querySelector('.assistant-kicker')?.replaceChildren(document.createTextNode(repositoryName?`Sanzu / ${repositoryName}`:'Sanzu / Asistente del proyecto'));document.querySelector('.assistant-message small')?.replaceChildren(document.createTextNode(repositoryName?`Listo para consultar ${repositoryName}`:'Listo para consultar tu proyecto'))};
 const renderGithubBase=renderGithub;
 renderGithub=async function(section='repository'){await renderGithubBase(section);if(section!=='repository')return;let repositoryName='Repositorio';try{const github=await api('/github/repository');repositoryName=github.data?.name||repositoryName}catch{}const subtitle=document.querySelector('.heading p');if(subtitle)subtitle.textContent=`Información real del repositorio ${repositoryName}.`};
-const renderSettingsBase=renderSettings;
-renderSettings=async function(){await renderSettingsBase();let data;try{data=await api('/security/ip-blocks')}catch(error){return}const section=document.createElement('section');section.className='card mt-4';section.innerHTML=`<h2>Bloqueo de IP</h2><p class="muted">IP actual: ${esc(data.current_ip||'No disponible')}</p><form id="ip-block-form" class="form-grid"><label>Dirección IPv4<input class="input" name="ip" placeholder="203.0.113.10" required></label><label>Motivo<input class="input" name="reason" placeholder="Actividad sospechosa"></label><div class="actions full"><button class="btn danger">${icon('block')}Bloquear IP</button></div></form><div class="table-wrap"><table class="table"><thead><tr><th>IP</th><th>Motivo</th><th>Fecha</th><th></th></tr></thead><tbody>${data.blocks.map(block=>`<tr><td>${esc(block.ip)}</td><td>${esc(block.reason||'Sin motivo')}</td><td>${esc(block.created_at)}</td><td><button class="btn secondary mini unblock-ip" data-id="${block.id}">${icon('check')}Desbloquear</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay IPs bloqueadas.</td></tr>'}</tbody></table></div>`;section.insertAdjacentHTML('beforeend',`<h2 class="mt-4">Actividad reciente</h2><div class="table-wrap"><table class="table"><thead><tr><th>IP</th><th>Usuario</th><th>Navegador</th><th>Ruta</th><th>Estado</th><th>Inusual</th><th>Fecha</th><th></th></tr></thead><tbody>${data.activity.map(event=>`<tr><td>${esc(event.ip)}</td><td>${esc(event.user_name||'No autenticado')}</td><td title="${esc(event.user_agent)}">${esc(event.user_agent||'No disponible').slice(0,60)}</td><td>${esc(event.method)} ${esc(event.path)}</td><td>${event.status}</td><td>${event.unusual?`<span class="badge pink">${esc(event.reason||'Sí')}</span>`:'No'}</td><td>${esc(event.created_at)}</td><td><button class="btn secondary mini block-event-ip" data-ip="${esc(event.ip)}">${icon('block')}Bloquear</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No hay actividad registrada.</td></tr>'}</tbody></table></div>`);document.querySelector('.content')?.append(section);section.querySelector('#ip-block-form').onsubmit=async event=>{event.preventDefault();try{await api('/security/ip-blocks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});notify('IP bloqueada');renderSettings()}catch(error){notify(error.message)}};section.querySelectorAll('.unblock-ip').forEach(button=>button.onclick=async()=>{try{await api(`/security/ip-blocks/${button.dataset.id}`,{method:'DELETE'});notify('IP desbloqueada');renderSettings()}catch(error){notify(error.message)}});section.querySelectorAll('.block-event-ip').forEach(button=>button.onclick=async()=>{try{await api('/security/ip-blocks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip:button.dataset.ip,reason:'Bloqueada desde el registro de actividad'})});notify('IP bloqueada');renderSettings()}catch(error){notify(error.message)}})};
+// Seguridad: pantalla propia (antes se agregaba al final de Configuración).
+async function renderSecurityBase(){layout(heading('Seguridad','Bloqueo de direcciones IP y actividad reciente de acceso a la organización.'));let data;try{data=await api('/security/ip-blocks')}catch(error){document.querySelector('.content')?.insertAdjacentHTML('beforeend',`<section class="card"><div class="alert">${esc(error.message)}</div></section>`);return}const section=document.createElement('section');section.className='card';section.id='security-card';section.innerHTML=`<h2>Bloqueo de IP</h2><p class="muted">IP actual: ${esc(data.current_ip||'No disponible')}</p><form id="ip-block-form" class="form-grid"><label>Dirección IPv4<input class="input" name="ip" placeholder="203.0.113.10" required></label><label>Motivo<input class="input" name="reason" placeholder="Actividad sospechosa"></label><div class="actions full"><button class="btn danger">${icon('block')}Bloquear IP</button></div></form><div class="table-wrap"><table class="table"><thead><tr><th>IP</th><th>Motivo</th><th>Fecha</th><th></th></tr></thead><tbody>${data.blocks.map(block=>`<tr><td>${esc(block.ip)}</td><td>${esc(block.reason||'Sin motivo')}</td><td>${esc(block.created_at)}</td><td><button class="btn secondary mini unblock-ip" data-id="${block.id}">${icon('check')}Desbloquear</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay IPs bloqueadas.</td></tr>'}</tbody></table></div>`;section.insertAdjacentHTML('beforeend',`<h2 class="mt-4">Actividad reciente</h2><div class="table-wrap"><table class="table"><thead><tr><th>IP</th><th>Usuario</th><th>Navegador</th><th>Ruta</th><th>Estado</th><th>Inusual</th><th>Fecha</th><th></th></tr></thead><tbody>${data.activity.map(event=>`<tr><td>${esc(event.ip)}</td><td>${esc(event.user_name||'No autenticado')}</td><td title="${esc(event.user_agent)}">${esc(event.user_agent||'No disponible').slice(0,60)}</td><td>${esc(event.method)} ${esc(event.path)}</td><td>${event.status}</td><td>${event.unusual?`<span class="badge pink">${esc(event.reason||'Sí')}</span>`:'No'}</td><td>${esc(event.created_at)}</td><td><button class="btn secondary mini block-event-ip" data-ip="${esc(event.ip)}">${icon('block')}Bloquear</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No hay actividad registrada.</td></tr>'}</tbody></table></div>`);document.querySelector('.content')?.append(section);section.querySelector('#ip-block-form').onsubmit=async event=>{event.preventDefault();try{await api('/security/ip-blocks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});notify('IP bloqueada');renderSecurity()}catch(error){notify(error.message)}};section.querySelectorAll('.unblock-ip').forEach(button=>button.onclick=async()=>{try{await api(`/security/ip-blocks/${button.dataset.id}`,{method:'DELETE'});notify('IP desbloqueada');renderSecurity()}catch(error){notify(error.message)}});section.querySelectorAll('.block-event-ip').forEach(button=>button.onclick=async()=>{try{await api('/security/ip-blocks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip:button.dataset.ip,reason:'Bloqueada desde el registro de actividad'})});notify('IP bloqueada');renderSecurity()}catch(error){notify(error.message)}})};
 function formatLastSeen(dateStr){
   if (!dateStr) return 'Nunca';
   const date = new Date(dateStr);
@@ -9608,10 +9608,9 @@ function formatLastSeen(dateStr){
   const days = Math.max(1, Math.floor(diffMs / 86400000));
   return `${days} día${days === 1 ? '' : 's'} atrás`;
 }
-const renderSettingsBase2=renderSettings;
-renderSettings=async function(){
-  await renderSettingsBase2();
-  const section=document.querySelector('.card.mt-4');
+async function renderSecurity(){
+  await renderSecurityBase();
+  const section=document.querySelector('#security-card');
   if(!section)return;
   try {
     const data=await api('/security/ip-blocks');
@@ -9623,14 +9622,14 @@ renderSettings=async function(){
       const blocksContainer=blocksTable.closest('.table-wrap');
       blocksContainer?.querySelector('.security-blocks-pagination')?.remove();
       blocksTable.querySelector('tbody').innerHTML=blocksPage.items.map(block=>`<tr><td>${esc(block.ip)}</td><td>${esc(block.reason||'Sin motivo')}</td><td>${esc(block.created_at)}</td><td><button class="btn secondary unblock-ip" data-id="${block.id}">Desbloquear</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay IPs bloqueadas.</td></tr>';
-      blocksContainer?.insertAdjacentHTML('afterend', paginationMarkup('securityBlocks', 'renderSettings', blocksPage.totalPages, blocksPage.currentPage, blocksPage.totalItems, 5));
+      blocksContainer?.insertAdjacentHTML('afterend', paginationMarkup('securityBlocks', 'renderSecurity', blocksPage.totalPages, blocksPage.currentPage, blocksPage.totalItems, 5));
     }
     if(activityTable){
       const activityPage=paginateItems(data.activity||[], 'securityActivity', 8);
       const activityContainer=activityTable.closest('.table-wrap');
       activityContainer?.querySelector('.security-activity-pagination')?.remove();
       activityTable.querySelector('tbody').innerHTML=activityPage.items.map(event=>`<tr><td>${esc(event.ip)}</td><td>${esc(event.user_name||'No autenticado')}</td><td title="${esc(event.user_agent)}">${esc(event.user_agent||'No disponible').slice(0,60)}</td><td>${esc(event.method)} ${esc(event.path)}</td><td>${event.status}</td><td>${event.unusual?`<span class="badge pink">${esc(event.reason||'Sí')}</span>`:'No'}</td><td>${esc(event.created_at)}</td><td><button class="btn secondary block-event-ip" data-ip="${esc(event.ip)}">Bloquear</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No hay actividad registrada.</td></tr>';
-      activityContainer?.insertAdjacentHTML('afterend', paginationMarkup('securityActivity', 'renderSettings', activityPage.totalPages, activityPage.currentPage, activityPage.totalItems, 8));
+      activityContainer?.insertAdjacentHTML('afterend', paginationMarkup('securityActivity', 'renderSecurity', activityPage.totalPages, activityPage.currentPage, activityPage.totalItems, 8));
     }
     bindPaginationControls();
   }catch(error){
