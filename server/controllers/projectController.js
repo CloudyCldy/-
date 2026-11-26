@@ -1,4 +1,5 @@
 const sanzuService = require('../services/sanzuService');
+const diagnosisService = require('../services/diagnosisService');
 const { detectAndSyncEvents } = require('../services/eventService');
 const { registry } = require('../services/methodologyRegistry');
 
@@ -353,6 +354,7 @@ async function sync(req, res) {
 
   try {
     const report = await sanzuService.syncProjectFull(database, id, orgId);
+    diagnosisService.clearDiagnosisCache(orgId, id);
     res.json({
       ok: true,
       report,
@@ -420,6 +422,23 @@ async function intelligence(req, res) {
   });
 }
 
+/**
+ * SB-09.2 / SB-10.2 / SB-11.2: salud, cumplimiento y recomendaciones del proyecto.
+ * Consulta a Sanzu con el contexto real; si no está disponible responde en modo local.
+ */
+async function diagnosis(req, res) {
+  const id = projectId(req, res);
+  if (!id) return;
+  try {
+    const result = await diagnosisService.getDiagnosis(req.app.locals.database, id, req.session.user.organization_id, { refresh: req.query.refresh === '1' });
+    if (!result) return res.status(404).json({ error: 'El proyecto no existe.' });
+    res.json(result);
+  } catch (error) {
+    console.warn('Diagnóstico del proyecto:', error.message);
+    res.status(500).json({ error: 'No fue posible calcular el diagnóstico del proyecto.' });
+  }
+}
+
 async function deleteProject(req, res) {
   const id = projectId(req, res);
   if (!id) return;
@@ -472,5 +491,6 @@ module.exports = {
   removeMember,
   overview,
   sync,
-  intelligence
+  intelligence,
+  diagnosis
 };
