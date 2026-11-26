@@ -16,6 +16,7 @@ router.get('/:id', requirePermission('projects:read'), controller.get);
 router.get('/:id/overview', requirePermission('projects:read'), controller.overview);
 router.post('/:id/sync', requirePermission('analysis:run'), controller.sync);
 router.get('/:id/intelligence', requirePermission('analysis:run'), controller.intelligence);
+router.get('/:id/diagnosis', requirePermission('analysis:run'), controller.diagnosis);
 router.post('/', requirePermission('projects:create'), checkProjectLimit, controller.create);
 router.put('/:id', requirePermission('projects:update'), controller.update);
 router.delete('/:id', requirePermission('projects:delete'), controller.deleteProject);

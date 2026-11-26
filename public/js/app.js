@@ -9637,6 +9637,86 @@ async function renderSecurity(){
   }
 };
 
+// SB-09.2 / SB-10.2 / SB-11.2: paneles de salud, cumplimiento y recomendaciones (Sanzu o modo local)
+const DIAGNOSIS_TONE = { CRITICAL: 'pink', HIGH: 'pink', MEDIUM: 'yellow', LOW: 'green', EXCELLENT: 'green', GOOD: 'green', WARNING: 'yellow' };
+function diagnosisCard(id, iconName, title, subtitle, body) {
+  return `<div class="card p-4" id="${id}">
+    <div style="display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-3)">${icon(iconName)}<div><h3 style="margin:0">${title}</h3><p class="muted sub" style="margin:0">${subtitle}</p></div></div>
+    ${body}
+  </div>`;
+}
+function diagnosisHealthPanel(h) {
+  const factors = (h.factors || []).map(f => `<div class="health-progress-row" style="margin-bottom:6px"><span>${esc(f.label)}</span><strong>${f.value}</strong><i><b style="width:${Math.max(0, Math.min(100, f.value))}%"></b></i></div>`).join('');
+  const problems = (h.problems || []).length
+    ? `<div style="display:grid;gap:6px">${h.problems.map(pr => `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px;background:var(--bg-glass);border:1px solid var(--line);border-radius:var(--r-sm)"><span class="badge ${DIAGNOSIS_TONE[pr.severity] || 'yellow'}">${esc(pr.severityLabel || pr.severity)}</span><span style="font-size:0.9rem">${esc(pr.description)}</span></div>`).join('')}</div>`
+    : '<div class="empty">No se detectaron problemas. ¡Buen trabajo!</div>';
+  return diagnosisCard('diagnosis-health', 'shield', 'Salud del proyecto', 'Puntaje de 0 a 100 y problemas detectados', `
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:var(--sp-3)">
+      <div class="num" style="font-size:2.4rem;font-weight:700" data-health-score>${h.score}</div><small class="muted">/ 100</small>
+      <span class="badge ${DIAGNOSIS_TONE[h.status] || 'yellow'}" style="margin-left:auto">${esc(h.statusLabel || h.status)}</span>
+    </div>
+    ${factors ? `<div style="margin-bottom:var(--sp-3)">${factors}</div>` : ''}
+    <strong style="display:block;margin-bottom:6px">Problemas detectados (${(h.problems || []).length})</strong>
+    ${problems}`);
+}
+function diagnosisRecommendationsPanel(list) {
+  const body = list.length
+    ? `<ol style="margin:0;padding-left:20px;display:grid;gap:var(--sp-2)">${list.map(r => `<li data-priority="${esc(r.priority)}" style="padding:4px 0">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="badge ${DIAGNOSIS_TONE[r.priority] || 'yellow'}">${esc(r.priorityLabel || r.priority)}</span><strong style="font-size:0.92rem">${esc(r.title)}</strong><small class="muted">${esc(r.typeLabel || '')}</small></div>
+        ${r.description ? `<div class="muted sub" style="margin-top:2px">${esc(r.description)}</div>` : ''}
+        <div style="font-size:0.86rem;margin-top:4px"><strong>Motivo:</strong> ${esc(r.reason || 'Sin motivo registrado.')}</div>
+        <div style="font-size:0.86rem"><strong>Acción sugerida:</strong> ${esc(r.suggestedAction || 'Sin acción registrada.')}</div>
+      </li>`).join('')}</ol>`
+    : '<div class="empty">No hay recomendaciones pendientes.</div>';
+  return diagnosisCard('diagnosis-recommendations', 'sparkles', 'Recomendaciones', 'Ordenadas de mayor a menor prioridad', body);
+}
+function diagnosisCompliancePanel(c) {
+  const row = (item, met) => `<li style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px"><span class="badge ${met ? 'green' : 'pink'}" style="min-width:86px;text-align:center">${met ? 'Cumple' : 'No cumple'}</span><span style="font-size:0.9rem">${esc(item.label)}</span></li>`;
+  const list = (items, met, empty) => items.length ? `<ul style="list-style:none;margin:0;padding:0">${items.map(item => row(item, met)).join('')}</ul>` : `<p class="muted sub" style="margin:0 0 6px">${empty}</p>`;
+  return diagnosisCard('diagnosis-compliance', 'clipboard', 'Cumplimiento de la metodología', `Prácticas de ${esc(c.methodology || 'la metodología')} que se cumplen y las que no`, `
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:var(--sp-3)">
+      <div class="num" style="font-size:2rem;font-weight:700">${c.score}%</div>
+      <span class="badge ${DIAGNOSIS_TONE[c.status] || 'yellow'}" style="margin-left:auto">${esc(c.statusLabel || c.status)}</span>
+    </div>
+    <strong style="display:block;margin-bottom:6px">No cumplidas (${(c.unmet || []).length})</strong>
+    ${list(c.unmet || [], false, 'Ninguna. Todas las prácticas revisadas se cumplen.')}
+    <strong style="display:block;margin:var(--sp-2) 0 6px">Cumplidas (${(c.met || []).length})</strong>
+    ${list(c.met || [], true, 'Todavía no se cumple ninguna de las prácticas revisadas.')}
+    ${(c.warnings || []).length ? `<strong style="display:block;margin:var(--sp-2) 0 6px">Avisos</strong><ul style="margin:0;padding-left:18px;font-size:0.88rem">${c.warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
+    ${(c.rules || []).length ? `<details style="margin-top:var(--sp-2)"><summary class="muted sub" style="cursor:pointer">Reglas de ${esc(c.methodology || 'la metodología')}</summary><ul style="margin:6px 0 0;padding-left:18px;font-size:0.88rem">${c.rules.map(r => `<li>${esc(r)}</li>`).join('')}</ul></details>` : ''}`);
+}
+async function renderDiagnosisPanels(projectId, refresh = false) {
+  const box = document.querySelector('#diagnosis-panels');
+  if (!box || !projectId) return;
+  box.innerHTML = '<div class="card p-4"><p class="muted" style="margin:0">Analizando el proyecto con Sanzu…</p></div>';
+  let data;
+  try {
+    data = await api(`/projects/${projectId}/diagnosis${refresh ? '?refresh=1' : ''}`);
+  } catch (error) {
+    if (!document.body.contains(box)) return;
+    box.innerHTML = `<div class="alert">No fue posible cargar el diagnóstico: ${esc(error.message)}</div>`;
+    return;
+  }
+  if (!document.body.contains(box) || String(box.dataset.projectId) !== String(projectId)) return;
+  const fromSanzu = data.source === 'sanzu';
+  const when = data.analyzedAt ? new Date(data.analyzedAt).toLocaleString() : '';
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--sp-2);margin-bottom:var(--sp-3)">
+      <div><h2 style="margin:0">Diagnóstico del proyecto</h2><small class="muted">${when ? `Analizado: ${esc(when)}` : ''}</small></div>
+      <div class="actions" style="display:flex;gap:var(--sp-2);align-items:center">
+        <span class="badge ${fromSanzu ? 'green' : 'yellow'}" id="diagnosis-source">${fromSanzu ? 'Fuente: Sanzu' : 'Modo local'}</span>
+        <button class="btn mini secondary" id="diagnosis-refresh" type="button">${icon('activity')} Actualizar</button>
+      </div>
+    </div>
+    ${data.warning ? `<div id="diagnosis-warning" role="status" style="margin-bottom:var(--sp-3);padding:10px 14px;border:1px solid var(--line);border-left:4px solid #d9a93f;border-radius:var(--r-sm);background:var(--bg-glass);font-size:0.9rem">${esc(data.warning)}</div>` : ''}
+    <div class="grid" style="grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:var(--sp-4);align-items:start">
+      ${diagnosisHealthPanel(data.health || {})}
+      ${diagnosisRecommendationsPanel(data.recommendations || [])}
+      ${diagnosisCompliancePanel(data.compliance || {})}
+    </div>`;
+  box.querySelector('#diagnosis-refresh')?.addEventListener('click', () => renderDiagnosisPanels(projectId, true));
+}
+
 async function renderOverview() {
   const projects = await api('/projects').catch(() => []);
   if (!projects.length) {
@@ -9833,6 +9913,8 @@ async function renderOverview() {
       </div>
     </div>
 
+    <div id="diagnosis-panels" class="mt-4" data-project-id="${p.id}"></div>
+
     <div class="grid mt-4" style="grid-template-columns:repeat(auto-fit, minmax(360px, 1fr));gap:var(--sp-4)">
       <div style="display:grid;gap:var(--sp-4)">
         <div class="card p-4">
@@ -9961,6 +10043,7 @@ async function renderOverview() {
   `;
 
   layout(markup);
+  renderDiagnosisPanels(p.id);
 
   document.querySelector('#overview-project-select')?.addEventListener('change', (e) => {
     location.hash = `#/${state.user.role}/overview?project=${e.target.value}`;
