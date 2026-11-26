@@ -21,8 +21,46 @@ function baseUrl(customUrl) {
   return String(customUrl || process.env.SANZU_API_URL || DEFAULT_BASE_URL).replace(/\/$/, '');
 }
 
+// Pausa por servidor de Sanzu cuando responde 429: mientras dure no se le manda nada
+// y Haitani contesta en modo local. Así no se gasta más el límite de peticiones.
+const DEFAULT_RATE_LIMIT_PAUSE_S = 60;
+const MAX_RATE_LIMIT_PAUSE_S = 300;
+const rateLimitPauses = new Map();
+
+function retryAfterSeconds(response, data) {
+  const header = response?.headers?.get?.('retry-after');
+  let seconds = Number(header);
+  if (!Number.isFinite(seconds) && header) {
+    const date = Date.parse(header);
+    if (!Number.isNaN(date)) seconds = Math.ceil((date - Date.now()) / 1000);
+  }
+  if (!Number.isFinite(seconds)) seconds = Number(data?.error?.retryAfter ?? data?.retryAfter);
+  if (!Number.isFinite(seconds) || seconds <= 0) seconds = DEFAULT_RATE_LIMIT_PAUSE_S;
+  return Math.min(MAX_RATE_LIMIT_PAUSE_S, Math.ceil(seconds));
+}
+
+function rateLimitError(seconds) {
+  const error = new Error(`Sanzu alcanzó su límite de peticiones. Se vuelve a intentar en ${seconds} s; mientras tanto se usa el modo local.`);
+  error.status = 429;
+  error.code = 'RATE_LIMITED';
+  error.retryAfter = seconds;
+  return error;
+}
+
+/** Segundos que faltan para poder volver a llamar a Sanzu (0 si no hay pausa). */
+function rateLimitRemaining(apiUrl) {
+  const until = rateLimitPauses.get(baseUrl(apiUrl));
+  if (!until) return 0;
+  const remaining = Math.ceil((until - Date.now()) / 1000);
+  if (remaining <= 0) { rateLimitPauses.delete(baseUrl(apiUrl)); return 0; }
+  return remaining;
+}
+
+function clearRateLimitPauses() { rateLimitPauses.clear(); }
+
 /**
- * Petición HTTP con manejo de errores, reintentos automáticos y soporte para API key dinámica
+ * Petición HTTP con manejo de errores, reintentos automáticos y soporte para API key dinámica.
+ * Un 429 no se reintenta: se respeta Retry-After y se pausa el envío a ese servidor.
  */
 async function request(path, options = {}, retries = 3) {
   const apiKey = options.apiKey || process.env.SANZU_API_KEY;
@@ -32,6 +70,8 @@ async function request(path, options = {}, retries = 3) {
     error.code = 'SANZU_NOT_CONFIGURED';
     throw error;
   }
+  const paused = rateLimitRemaining(targetBase);
+  if (paused > 0) throw rateLimitError(paused);
   let attempt = 0;
   let lastError = null;
 
@@ -48,12 +88,17 @@ async function request(path, options = {}, retries = 3) {
       });
       clearTimeout(timer);
       const data = await response.json().catch(() => ({}));
+      if (response.status === 429) {
+        const seconds = retryAfterSeconds(response, data);
+        rateLimitPauses.set(targetBase, Date.now() + seconds * 1000);
+        throw rateLimitError(seconds);
+      }
       if (!response.ok) {
         const error = new Error(readableError(data.error || data.message) || `Sanzu respondió con ${response.status}.`);
         error.status = response.status;
         error.code = data?.error?.code;
-        // No reintentar errores 4xx salvo 408 y 429
-        if (response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status)) {
+        // No reintentar errores 4xx salvo 408
+        if (response.status >= 400 && response.status < 500 && response.status !== 408) {
           throw error;
         }
         lastError = error;
@@ -66,7 +111,8 @@ async function request(path, options = {}, retries = 3) {
       return data;
     } catch (cause) {
       clearTimeout(timer);
-      if (cause.status && cause.status >= 400 && cause.status < 500 && ![408, 429].includes(cause.status)) {
+      if (cause.code === 'RATE_LIMITED') throw cause;
+      if (cause.status && cause.status >= 400 && cause.status < 500 && cause.status !== 408) {
         throw cause;
       }
       const error = new Error(cause?.name === 'AbortError' ? `Sanzu no respondió en ${REQUEST_TIMEOUT_MS} ms.` : `No se pudo conectar con Sanzu: ${cause?.message || cause}`);
@@ -235,7 +281,7 @@ function buildContextPayload(project, { tasks = [], members = [], risks = [], mi
       priority: task.priority,
       assignedTo: task.assigned_to ?? null,
       estimatedHours: task.estimated_hours ?? undefined,
-      dueDate: dateOnly(task.due_date) ?? null
+      dueDate: dateOnly(task.due_date)
     })),
     team: members.map(member => ({ userId: member.id ?? member.user_id, name: member.name, role: member.role })),
     risks: risks.map(risk => ({
@@ -255,7 +301,8 @@ function buildContextPayload(project, { tasks = [], members = [], risks = [], mi
 
 /** INT-01: envía el contexto real del proyecto y recibe health, riesgos, problemas, recomendaciones y documentos requeridos. */
 async function analyzeContext(project, payload, options = {}) {
-  return (await request(contextPath(project.sanzu_external_ref), {
+  const externalRef = project.sanzu_external_ref || `haitani-proj-${project.id}`;
+  return (await request(contextPath(externalRef), {
     method: 'POST',
     body: JSON.stringify(payload),
     apiKey: options.apiKey || project.sanzu_api_key,
@@ -341,7 +388,7 @@ async function syncProjectFull(database, projectId, organizationId, options = {}
     const errorMsg = error.message || String(error);
     // Si el error es de servidor remoto (5xx) o red/timeout pero la API Key estaba configurada,
     // registrar sincronización local exitosa con advertencia para mantener operativo Project Overview
-    const isRemoteServerOrNetwork = error.status >= 500 || error.code === 'NETWORK_ERROR' || error.name === 'AbortError' || errorMsg.includes('500') || errorMsg.includes('timeout') || errorMsg.includes('Tiempo de espera');
+    const isRemoteServerOrNetwork = error.status >= 500 || error.code === 'NETWORK_ERROR' || error.code === 'RATE_LIMITED' || error.name === 'AbortError' || errorMsg.includes('500') || errorMsg.includes('timeout') || errorMsg.includes('Tiempo de espera');
     if (isRemoteServerOrNetwork) {
       const warningNote = `Sincronización local actualizada. Sanzu remoto no disponible temporalmente (${errorMsg.slice(0, 100)}).`;
       await database.prepare(`UPDATE projects SET sanzu_synced_at = CURRENT_TIMESTAMP, sanzu_sync_status = 'synced', sanzu_sync_error = ? WHERE id = ? AND organization_id = ?`).run(warningNote, projectId, organizationId).catch(() => {});
@@ -428,6 +475,8 @@ module.exports = {
   listSprints,
   syncSprints,
   resolveOrganizationCredentials,
+  rateLimitRemaining,
+  clearRateLimitPauses,
   testConnection,
   baseUrl,
   sanzuClient: require('./sanzuClient').defaultClient,
